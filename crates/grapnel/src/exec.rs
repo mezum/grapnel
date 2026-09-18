@@ -1,59 +1,82 @@
-//! Executing engine commands. Input before the first `Sleep` is sent synchronously (inside the
-//! hook, so it reaches the OS before later physical input); the rest runs on a worker thread.
-//! Non-input commands are posted back to the main window.
+//! Executing engine commands, in order. Input before the first `Sleep` is sent synchronously (inside
+//! the hook, so it reaches the OS before later physical input); the rest runs on a worker thread and
+//! is dropped when [`Executor::cancel`] is called. Programs start on their own thread so the hook
+//! thread never blocks; UI commands go to the main thread's queue.
 
-use crate::WM_DEFERRED;
+use crate::{Msg, post};
 use grapnel_engine::Command;
 use grapnel_win::send;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, channel};
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
 
 fn is_input(c: &Command) -> bool {
     matches!(c, Command::Key { .. } | Command::Text(_) | Command::MouseMove { .. })
 }
 
-/// Hands a non-input command to the main thread.
-pub fn defer(hwnd: isize, c: Command) {
-    let ptr = Box::into_raw(Box::new(c)) as isize;
-    if unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_DEFERRED, WPARAM(0), LPARAM(ptr)) }.is_err() {
-        drop(unsafe { Box::from_raw(ptr as *mut Command) });
+/// Runs `cmds` up to the first `Sleep`; returns the rest.
+fn run_until_sleep(cmds: Vec<Command>) -> Vec<Command> {
+    let mut batch = Vec::new();
+    let mut it = cmds.into_iter();
+    while let Some(c) = it.next() {
+        match c {
+            Command::Sleep(_) => {
+                send::send(&batch);
+                return std::iter::once(c).chain(it).collect();
+            }
+            c if is_input(&c) => batch.push(c),
+            Command::Run { program, args } => {
+                send::send(&std::mem::take(&mut batch));
+                std::thread::spawn(move || {
+                    if let Err(e) = std::process::Command::new(&program).args(&args).spawn() {
+                        log::error!("{program} を起動できません: {e}");
+                    }
+                });
+            }
+            c => {
+                send::send(&std::mem::take(&mut batch));
+                post(Msg::Deferred(c));
+            }
+        }
     }
+    send::send(&batch);
+    Vec::new()
 }
 
-/// Runs `cmds` in order, never blocking the caller.
 pub struct Executor {
-    hwnd: isize,
-    worker: Sender<Vec<Command>>,
+    generation: Arc<AtomicU64>,
+    worker: Sender<(u64, Vec<Command>)>,
 }
 
 impl Executor {
-    pub fn new(hwnd: HWND) -> Executor {
-        let (worker, rx) = channel::<Vec<Command>>();
-        let hwnd = hwnd.0 as isize;
+    pub fn new() -> Executor {
+        let generation = Arc::new(AtomicU64::new(0));
+        let current = generation.clone();
+        let (worker, rx) = channel::<(u64, Vec<Command>)>();
         std::thread::spawn(move || {
-            for cmds in rx {
-                for c in cmds {
-                    match c {
-                        Command::Sleep(ms) => std::thread::sleep(std::time::Duration::from_millis(ms as u64)),
-                        c if is_input(&c) => send::send(&[c]),
-                        c => defer(hwnd, c),
+            for (gen_, mut cmds) in rx {
+                // ponytail: modifier state after a Sleep was planned before it; re-plan per step if it matters.
+                while let Some(Command::Sleep(ms)) = cmds.first().cloned() {
+                    std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+                    if current.load(Ordering::SeqCst) != gen_ {
+                        break;
                     }
+                    cmds = run_until_sleep(cmds.split_off(1));
                 }
             }
         });
-        Executor { hwnd, worker }
+        Executor { generation, worker }
     }
 
-    // ponytail: output after a Sleep can interleave with later synchronous output; queue everything
-    // through the worker if that ever matters.
-    pub fn run(&self, mut cmds: Vec<Command>) {
-        let later = cmds.iter().position(|c| matches!(c, Command::Sleep(_))).map(|i| cmds.split_off(i));
-        let (input, other): (Vec<_>, Vec<_>) = cmds.into_iter().partition(is_input);
-        send::send(&input);
-        other.into_iter().for_each(|c| defer(self.hwnd, c));
-        if let Some(later) = later {
-            let _ = self.worker.send(later);
+    pub fn run(&self, cmds: Vec<Command>) {
+        let rest = run_until_sleep(cmds);
+        if !rest.is_empty() {
+            let _ = self.worker.send((self.generation.load(Ordering::SeqCst), rest));
         }
+    }
+
+    /// Drops delayed output that has not run yet (suspend, passthrough, reload, exit).
+    pub fn cancel(&self) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
     }
 }
