@@ -1,0 +1,12 @@
+[package]
+name = "grapnel-config"
+description = "Loads, validates and compiles grapnel configuration; evaluates targets"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+grapnel-keys.workspace = true
+grapnel-schema.workspace = true
+regex.workspace = true
+toml.workspace = true
