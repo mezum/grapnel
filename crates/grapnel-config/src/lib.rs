@@ -38,6 +38,7 @@ pub struct Settings {
     pub passthrough: Vec<TargetId>,
     pub suspend_hotkey: Option<Chord>,
     pub gesture_threshold: u32,
+    pub language: Option<String>,
 }
 
 #[derive(Clone, Debug)]

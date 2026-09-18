@@ -23,6 +23,7 @@ const BASE: &str = r#"
 initial_mode = "normal"
 passthrough = ["game"]
 suspend_hotkey = "C-M-p"
+language = "ja"
 [modes.normal]
 block_unmapped = true
 [modes.normal.keymap]
@@ -45,6 +46,7 @@ fn compiles_base() {
     assert_eq!(c.modes[c.settings.initial_mode].name, "normal");
     assert!(c.modes[1].block_unmapped);
     assert_eq!(c.settings.passthrough, [1]);
+    assert_eq!(c.settings.language.as_deref(), Some("ja"));
     assert_eq!(c.settings.suspend_hotkey.as_ref().unwrap().mods, Mods::CTRL | Mods::ALT);
     assert_eq!(c.modifiers[0].tap, seq("Muhenkan", &[]));
     assert_eq!(c.targets[1].fields[0].0, Field::ExePath);

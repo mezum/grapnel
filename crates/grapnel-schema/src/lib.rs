@@ -38,6 +38,9 @@ pub struct RawSettings {
     pub suspend_hotkey: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gesture_threshold: Option<u32>,
+    /// Display language (`"ja"`, `"en"`, ...); unset follows Windows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

@@ -156,6 +156,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
             })
         }),
         gesture_threshold: s.gesture_threshold.unwrap_or(30).max(1),
+        language: s.language,
     };
     if errors.is_empty() {
         Ok(Config { settings, modes, modifiers, targets, rules, prefixes, actions })
