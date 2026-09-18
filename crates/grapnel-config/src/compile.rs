@@ -198,8 +198,14 @@ fn compile_targets(raw: &[(&Path, &str, &RawTarget)], ix: &Names, errors: &mut V
     for &(file, name, t) in raw {
         let mut c = Ctx { errors, file };
         let at = format!("targets.{name}");
+        // A path separator means "match the full path". In a regex that is an escaped `\\`,
+        // so `re:^emacs\.exe$` still matches the file name.
         let app_field = |s: &str| {
-            if s.contains('\\') { Field::ExePath } else { Field::ExeName }
+            let path = match s.strip_prefix("re:") {
+                Some(re) => re.contains(r"\\"),
+                None => s.contains('\\'),
+            };
+            if path { Field::ExePath } else { Field::ExeName }
         };
         let fields = [
             (t.app.as_ref().map(|s| app_field(s)), &t.app, "app"),

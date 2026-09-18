@@ -177,3 +177,15 @@ fn scancode_modifiers_are_rejected() {
 fn compiling_nothing_is_an_error() {
     assert!(compile(&[]).is_err());
 }
+
+#[test]
+fn regex_app_uses_path_only_with_literal_backslash() {
+    let c = ok(r#"
+[targets.name]
+app = 're:^emacs\.exe$'
+[targets.path]
+app = 're:\\Emacs\\bin\\'
+"#);
+    assert_eq!(c.targets[0].fields[0].0, Field::ExeName);
+    assert_eq!(c.targets[1].fields[0].0, Field::ExePath);
+}
