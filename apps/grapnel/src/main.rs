@@ -45,6 +45,11 @@ pub enum Msg {
 
 static QUEUE: Mutex<VecDeque<Msg>> = Mutex::new(VecDeque::new());
 
+/// Pops one queued message; the lock is released before returning.
+fn next_queued() -> Option<Msg> {
+    QUEUE.lock().unwrap().pop_front()
+}
+
 /// Queues `msg` for the main thread (from any thread).
 pub fn post(msg: Msg) {
     QUEUE.lock().unwrap().push_back(msg);
@@ -146,7 +151,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         WM_WINDOW => drop(with_app(|a| a.window_changed(wp.0))),
         WM_UIA => drop(with_app(App::uia_changed)),
         WM_QUEUE => {
-            while let Some(m) = QUEUE.lock().unwrap().pop_front() {
+            // Take one message and drop the lock before handling it: handlers may post (e.g. an
+            // error log posts a balloon), and holding the lock across them would deadlock.
+            while let Some(m) = next_queued() {
                 handle(m);
             }
         }
