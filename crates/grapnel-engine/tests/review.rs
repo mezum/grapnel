@@ -81,3 +81,14 @@ fn expired_prefix_is_resolved_before_next_key() {
     assert_eq!(t2.down("y"), eaten("+x -x +y"));
     assert_eq!(t2.up("y"), eaten("-y"));
 }
+
+#[test]
+fn passed_through_key_stays_passed_until_released() {
+    let mut t = t("[targets.code]\napp = \"code.exe\"\n[actions]\nc = { code = \"b\" }\n[keymap]\na = \"c\"");
+    t.app("notepad.exe");
+    assert_eq!(t.down("a"), pass());
+    t.app("code.exe");
+    assert_eq!(t.down("a"), pass());
+    assert_eq!(t.up("a"), pass());
+    assert_eq!(t.down("a"), eaten("+b"));
+}

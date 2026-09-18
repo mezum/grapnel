@@ -99,6 +99,9 @@ pub struct Engine {
     pending: Option<Pending>,
     active: HashMap<Key, Active>,
     swallowed: HashSet<Key>,
+    /// Keys left untouched on press (binding without an implementation here); their repeats and
+    /// release stay untouched too.
+    passing: HashSet<Key>,
     gesture: Option<Gesture>,
     gesture_buttons: Vec<MouseButton>,
 }
@@ -124,6 +127,7 @@ impl Engine {
             pending: None,
             active: HashMap::new(),
             swallowed: HashSet::new(),
+            passing: HashSet::new(),
             gesture: None,
             gesture_buttons,
             cfg,

@@ -65,6 +65,9 @@ impl Engine {
             return consumed(out);
         }
         if repeat {
+            if self.passing.contains(&key) {
+                return Reaction::default();
+            }
             if let Some(a) = self.active.remove(&key) {
                 let out = self.repeat(&a, win);
                 self.active.insert(key, a);
@@ -133,6 +136,7 @@ impl Engine {
             self.swallowed.remove(&key);
             return consumed(self.release(a));
         }
+        self.passing.remove(&key);
         Reaction { consume: self.swallowed.remove(&key), commands: vec![] }
     }
 
@@ -228,6 +232,9 @@ impl Engine {
             let has_impl =
                 self.cfg.actions[rule.action].impls.iter().any(|m| any_matches(&self.cfg.targets, &m.when, win));
             if seq.len() == 1 && rule.fallback.is_none() && !has_impl {
+                if !instant {
+                    self.passing.insert(key);
+                }
                 return Reaction::default();
             }
             self.pending = None;
