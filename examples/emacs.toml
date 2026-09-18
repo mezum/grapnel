@@ -2,310 +2,92 @@
 # 使い方: grapnel.exe --config examples\emacs.toml
 # または %APPDATA%\grapnel\config.toml から include = ["...\\emacs.toml"] で読み込む。
 
-# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたいので、変換から外す。
+# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたい。
+# 下のアクションはどれも others のときだけ働くので、それ以外では元のキーがそのまま届く。
 [targets.emacs_like_app]
 app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.exe$"
 
 [targets.others]
 not = "emacs_like_app"
 
-# ---- マーク (C-Space) ----
-# マークモードの間は Shift を押したままにするので、移動すると選択範囲が広がる
-# (ルールに無い Ctrl+→ や PageDown なども同様)。
-# ルールに無い入力 (文字入力・クリックなど) が来たら、Shift を離してからその入力を送り、マークを解除する。
-# モードごとのルールは、全モード共通のルールより前に書く (宣言順で最初に合ったものが使われる)。
+# 押している間は出力も押したまま (hold) なので、C-f を押し続ければ Right がキーリピートされる。
+[keymap]
+"C-f" = "forward_char"
+"C-b" = "backward_char"
+"C-n" = "next_line"
+"C-p" = "previous_line"
+"C-a" = "beginning_of_line"
+"C-e" = "end_of_line"
+"C-h" = "delete_backward_char"
+"C-d" = "delete_char"
+# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
+"C-k" = "kill_line"
+"C-w" = "kill_region"
+"M-w" = "kill_ring_save"
+"C-y" = "yank"
+"C-/" = "undo"
+"C-Space" = "set_mark"
+
+# マーク中は Shift を押したままにするので、移動すると選択範囲が広がる
+# (キーマップに無い Ctrl+→ や PageDown なども同様)。
+# キーマップに無い入力 (文字入力・クリックなど) が来たら、Shift を離してからその入力を送り、マークを解除する。
 [modes.mark]
 unmapped_to = "default"
 hold = "S"
 
-[[rules]]
-keys = "C-Space"
-action = "set_mark"
-modes = ["default"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-Space"
-action = "deactivate_mark"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-g"
-action = "deactivate_mark"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-f"
-action = "select_forward_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "Right"
-action = "select_forward_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-b"
-action = "select_backward_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "Left"
-action = "select_backward_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-n"
-action = "select_next_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "Down"
-action = "select_next_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-p"
-action = "select_previous_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "Up"
-action = "select_previous_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-a"
-action = "select_beginning_of_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "Home"
-action = "select_beginning_of_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-e"
-action = "select_end_of_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "End"
-action = "select_end_of_line"
-modes = ["mark"]
-targets = ["others"]
-
+[modes.mark.keymap]
+"C-Space" = "deactivate_mark"
+"C-g" = "deactivate_mark"
+"C-f" = "select_forward_char"
+Right = "select_forward_char"
+"C-b" = "select_backward_char"
+Left = "select_backward_char"
+"C-n" = "select_next_line"
+Down = "select_next_line"
+"C-p" = "select_previous_line"
+Up = "select_previous_line"
+"C-a" = "select_beginning_of_line"
+Home = "select_beginning_of_line"
+"C-e" = "select_end_of_line"
+End = "select_end_of_line"
 # 編集系はいつもの動作をしてからマークを解除する。
-[[rules]]
-keys = "C-w"
-action = "mark_kill_region"
-modes = ["mark"]
-targets = ["others"]
+"C-w" = "mark_kill_region"
+"M-w" = "mark_kill_ring_save"
+"C-y" = "mark_yank"
+"C-k" = "mark_kill_line"
+"C-h" = "mark_delete_backward_char"
+"C-d" = "mark_delete_char"
+"C-/" = "mark_undo"
 
-[[rules]]
-keys = "M-w"
-action = "mark_kill_ring_save"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-y"
-action = "mark_yank"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-k"
-action = "mark_kill_line"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-h"
-action = "mark_delete_backward_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-d"
-action = "mark_delete_char"
-modes = ["mark"]
-targets = ["others"]
-
-[[rules]]
-keys = "C-/"
-action = "mark_undo"
-modes = ["mark"]
-targets = ["others"]
-
-[[actions.set_mark]]
-do = [{ mode = "mark" }]
-
-[[actions.deactivate_mark]]
-do = [{ mode = "default" }]
-
-[[actions.select_forward_char]]
-do = ["S-Right"]
-
-[[actions.select_backward_char]]
-do = ["S-Left"]
-
-[[actions.select_next_line]]
-do = ["S-Down"]
-
-[[actions.select_previous_line]]
-do = ["S-Up"]
-
-[[actions.select_beginning_of_line]]
-do = ["S-Home"]
-
-[[actions.select_end_of_line]]
-do = ["S-End"]
-
-[[actions.mark_kill_region]]
-do = [{ call = "kill_region" }, { mode = "default" }]
-
-[[actions.mark_kill_ring_save]]
-do = [{ call = "kill_ring_save" }, { mode = "default" }]
-
-[[actions.mark_yank]]
-do = [{ call = "yank" }, { mode = "default" }]
-
-[[actions.mark_kill_line]]
-do = [{ call = "kill_line" }, { mode = "default" }]
-
-[[actions.mark_delete_backward_char]]
-do = [{ call = "delete_backward_char" }, { mode = "default" }]
-
-[[actions.mark_delete_char]]
-do = [{ call = "delete_char" }, { mode = "default" }]
-
-[[actions.mark_undo]]
-do = [{ call = "undo" }, { mode = "default" }]
-
-# ---- 全モード共通 ----
-
-# 押している間は出力も押したまま (press の既定値 "hold") なので、
-# C-f を押し続ければ Right がキーリピートされる。
-
-[[rules]]
-keys = "C-f"
-action = "forward_char"
-targets = ["others"]
-
-[[rules]]
-keys = "C-b"
-action = "backward_char"
-targets = ["others"]
-
-[[rules]]
-keys = "C-n"
-action = "next_line"
-targets = ["others"]
-
-[[rules]]
-keys = "C-p"
-action = "previous_line"
-targets = ["others"]
-
-[[rules]]
-keys = "C-a"
-action = "beginning_of_line"
-targets = ["others"]
-
-[[rules]]
-keys = "C-e"
-action = "end_of_line"
-targets = ["others"]
-
-[[rules]]
-keys = "C-h"
-action = "delete_backward_char"
-targets = ["others"]
-
-[[rules]]
-keys = "C-d"
-action = "delete_char"
-targets = ["others"]
-
-# 切り取り・コピー・貼り付け・元に戻す。
-# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
-
-[[rules]]
-keys = "C-k"
-action = "kill_line"
-targets = ["others"]
-
-[[rules]]
-keys = "C-w"
-action = "kill_region"
-targets = ["others"]
-
-[[rules]]
-keys = "M-w"
-action = "kill_ring_save"
-targets = ["others"]
-
-[[rules]]
-keys = "C-y"
-action = "yank"
-targets = ["others"]
-
-[[rules]]
-keys = "C-/"
-action = "undo"
-targets = ["others"]
-
-[[actions.forward_char]]
-do = ["Right"]
-
-[[actions.backward_char]]
-do = ["Left"]
-
-[[actions.next_line]]
-do = ["Down"]
-
-[[actions.previous_line]]
-do = ["Up"]
-
-[[actions.beginning_of_line]]
-do = ["Home"]
-
-[[actions.end_of_line]]
-do = ["End"]
-
-[[actions.delete_backward_char]]
-do = ["Backspace"]
-
-[[actions.delete_char]]
-do = ["Delete"]
-
+[actions]
+forward_char = { others = "Right" }
+backward_char = { others = "Left" }
+next_line = { others = "Down" }
+previous_line = { others = "Up" }
+beginning_of_line = { others = "Home" }
+end_of_line = { others = "End" }
+delete_backward_char = { others = "Backspace" }
+delete_char = { others = "Delete" }
 # 行末まで選択して切り取る。
 # 注意: 行末で押すと選択が空になり、VS Code などは Ctrl+X で行全体を切り取る。
-[[actions.kill_line]]
-do = ["S-End C-x"]
+kill_line = { others = "S-End C-x" }
+kill_region = { others = "C-x" }
+kill_ring_save = { others = "C-c" }
+yank = { others = "C-v" }
+undo = { others = "C-z" }
 
-[[actions.kill_region]]
-do = ["C-x"]
-
-[[actions.kill_ring_save]]
-do = ["C-c"]
-
-[[actions.yank]]
-do = ["C-v"]
-
-[[actions.undo]]
-do = ["C-z"]
+set_mark = { others = [{ mode = "mark" }] }
+deactivate_mark = [{ mode = "default" }]
+select_forward_char = { others = "S-Right" }
+select_backward_char = { others = "S-Left" }
+select_next_line = { others = "S-Down" }
+select_previous_line = { others = "S-Up" }
+select_beginning_of_line = { others = "S-Home" }
+select_end_of_line = { others = "S-End" }
+mark_kill_region = [{ call = "kill_region" }, { mode = "default" }]
+mark_kill_ring_save = [{ call = "kill_ring_save" }, { mode = "default" }]
+mark_yank = [{ call = "yank" }, { mode = "default" }]
+mark_kill_line = [{ call = "kill_line" }, { mode = "default" }]
+mark_delete_backward_char = [{ call = "delete_backward_char" }, { mode = "default" }]
+mark_delete_char = [{ call = "delete_char" }, { mode = "default" }]
+mark_undo = [{ call = "undo" }, { mode = "default" }]

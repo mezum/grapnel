@@ -2,68 +2,31 @@
 # 使い方: %APPDATA%\grapnel\config.toml に include = ["...\\mac-cmd.toml"] を書く。
 
 # 押している間は Ctrl も押したままにする (as = "C")。単独で押しても何も送らない (tap = "")。
-# 下のルールに合わない組み合わせは、そのまま Ctrl との組み合わせになる:
+# 下のキーマップに無い組み合わせは、そのまま Ctrl との組み合わせになる:
 #   Cmd-c → Ctrl+C、Cmd-S-z → Ctrl+Shift+Z、Cmd+クリック → Ctrl+クリック など。
-# ルールに合ったときだけ、出力に不要な Ctrl や Shift を一時的に離す。
+# キーマップに合ったときだけ、出力に不要な Ctrl や Shift を一時的に離す。
 [modifiers.Cmd]
 key = "F19"
 tap = ""
 as = "C"
 
+[keymap]
 # タブ移動 (JIS 配列の [ ] キー。Shift を押しているので刻印上は { })。
-[[rules]]
-keys = "Cmd-S-]"
-action = "next_tab"
-
-[[rules]]
-keys = "Cmd-S-["
-action = "previous_tab"
+"Cmd-S-]" = "C-Tab"
+"Cmd-S-[" = "C-S-Tab"
 
 # アプリの切り替え (Alt-Tab / Alt-Shift-Tab)。
 # keep_mods により、F19 を離すまで Alt を押したままにするので、切り替え画面が開いたままになる:
 # F19 を押したまま Tab を何度か押して選び、F19 を離して確定する (macOS と同じ)。
-[[rules]]
-keys = "Cmd-Tab"
-action = "switch_app"
-keep_mods = true
-
-[[rules]]
-keys = "Cmd-S-Tab"
-action = "switch_app_back"
-keep_mods = true
+"Cmd-Tab" = { do = "M-Tab", keep_mods = true }
+"Cmd-S-Tab" = { do = "M-S-Tab", keep_mods = true }
 
 # 物理 Alt-Tab / Alt-Shift-Tab はタブ切り替え (Ctrl-Tab / Ctrl-Shift-Tab) にする。
 # keep_mods により、Alt を離すまで Alt の代わりに Ctrl を押したままにするので、
 # ブラウザや VS Code の Ctrl-Tab の切り替え一覧も開いたままになる。
-[[rules]]
-keys = "M-Tab"
-action = "next_tab"
-keep_mods = true
-
-[[rules]]
-keys = "M-S-Tab"
-action = "previous_tab"
-keep_mods = true
+"M-Tab" = { do = "C-Tab", keep_mods = true }
+"M-S-Tab" = { do = "C-S-Tab", keep_mods = true }
 
 # スクリーンショット / 画面録画 (Snipping Tool のキャプチャバーを開く)。
-[[rules]]
-keys = "Cmd-S-5"
-action = "capture"
-press = "tap"
-
-[[actions.switch_app]]
-do = ["M-Tab"]
-
-[[actions.switch_app_back]]
-do = ["M-S-Tab"]
-
-[[actions.next_tab]]
-do = ["C-Tab"]
-
-[[actions.previous_tab]]
-do = ["C-S-Tab"]
-
-# Win+Shift+S でキャプチャバーが開き、そこで静止画と録画を切り替えられる。
-# 最初から録画にしたい場合は "W-S-r" にする。
-[[actions.capture]]
-do = ["W-S-s"]
+# キャプチャバーで静止画と録画を切り替えられる。最初から録画にしたい場合は "W-S-r" にする。
+"Cmd-S-5" = { do = "W-S-s", press = "tap" }
