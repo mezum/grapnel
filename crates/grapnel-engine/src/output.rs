@@ -92,6 +92,20 @@ impl Engine {
         out
     }
 
+    /// Sends an unmapped key with emulated modifiers; held keys stay down until released.
+    pub(crate) fn emulate(&mut self, chord: Chord) -> Vec<Command> {
+        if instant(&chord.key) {
+            let mut out = vec![];
+            self.tap_seq(&[chord], &mut out);
+            return out;
+        }
+        let mut out = vec![];
+        self.press_mods(chord.mods, &mut out);
+        out.push(key(&chord.key, true));
+        self.active.insert(chord.key.clone(), Active::Hold(chord));
+        out
+    }
+
     /// Releases `k`, masking a bare Alt/Win release.
     fn key_up(&self, k: &Key, out: &mut Vec<Command>) {
         if matches!(k.real_mod(), Some(Mods::ALT | Mods::WIN)) {

@@ -7,6 +7,12 @@ impl Engine {
         self.cfg.modifiers.iter().position(|m| m.key == *key)
     }
 
+    /// Real modifiers emulated by the active user modifiers (`as`).
+    fn emulated_mods(&self) -> Mods {
+        let active = self.user_mods.iter().zip(&self.cfg.modifiers).filter(|(s, _)| **s == UserMod::Active);
+        active.fold(Mods::NONE, |a, (_, m)| a | m.emulate)
+    }
+
     /// Physical real modifiers plus active user modifiers.
     fn current_mods(&self) -> Mods {
         let real = self.down.iter().filter_map(Key::real_mod).fold(Mods::NONE, |a, m| a | m);
@@ -192,6 +198,11 @@ impl Engine {
         }
         if self.pending.is_some() {
             return consumed(self.mismatch(Some(key)));
+        }
+        let emulate = self.emulated_mods();
+        if emulate != Mods::NONE && !matches!(key, Key::Pad(_) | Key::Gesture(..)) {
+            let chord = Chord { mods: self.current_mods().real() | emulate, key };
+            return consumed(self.emulate(chord));
         }
         let block = self.cfg.modes[self.mode].block_unmapped && matches!(key, Key::Vk(_) | Key::Sc(_));
         if block {
