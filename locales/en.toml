@@ -1,5 +1,7 @@
 # English texts; also the fallback for missing translations. Keep every locale's keys in sync.
 
+language_name = "English"
+
 [tray]
 suspend = "Suspend"
 reload = "Reload settings"
@@ -33,3 +35,88 @@ new_config = "# grapnel settings. See docs/spec.md for the format."
 done = "Settings loaded"
 failed = "Cannot load the settings"
 more = "(%{count} more)"
+
+[ui]
+title = "grapnel settings"
+load = "Load"
+save = "Save"
+save_apply = "Save and apply"
+add = "Add"
+delete = "Delete"
+kind = "Kind"
+keys_or_action = "Keys / action name"
+steps = "Steps"
+add_step = "Add step"
+unknown_action_or_key = "Unknown action or key '%{name}'"
+language_auto = "Windows display language"
+
+[ui.status]
+loaded = "Loaded"
+save_failed = "Not saved. Check the errors."
+saved = "Saved"
+saved_with_errors = "Saved, but reading the files again shows errors (check include)"
+applied = "Saved and told grapnel to reload"
+apply_failed = "Cannot reach grapnel (is it running?): %{error}"
+
+[ui.tab]
+general = "General"
+modes = "Modes"
+modifiers = "Modifiers"
+targets = "Targets"
+keymap = "Keymap"
+actions = "Actions"
+
+[ui.general]
+include = "include (glob allowed)"
+entry_only = "settings can only be written in the entry file."
+delete_settings = "Delete settings from this file"
+passthrough = "passthrough (targets)"
+language = "language (display language)"
+
+[ui.mode]
+block_unmapped = "Swallow unmapped keys"
+unmapped_to = "unmapped_to (mode to switch to on unmapped input)"
+hold = "hold (modifiers held in this mode, e.g. S)"
+keymap = "Keymap for this mode only"
+
+[ui.modifier]
+tap = "tap (empty = same as key)"
+tap_none = "Send nothing on tap"
+as = "as (e.g. C, C-S)"
+
+[ui.keymap]
+hint = "Keymap shared by all modes. Keys are chords (e.g. C-x). A child node makes a key sequence (e.g. C-x t 0)."
+leaf = "With options"
+node = "Child node (press next)"
+press_default = "Default (hold)"
+inherit = "Same as parent"
+fallback = "fallback (empty = the original input)"
+fallback_none = "Send nothing as fallback"
+keep_mods = "keep_mods (hold output modifiers until the input modifiers are released)"
+targets = "targets (conditions to catch the input)"
+options = "Node options (inherited by descendants)"
+add_key = "Add key"
+
+[ui.step]
+text = "Type text"
+mouse_move = "Move mouse (relative)"
+mouse_move_to = "Move mouse (absolute)"
+sleep = "Wait"
+run = "Run program"
+call = "Call action"
+mode = "Switch mode"
+control = "Control grapnel"
+input = "Input box"
+text_label = "text ({arg} = argument)"
+then = "then (empty = run the action named by the input)"
+center = "Center"
+bottom = "Screen bottom (full width)"
+suspend = "Toggle suspend"
+reload = "Reload"
+exit = "Exit"
+
+[ui.action]
+by_target = "Per target"
+by_target_hint = "Evaluated top to bottom; the first matching target's output is used (* always matches)."
+add_target = "Add target"
+add = "Add action"

@@ -1,5 +1,7 @@
 //! grapnel-settings front end: form editing of every loaded config file.
 
+rust_i18n::i18n!("../../locales", fallback = "en");
+
 mod actions;
 mod fields;
 mod keymap;
@@ -9,6 +11,7 @@ use fields::indices;
 use grapnel_schema::RawConfig;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use rust_i18n::t;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use wasm_bindgen::prelude::*;
 
@@ -51,6 +54,34 @@ struct Entry {
     entry: String,
 }
 
+#[derive(Deserialize)]
+struct SaveError {
+    /// The files were written, but reading them back failed.
+    saved: bool,
+    errors: Vec<String>,
+}
+
+/// Bundled languages (`"en"`, `"ja"`, ...).
+pub fn languages() -> Vec<std::borrow::Cow<'static, str>> {
+    let mut all = rust_i18n::available_locales!();
+    all.sort();
+    all
+}
+
+/// The bundled language closest to the browser's (which follows Windows), else English.
+fn initial_language() -> String {
+    let get = |o: &JsValue, k: &str| js_sys::Reflect::get(o, &k.into()).unwrap_or_default();
+    let wanted = get(&get(&js_sys::global(), "navigator"), "language").as_string().unwrap_or_default();
+    let fits = |l: &str| wanted == l || wanted.starts_with(&format!("{l}-"));
+    languages().into_iter().find(|l| fits(l)).map_or("en".into(), |l| l.into_owned())
+}
+
+fn set_language(lang: &str) {
+    rust_i18n::set_locale(lang);
+    let document = js_sys::Reflect::get(&js_sys::global(), &"document".into()).unwrap_or_default();
+    let _ = js_sys::Reflect::set(&document, &"title".into(), &t!("ui.title").as_ref().into());
+}
+
 /// Shared UI state.
 #[derive(Clone, Copy)]
 pub struct Store {
@@ -76,8 +107,6 @@ impl Store {
     }
 }
 
-const TABS: [&str; 6] = ["全般", "モード", "修飾キー", "ターゲット", "キーマップ", "アクション"];
-
 #[component]
 fn App() -> impl IntoView {
     let store = Store { docs: RwSignal::new(vec![]), cur: RwSignal::new(0) };
@@ -86,6 +115,8 @@ fn App() -> impl IntoView {
     let tab = RwSignal::new(0usize);
     let errors = RwSignal::new(Vec::<String>::new());
     let status = RwSignal::new(String::new());
+    let lang = RwSignal::new(initial_language());
+    set_language(&lang.get_untracked());
 
     let load = move || {
         spawn_local(async move {
@@ -94,7 +125,7 @@ fn App() -> impl IntoView {
                     let docs: Vec<FileDoc> = serde_json::from_str(&json).unwrap();
                     store.cur.set(0);
                     store.docs.set(docs);
-                    status.set("読み込みました".into());
+                    status.set(t!("ui.status.loaded").into());
                 }
                 Err(e) => errors.set(e),
             }
@@ -115,28 +146,52 @@ fn App() -> impl IntoView {
     let save = move |apply: bool| {
         spawn_local(async move {
             let files = Files::of(&store.docs.get_untracked());
-            if let Err(e) = call::<_, (), Vec<String>>("save", &files).await {
-                errors.set(e);
-                return status.set("保存できませんでした。エラーを確認してください".into());
+            if let Err(e) = call::<_, (), SaveError>("save", &files).await {
+                errors.set(e.errors);
+                let text = if e.saved { t!("ui.status.saved_with_errors") } else { t!("ui.status.save_failed") };
+                return status.set(text.into());
             }
-            status.set("保存しました".into());
+            status.set(t!("ui.status.saved").into());
             if apply {
                 match call::<_, (), String>("apply", &()).await {
-                    Ok(()) => status.set("保存して grapnel に再読み込みを指示しました".into()),
-                    Err(e) => status.set(e),
+                    Ok(()) => status.set(t!("ui.status.applied").into()),
+                    Err(e) => status.set(t!("ui.status.apply_failed", error = e).into()),
                 }
             }
         })
     };
     let cannot_save = move || !errors.with(Vec::is_empty) || store.docs.with(Vec::is_empty);
 
-    view! {
+    let change_language = move |ev| {
+        let l = event_target_value(&ev);
+        set_language(&l);
+        status.set(String::new());
+        lang.set(l);
+    };
+    let tabs = || {
+        [t!("ui.tab.general"), t!("ui.tab.modes"), t!("ui.tab.modifiers")].into_iter().chain([
+            t!("ui.tab.targets"),
+            t!("ui.tab.keymap"),
+            t!("ui.tab.actions"),
+        ])
+    };
+
+    // Everything is rebuilt when the language changes; the state lives in signals above.
+    move || {
+        lang.track();
+        view! {
         <header>
             <input class="entry" prop:value=move || entry.get() on:change=move |ev| entry.set(event_target_value(&ev)) />
-            <button on:click=move |_| load()>"読み込み"</button>
-            <button on:click=move |_| save(false) disabled=cannot_save>"保存"</button>
-            <button on:click=move |_| save(true) disabled=cannot_save>"保存して適用"</button>
+            <button on:click=move |_| load()>{t!("ui.load")}</button>
+            <button on:click=move |_| save(false) disabled=cannot_save>{t!("ui.save")}</button>
+            <button on:click=move |_| save(true) disabled=cannot_save>{t!("ui.save_apply")}</button>
             <span class="status">{move || status.get()}</span>
+            <select class="lang" prop:value=move || lang.get() on:change=change_language>
+                {languages().into_iter().map(|l| {
+                    let name = t!("language_name", locale = &l).into_owned();
+                    view! { <option value=l.into_owned()>{name}</option> }
+                }).collect_view()}
+            </select>
         </header>
         <nav class="files">
             <For each=move || indices(store.docs.with(Vec::len)) key=|i| *i let:i>
@@ -146,8 +201,8 @@ fn App() -> impl IntoView {
             </For>
         </nav>
         <nav class="tabs">
-            {TABS.iter().enumerate().map(|(i, name)| view! {
-                <button class:active=move || tab.get() == i on:click=move |_| tab.set(i)>{*name}</button>
+            {tabs().enumerate().map(|(i, name)| view! {
+                <button class:active=move || tab.get() == i on:click=move |_| tab.set(i)>{name}</button>
             }).collect_view()}
         </nav>
         <ul class="errors">
@@ -165,6 +220,8 @@ fn App() -> impl IntoView {
                 }}
             </main>
         </Show>
+        }
+        .into_any()
     }
 }
 

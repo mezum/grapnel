@@ -15,3 +15,4 @@ js-sys = "0.3"
 serde.workspace = true
 grapnel-keys.workspace = true
 grapnel-schema.workspace = true
+rust-i18n = "4.2.2"

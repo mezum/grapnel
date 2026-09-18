@@ -54,27 +54,34 @@ fn validate(files: String) -> Vec<String> {
 /// Afterwards the files are re-read from disk and checked again, which catches `include` edits
 /// that change which files belong to the configuration.
 #[tauri::command]
-fn save(files: String, loaded: tauri::State<Loaded>) -> Result<(), Vec<String>> {
-    let pairs = to_pairs(&files)?;
+fn save(files: String, loaded: tauri::State<Loaded>) -> Result<(), SaveError> {
+    let unsaved = |errors| SaveError { saved: false, errors };
+    let pairs = to_pairs(&files).map_err(unsaved)?;
     let known = loaded.0.lock().unwrap().clone();
     if let Some((p, _)) = pairs.iter().find(|(p, _)| !known.contains(p)) {
-        return Err(vec![format!("{}: 読み込んでいないファイルには保存できません", p.display())]);
+        return Err(unsaved(vec![format!("{}: not loaded, so it cannot be saved", p.display())]));
     }
-    grapnel_config::compile(&pairs)?;
+    grapnel_config::compile(&pairs).map_err(unsaved)?;
     // ponytail: files are replaced one by one; a failure midway leaves earlier files saved.
     for (path, raw) in &pairs {
-        grapnel_config::save(path, raw).map_err(|e| vec![format!("{}: {e}", path.display())])?;
+        grapnel_config::save(path, raw).map_err(|e| unsaved(vec![format!("{}: {e}", path.display())]))?;
     }
-    grapnel_config::load(&pairs[0].0).and_then(|f| grapnel_config::compile(&f)).map(drop).map_err(|mut e| {
-        e.insert(0, "保存しましたが、読み直すとエラーがあります (include を確認してください):".into());
-        e
-    })
+    let reread = grapnel_config::load(&pairs[0].0).and_then(|f| grapnel_config::compile(&f));
+    reread.map(drop).map_err(|errors| SaveError { saved: true, errors })
+}
+
+/// Errors are English; the front end words the status line.
+#[derive(serde::Serialize)]
+struct SaveError {
+    /// The files were written, but reading them back failed.
+    saved: bool,
+    errors: Vec<String>,
 }
 
 /// Asks the running grapnel to reload its configuration.
 #[tauri::command]
 fn apply() -> Result<(), String> {
-    grapnel_win::pipe::send("reload").map_err(|e| format!("grapnel に接続できません (起動していますか？): {e}"))
+    grapnel_win::pipe::send("reload").map_err(|e| e.to_string())
 }
 
 fn main() {

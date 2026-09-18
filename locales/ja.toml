@@ -1,3 +1,5 @@
+language_name = "日本語"
+
 [tray]
 suspend = "一時停止"
 reload = "設定を再読み込み"
@@ -31,3 +33,88 @@ new_config = "# grapnel の設定ファイル。書き方は docs/spec.md を参
 done = "設定を読み込みました"
 failed = "設定の読み込みに失敗しました"
 more = "(他 %{count} 件)"
+
+[ui]
+title = "grapnel 設定"
+load = "読み込み"
+save = "保存"
+save_apply = "保存して適用"
+add = "追加"
+delete = "削除"
+kind = "種類"
+keys_or_action = "キー / アクション名"
+steps = "手順"
+add_step = "手順を追加"
+unknown_action_or_key = "アクションまたはキー '%{name}' はありません"
+language_auto = "Windows の表示言語"
+
+[ui.status]
+loaded = "読み込みました"
+save_failed = "保存できませんでした。エラーを確認してください"
+saved = "保存しました"
+saved_with_errors = "保存しましたが、読み直すとエラーがあります (include を確認してください)"
+applied = "保存して grapnel に再読み込みを指示しました"
+apply_failed = "grapnel に接続できません (起動していますか？): %{error}"
+
+[ui.tab]
+general = "全般"
+modes = "モード"
+modifiers = "修飾キー"
+targets = "ターゲット"
+keymap = "キーマップ"
+actions = "アクション"
+
+[ui.general]
+include = "include (glob 可)"
+entry_only = "settings はエントリファイルにだけ書けます。"
+delete_settings = "このファイルの settings を削除"
+passthrough = "passthrough (ターゲット)"
+language = "language (表示言語)"
+
+[ui.mode]
+block_unmapped = "定義外のキーを握りつぶす"
+unmapped_to = "unmapped_to (定義外の入力で移るモード)"
+hold = "hold (モード中に押したままにする修飾キー 例: S)"
+keymap = "このモード専用のキーマップ"
+
+[ui.modifier]
+tap = "tap (空欄 = key と同じ)"
+tap_none = "tap で何も送らない"
+as = "as (例: C, C-S)"
+
+[ui.keymap]
+hint = "全モード共通のキーマップ。キーは chord (例: C-x)。子の節にすると、続けて押すキー列 (C-x t 0 など) になる。"
+leaf = "設定付き"
+node = "子の節 (続けて押す)"
+press_default = "既定 (hold)"
+inherit = "親と同じ"
+fallback = "fallback (空欄 = 元の入力)"
+fallback_none = "fallback で何も送らない"
+keep_mods = "keep_mods (入力の修飾キーを離すまで出力の修飾キーを保持)"
+targets = "targets (入力を捕まえる条件)"
+options = "節の設定 (子孫に引き継ぐ)"
+add_key = "キーを追加"
+
+[ui.step]
+text = "文字入力"
+mouse_move = "マウス相対移動"
+mouse_move_to = "マウス絶対移動"
+sleep = "待機"
+run = "プログラム起動"
+call = "アクション呼び出し"
+mode = "モード切替"
+control = "常駐側への指示"
+input = "入力欄"
+text_label = "text ({arg} で引数)"
+then = "then (空欄 = 入力した名前のアクションを実行)"
+center = "中央"
+bottom = "画面下 (横幅いっぱい)"
+suspend = "一時停止の切替"
+reload = "再読み込み"
+exit = "終了"
+
+[ui.action]
+by_target = "ターゲットごと"
+by_target_hint = "上から順に評価し、最初に合ったターゲットの出力を使う (* は常に合う)。"
+add_target = "ターゲットを追加"
+add = "アクションを追加"
