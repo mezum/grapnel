@@ -68,18 +68,40 @@ pub fn languages() -> Vec<std::borrow::Cow<'static, str>> {
     all
 }
 
+/// `o[k]`, or `undefined`.
+fn prop(o: &JsValue, k: &str) -> JsValue {
+    js_sys::Reflect::get(o, &k.into()).unwrap_or_default()
+}
+
 /// The bundled language closest to the browser's (which follows Windows), else English.
 fn initial_language() -> String {
-    let get = |o: &JsValue, k: &str| js_sys::Reflect::get(o, &k.into()).unwrap_or_default();
-    let wanted = get(&get(&js_sys::global(), "navigator"), "language").as_string().unwrap_or_default();
+    let wanted = prop(&prop(&js_sys::global(), "navigator"), "language").as_string().unwrap_or_default();
     let fits = |l: &str| wanted == l || wanted.starts_with(&format!("{l}-"));
     languages().into_iter().find(|l| fits(l)).map_or("en".into(), |l| l.into_owned())
 }
 
 fn set_language(lang: &str) {
     rust_i18n::set_locale(lang);
-    let document = js_sys::Reflect::get(&js_sys::global(), &"document".into()).unwrap_or_default();
-    let _ = js_sys::Reflect::set(&document, &"title".into(), &t!("ui.title").as_ref().into());
+    let _ =
+        js_sys::Reflect::set(&prop(&js_sys::global(), "document"), &"title".into(), &t!("ui.title").as_ref().into());
+}
+
+const THEME_KEY: &str = "grapnelTheme";
+
+/// `"auto"` (follow Windows), `"light"` or `"dark"`, as last chosen on this PC.
+fn saved_theme() -> String {
+    prop(&prop(&js_sys::global(), "localStorage"), THEME_KEY).as_string().unwrap_or_else(|| "auto".into())
+}
+
+/// Sets `<html data-theme>` (none for auto) and remembers the choice. Storage may be unavailable.
+fn set_theme(theme: &str) {
+    let root = prop(&prop(&js_sys::global(), "document"), "documentElement");
+    let dataset = prop(&root, "dataset");
+    let _ = match theme {
+        "auto" => js_sys::Reflect::delete_property(&dataset.into(), &"theme".into()),
+        _ => js_sys::Reflect::set(&dataset, &"theme".into(), &theme.into()),
+    };
+    let _ = js_sys::Reflect::set(&prop(&js_sys::global(), "localStorage"), &THEME_KEY.into(), &theme.into());
 }
 
 /// Shared UI state.
@@ -117,6 +139,7 @@ fn App() -> impl IntoView {
     let status = RwSignal::new(String::new());
     let lang = RwSignal::new(initial_language());
     set_language(&lang.get_untracked());
+    set_theme(&saved_theme());
 
     let load = move || {
         spawn_local(async move {
@@ -181,24 +204,31 @@ fn App() -> impl IntoView {
         lang.track();
         view! {
         <header>
+            <span class="brand">"grapnel"</span>
             <input class="entry" prop:value=move || entry.get() on:change=move |ev| entry.set(event_target_value(&ev)) />
             <button on:click=move |_| load()>{t!("ui.load")}</button>
             <button on:click=move |_| save(false) disabled=cannot_save>{t!("ui.save")}</button>
-            <button on:click=move |_| save(true) disabled=cannot_save>{t!("ui.save_apply")}</button>
-            <span class="status">{move || status.get()}</span>
-            <select class="lang" prop:value=move || lang.get() on:change=change_language>
+            <button class="primary" on:click=move |_| save(true) disabled=cannot_save>{t!("ui.save_apply")}</button>
+            <select class="lang" title="Language" prop:value=move || lang.get() on:change=change_language>
                 {languages().into_iter().map(|l| {
                     let name = t!("language_name", locale = &l).into_owned();
                     view! { <option value=l.into_owned()>{name}</option> }
                 }).collect_view()}
             </select>
+            <select title=t!("ui.theme.label") prop:value=saved_theme() on:change=move |ev| set_theme(&event_target_value(&ev))>
+                <option value="auto">{t!("ui.theme.auto")}</option>
+                <option value="light">{t!("ui.theme.light")}</option>
+                <option value="dark">{t!("ui.theme.dark")}</option>
+            </select>
         </header>
+        <div class="content">
         <nav class="files">
             <For each=move || indices(store.docs.with(Vec::len)) key=|i| *i let:i>
                 <button class:active=move || store.cur.get() == i on:click=move |_| store.cur.set(i)>
                     {move || store.docs.with(|d| d.get(i).map(|f| f.path.clone()).unwrap_or_default())}
                 </button>
             </For>
+            <span class="status">{move || status.get()}</span>
         </nav>
         <nav class="tabs">
             {tabs().enumerate().map(|(i, name)| view! {
@@ -220,6 +250,7 @@ fn App() -> impl IntoView {
                 }}
             </main>
         </Show>
+        </div>
         }
         .into_any()
     }

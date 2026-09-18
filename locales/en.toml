@@ -121,3 +121,9 @@ by_target = "Per target"
 by_target_hint = "Evaluated top to bottom; the first matching target's output is used (* always matches)."
 add_target = "Add target"
 add = "Add action"
+
+[ui.theme]
+label = "Theme"
+auto = "Auto"
+light = "Light"
+dark = "Dark"

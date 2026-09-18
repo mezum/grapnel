@@ -119,3 +119,9 @@ by_target = "ターゲットごと"
 by_target_hint = "上から順に評価し、最初に合ったターゲットの出力を使う (* は常に合う)。"
 add_target = "ターゲットを追加"
 add = "アクションを追加"
+
+[ui.theme]
+label = "テーマ"
+auto = "自動"
+light = "ライト"
+dark = "ダーク"

@@ -198,7 +198,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
             <div class="step">
                 {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
                 {step_fields(sp.clone())}
-                <button class="del" on:click=move |_| del.edit(|v| drop(v.remove(j)))>"×"</button>
+                <button class="del" title=t!("ui.delete") on:click=move |_| del.edit(|v| drop(v.remove(j)))>"✕"</button>
             </div>
         }
     };
@@ -207,7 +207,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
             <For each=move || indices(list.read(|v| v.len())) key=|j| *j let:j>
                 {step(j)}
             </For>
-            <button on:click=move |_| add.edit(|v| v.push(RawStep::Short(String::new())))>{t!("ui.add_step")}</button>
+            <button class="add" on:click=move |_| add.edit(|v| v.push(RawStep::Short(String::new())))>{t!("ui.add_step")}</button>
         </div>
     }
     .into_any()
@@ -335,7 +335,7 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
         <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|t| t.clone() let:t>
             {row(t)}
         </For>
-        <button on:click=add_row>{t!("ui.action.add_target")}</button>
+        <button class="add" on:click=add_row>{t!("ui.action.add_target")}</button>
     }
     .into_any()
 }
@@ -370,7 +370,7 @@ pub fn actions() -> impl IntoView {
             <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|n| n.clone() let:name>
                 {row(name)}
             </For>
-            <button on:click=add_action>{t!("ui.action.add")}</button>
+            <button class="add" on:click=add_action>{t!("ui.action.add")}</button>
         </section>
     }
 }

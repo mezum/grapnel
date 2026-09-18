@@ -38,7 +38,7 @@ pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl
     view! {
         <div class="name">
             <input prop:value=name on:change=rename />
-            <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del)))>{t!("ui.delete")}</button>
+            <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete")>"✕"</button>
         </div>
     }
 }
@@ -63,7 +63,7 @@ fn map_section<V: Default + 'static, R: IntoView + 'static>(
             <For each=move || store.read(names) key=|n| n.clone() let:name>
                 <div class="row">{name_field(store, name.clone(), map)}{row(store, name)}</div>
             </For>
-            <button on:click=add>{t!("ui.add")}</button>
+            <button class="add" on:click=add>{t!("ui.add")}</button>
         </section>
     }
 }

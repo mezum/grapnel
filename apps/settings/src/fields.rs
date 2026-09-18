@@ -88,7 +88,7 @@ pub fn name_row(
     view! {
         <div class="name">
             <input prop:value=name on:change=on_change />
-            <button class="del" on:click=move |_| delete()>{t!("ui.delete")}</button>
+            <button class="del" on:click=move |_| delete() title=t!("ui.delete")>"✕"</button>
         </div>
     }
 }

@@ -159,7 +159,7 @@ pub fn node_editor(p: Place<RawNode>) -> AnyView {
             <For each=move || list.read(|n| n.children.keys().cloned().collect::<Vec<_>>()) key=|k| k.clone() let:k>
                 {row(k)}
             </For>
-            <button on:click=add_row>{t!("ui.keymap.add_key")}</button>
+            <button class="add" on:click=add_row>{t!("ui.keymap.add_key")}</button>
         </div>
     }
     .into_any()
