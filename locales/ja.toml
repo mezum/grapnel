@@ -1,0 +1,33 @@
+[tray]
+suspend = "一時停止"
+reload = "設定を再読み込み"
+settings = "設定ツールを開く"
+exit = "終了"
+suspended = " (一時停止中)"
+passthrough = " (パススルー中)"
+
+[notice]
+undefined = "%{keys} は定義されていません"
+timed_out = "%{keys} は時間切れになりました"
+
+[error]
+unknown_action = "アクション '%{name}' はありません"
+too_deep = "アクション '%{name}' の呼び出しが深すぎます"
+hotkey = "ホットキーを登録できません: %{error}"
+hook = "入力フックを設定できません: %{error}"
+run = "%{program} を起動できません: %{error}"
+tray = "トレイアイコンを追加できません: %{error}"
+input_box = "入力欄を表示できません: %{error}"
+
+[fatal]
+no_config_path = "--config にパスがありません"
+not_running = "grapnel が起動していません: %{error}"
+window = "ウインドウを作成できません: %{error}"
+already_running = "grapnel は既に起動しています (%{error})"
+config = "設定を読み込めません:"
+new_config = "# grapnel の設定ファイル。書き方は docs/spec.md を参照。"
+
+[reload]
+done = "設定を読み込みました"
+failed = "設定の読み込みに失敗しました"
+more = "(他 %{count} 件)"

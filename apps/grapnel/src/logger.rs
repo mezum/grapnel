@@ -1,13 +1,12 @@
 //! Debug builds log to stdout. Release builds append to `%LOCALAPPDATA%\grapnel\grapnel.log`
-//! and show errors on screen.
+//! Logs are always English; errors meant for the user go through `report!`.
 
-use log::{Level, LevelFilter, Metadata, Record};
+use log::{LevelFilter, Metadata, Record};
 use std::io::Write;
 use std::sync::Mutex;
 
 struct Logger {
     file: Option<Mutex<std::fs::File>>,
-    on_error: fn(String),
 }
 
 impl log::Log for Logger {
@@ -26,15 +25,12 @@ impl log::Log for Logger {
             }
             None => println!("{line}"),
         }
-        if r.level() == Level::Error && self.file.is_some() {
-            (self.on_error)(r.args().to_string());
-        }
     }
 
     fn flush(&self) {}
 }
 
-pub fn init(on_error: fn(String)) {
+pub fn init() {
     let file = if cfg!(debug_assertions) {
         None
     } else {
@@ -44,5 +40,5 @@ pub fn init(on_error: fn(String)) {
     };
     let level = if cfg!(debug_assertions) { LevelFilter::Debug } else { LevelFilter::Info };
     log::set_max_level(level);
-    let _ = log::set_logger(Box::leak(Box::new(Logger { file, on_error })));
+    let _ = log::set_logger(Box::leak(Box::new(Logger { file })));
 }

@@ -76,7 +76,7 @@ fn expired_prefix_is_resolved_before_next_key() {
     t1.tap("x");
     t1.now = 101;
     // The expired prefix is reported, and y itself passes untouched (no injection needed).
-    assert_eq!(t1.down("y"), Reaction { consume: false, commands: vec![notice("x は時間切れになりました")] });
+    assert_eq!(t1.down("y"), Reaction { consume: false, commands: vec![timed_out("x")] });
     let mut t2 = t(&rule("x y", "\"z\"", "", "[keymap.x.options]\ntimeout_ms = 100"));
     t2.tap("x");
     t2.now = 101;

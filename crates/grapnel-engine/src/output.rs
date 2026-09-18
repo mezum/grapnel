@@ -1,6 +1,6 @@
 //! Turning rules and action steps into commands, with modifier neutralization.
 
-use crate::{Active, Command, Engine};
+use crate::{Active, Command, Engine, Fault};
 use grapnel_config::{ActionId, Press, Step, WindowInfo, any_matches};
 use grapnel_keys::{Chord, Key, KeySeq, Mods};
 
@@ -130,7 +130,7 @@ impl Engine {
         let cfg = self.cfg.clone();
         let action = &cfg.actions[id];
         if depth > MAX_CALL_DEPTH {
-            out.push(Command::Error(format!("action '{}': calls nested deeper than {MAX_CALL_DEPTH}", action.name)));
+            out.push(Command::Error(Fault::TooDeep(action.name.clone())));
             return;
         }
         if let Some(imp) = action.impls.iter().find(|m| any_matches(&cfg.targets, &m.when, win)) {

@@ -2,20 +2,32 @@
 //! Usage: `grapnel [--config <path>]` or `grapnel reload|suspend|exit` to control a running instance.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+rust_i18n::i18n!("../../locales", fallback = "en");
+
+/// Logs an error in English and shows it on screen in the display language.
+macro_rules! report {
+    ($key:literal $(, $name:ident = $value:expr)* $(,)?) => {{
+        $(let $name = &$value;)* // evaluate each argument once
+        log::error!("{}", rust_i18n::t!($key, locale = "en" $(, $name = $name)*));
+        $crate::post($crate::Msg::Toast(rust_i18n::t!($key $(, $name = $name)*).into_owned()));
+    }};
+}
+
 mod app;
 mod exec;
 mod logger;
 
 use app::{App, PAD_ENABLED};
 use grapnel_config::{Config, InputPosition};
-use grapnel_engine::{Command, Event};
+use grapnel_engine::{Command, Event, Notice};
 use grapnel_keys::Key;
 use grapnel_win::{hook, inputbox, pipe, toast, tray, tray::Tray, window};
+use rust_i18n::t;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -39,7 +51,8 @@ pub enum Msg {
     Pipe(String),
     Pad(Event),
     Deferred(Command),
-    LogError(String),
+    /// An error, already in the display language.
+    Toast(String),
     Reloaded(Result<Config, Vec<String>>),
 }
 
@@ -80,25 +93,27 @@ pub fn balloon(title: &str, text: &str, error: bool) {
 
 fn add_tray(hwnd: HWND) {
     TRAY.with(|t| t.borrow_mut().take()); // drop (NIM_DELETE) the old icon before adding the new one
-    let tray = Tray::add(hwnd, WM_TRAY, "grapnel").map_err(|e| log::error!("トレイアイコンを追加できません: {e}"));
-    TRAY.with(|t| *t.borrow_mut() = tray.ok());
+    match Tray::add(hwnd, WM_TRAY, "grapnel") {
+        Ok(tray) => TRAY.with(|t| *t.borrow_mut() = Some(tray)),
+        Err(e) => report!("error.tray", error = e),
+    }
 }
 
 fn open_settings() {
     let Some(path) = with_app(|a| a.config_path.clone()) else { return };
     let exe = std::env::current_exe().unwrap_or_default().with_file_name("grapnel-settings.exe");
     if let Err(e) = std::process::Command::new(&exe).arg("--config").arg(path).spawn() {
-        log::error!("{} を起動できません: {e}", exe.display());
+        report!("error.run", program = exe.display(), error = e);
     }
 }
 
 fn tray_menu() {
     let suspended = with_app(|a| a.is_suspended()).unwrap_or(false);
     let items = [
-        (MENU_SUSPEND, "一時停止", suspended),
-        (MENU_RELOAD, "設定を再読み込み", false),
-        (MENU_SETTINGS, "設定ツールを開く", false),
-        (MENU_EXIT, "終了", false),
+        (MENU_SUSPEND, t!("tray.suspend"), suspended),
+        (MENU_RELOAD, t!("tray.reload"), false),
+        (MENU_SETTINGS, t!("tray.settings"), false),
+        (MENU_EXIT, t!("tray.exit"), false),
     ];
     let hwnd = HWND(MAIN.load(Ordering::Relaxed) as _);
     match tray::menu(hwnd, &items) {
@@ -130,15 +145,19 @@ fn handle(msg: Msg) {
         Msg::Deferred(Command::InputBox { prompt, then, position }) => {
             with_app(|a| a.before_prompt(then));
             if let Err(e) = inputbox::open(&prompt, position == InputPosition::Bottom) {
-                log::error!("入力欄を表示できません: {e}");
+                report!("error.input_box", error = e);
             }
         }
-        Msg::Deferred(Command::Notice(text)) => {
-            log::info!("{text}");
-            show_toast(&text, 2500);
+        Msg::Deferred(Command::Notice(n)) => {
+            let text = |locale: &str| match &n {
+                Notice::Undefined(keys) => t!("notice.undefined", locale = locale, keys = keys),
+                Notice::TimedOut(keys) => t!("notice.timed_out", locale = locale, keys = keys),
+            };
+            log::info!("{}", text("en"));
+            show_toast(&text(&rust_i18n::locale()), 2500);
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
-        Msg::LogError(text) => show_toast(&text, 5000),
+        Msg::Toast(text) => show_toast(&text, 5000),
         Msg::Reloaded(result) => {
             inputbox::close(); // its action id belongs to the old config
             with_app(|a| a.apply_reload(result));
@@ -208,31 +227,39 @@ fn fatal(text: &str) -> ! {
 
 fn config_path(args: &[String]) -> PathBuf {
     let path = match args.iter().position(|a| a == "--config") {
-        Some(i) => PathBuf::from(args.get(i + 1).unwrap_or_else(|| fatal("--config にパスがありません"))),
+        Some(i) => PathBuf::from(args.get(i + 1).unwrap_or_else(|| fatal(&t!("fatal.no_config_path")))),
         None => grapnel_config::default_entry(),
     };
     if !path.exists() && std::fs::create_dir_all(path.parent().unwrap_or(&path)).is_ok() {
-        let _ = std::fs::write(&path, "# grapnel の設定ファイル。書き方は docs/spec.md を参照。\n");
+        let _ = std::fs::write(&path, format!("{}\n", t!("fatal.new_config")));
     }
     path
 }
 
+/// Uses `language`, or the Windows display language when unset.
+pub fn set_language(language: Option<&str>) {
+    rust_i18n::set_locale(&language.map_or_else(grapnel_win::ui_language, str::to_owned));
+}
+
 fn main() {
+    set_language(None);
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(cmd) = args.first().filter(|a| ["reload", "suspend", "exit"].contains(&a.as_str())) {
-        pipe::send(cmd).unwrap_or_else(|e| fatal(&format!("grapnel が起動していません: {e}")));
+        pipe::send(cmd).unwrap_or_else(|e| fatal(&t!("fatal.not_running", error = e)));
         return;
     }
     let (tx, rx) = mpsc::channel();
     let _ = TX.set(tx);
     RX.with(|r| *r.borrow_mut() = Some(rx));
-    logger::init(|text| post(Msg::LogError(text)));
+    logger::init();
     let path = config_path(&args);
-    let cfg = app::load(&path).unwrap_or_else(|errors| fatal(&errors.join("\n")));
-    let hwnd = create_window().unwrap_or_else(|e| fatal(&format!("ウインドウを作成できません: {e}")));
+    let cfg =
+        app::load(&path).unwrap_or_else(|errors| fatal(&format!("{}\n{}", t!("fatal.config"), errors.join("\n"))));
+    set_language(cfg.settings.language.as_deref());
+    let hwnd = create_window().unwrap_or_else(|e| fatal(&t!("fatal.window", error = e)));
     MAIN.store(hwnd.0 as isize, Ordering::Relaxed);
     if let Err(e) = pipe::serve(|line| post(Msg::Pipe(line))) {
-        fatal(&format!("grapnel は既に起動しています ({e})"));
+        fatal(&t!("fatal.already_running", error = e));
     }
     add_tray(hwnd);
     let app = App::new(hwnd, path, cfg);
@@ -262,4 +289,15 @@ fn main() {
     with_app(App::shutdown);
     TRAY.with(|t| t.borrow_mut().take());
     log::info!("exited");
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_i18n::t;
+
+    #[test]
+    fn regional_names_fall_back_to_the_language() {
+        assert_eq!(t!("tray.exit", locale = "ja-JP"), "終了");
+        assert_eq!(t!("tray.exit", locale = "xx"), "Exit");
+    }
 }

@@ -57,13 +57,13 @@ impl Tray {
 
 /// Shows a menu for `hwnd` at the cursor and returns the chosen id. Items are `(id, label, checked)`.
 /// Runs a modal loop, so hold no `RefCell` borrows across it.
-pub fn menu(hwnd: HWND, items: &[(u32, &str, bool)]) -> Option<u32> {
+pub fn menu(hwnd: HWND, items: &[(u32, impl AsRef<str>, bool)]) -> Option<u32> {
     unsafe {
         let menu = CreatePopupMenu().ok()?;
-        for &(id, label, checked) in items {
-            let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
-            let label = wide(label);
-            let _ = AppendMenuW(menu, flags, id as usize, windows::core::PCWSTR(label.as_ptr()));
+        for (id, label, checked) in items {
+            let flags = if *checked { MF_STRING | MF_CHECKED } else { MF_STRING };
+            let label = wide(label.as_ref());
+            let _ = AppendMenuW(menu, flags, *id as usize, windows::core::PCWSTR(label.as_ptr()));
         }
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);

@@ -2,9 +2,10 @@
 
 use crate::exec::Executor;
 use grapnel_config::{Config, ControlCmd, Field, WindowInfo, any_matches};
-use grapnel_engine::{Command, Engine, Event};
+use grapnel_engine::{Command, Engine, Event, Fault};
 use grapnel_keys::{Key, Mods};
 use grapnel_win::{hook, inputbox, uia::Uia, window};
+use rust_i18n::t;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -108,18 +109,18 @@ impl App {
                 .fold(MOD_NOREPEAT, |a, (_, b)| a | b);
             let Key::Vk(vk) = h.key else { return };
             if let Err(e) = unsafe { RegisterHotKey(Some(self.hwnd), HOTKEY_ID, flags, vk as u32) } {
-                log::error!("ホットキーを登録できません: {e}");
+                report!("error.hotkey", error = e);
             }
         }
     }
 
     pub fn tooltip(&self) -> String {
         let state = if self.suspended {
-            " (一時停止中)"
+            t!("tray.suspended")
         } else if self.passthrough {
-            " (パススルー中)"
+            t!("tray.passthrough")
         } else {
-            ""
+            "".into()
         };
         format!("grapnel - {}{state}", self.engine.mode_name())
     }
@@ -201,7 +202,7 @@ impl App {
         if want && self.hooks.is_none() {
             match hook::install() {
                 Ok(h) => self.hooks = Some(h),
-                Err(e) => log::error!("フックを設定できません: {e}"),
+                Err(e) => report!("error.hook", error = e),
             }
             self.engine.sync_modifiers(&held_modifiers());
             log::debug!("hooks installed");
@@ -236,23 +237,19 @@ impl App {
                 self.cfg = Arc::new(cfg);
                 self.engine = Engine::new(self.cfg.clone());
                 self.engine.sync_modifiers(&held_modifiers());
+                crate::set_language(self.cfg.settings.language.as_deref());
                 self.configure();
                 self.update_hooks();
                 log::info!("config reloaded");
-                crate::balloon("設定を読み込みました", &self.config_path.display().to_string(), false);
+                crate::balloon(&t!("reload.done"), &self.config_path.display().to_string(), false);
             }
             Err(errors) => {
                 errors.iter().for_each(|e| log::warn!("{e}"));
-                let more = if errors.len() > 1 {
-                    format!(
-                        "
-(他 {} 件)",
-                        errors.len() - 1
-                    )
-                } else {
-                    String::new()
+                let more = match errors.len() {
+                    1 => String::new(),
+                    n => format!("\n{}", t!("reload.more", count = n - 1)),
                 };
-                crate::balloon("設定の読み込みに失敗しました", &format!("{}{more}", errors[0]), true);
+                crate::balloon(&t!("reload.failed"), &format!("{}{more}", errors[0]), true);
             }
         }
     }
@@ -281,7 +278,8 @@ impl App {
             Command::Control(ControlCmd::Suspend) => self.toggle_suspend(),
             Command::Control(ControlCmd::Reload) => self.reload(),
             Command::Control(ControlCmd::Exit) => unsafe { PostQuitMessage(0) },
-            Command::Error(e) => log::error!("{e}"),
+            Command::Error(Fault::UnknownAction(name)) => report!("error.unknown_action", name = name),
+            Command::Error(Fault::TooDeep(name)) => report!("error.too_deep", name = name),
             other => self.exec.run(vec![other]),
         }
     }

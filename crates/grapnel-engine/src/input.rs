@@ -279,7 +279,7 @@ impl Engine {
         Reaction { consume: block, commands }
     }
 
-    /// "C-x q は定義されていません" / "C-x は時間切れになりました".
+    /// `C-x q` is undefined / `C-x` timed out.
     fn undefined(&self, pending: &[Chord], current: Option<&Key>) -> Command {
         let names = self.cfg.user_mod_names();
         let mut keys = grapnel_keys::format_seq(&KeySeq(pending.to_vec()), &names);
@@ -287,9 +287,9 @@ impl Engine {
             Some(k) => {
                 let chord = Chord { mods: self.current_mods(), key: k.clone() };
                 keys = format!("{keys} {}", grapnel_keys::format_chord(&chord, &names));
-                Command::Notice(format!("{keys} は定義されていません"))
+                Command::Notice(Notice::Undefined(keys))
             }
-            None => Command::Notice(format!("{keys} は時間切れになりました")),
+            None => Command::Notice(Notice::TimedOut(keys)),
         }
     }
 

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use grapnel_config::{WindowInfo, compile};
-use grapnel_engine::{Command, Engine, Event, Reaction};
+use grapnel_engine::{Command, Engine, Event, Notice, Reaction};
 use grapnel_keys::{Key, parse_key};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -56,9 +56,14 @@ pub fn pass() -> Reaction {
     Reaction::default()
 }
 
-/// A notice shown to the user (e.g. an undefined key sequence).
-pub fn notice(text: &str) -> Command {
-    Command::Notice(text.to_string())
+/// Notice for a key sequence that matches nothing.
+pub fn undefined(keys: &str) -> Command {
+    Command::Notice(Notice::Undefined(keys.into()))
+}
+
+/// Notice for a key sequence left unfinished.
+pub fn timed_out(keys: &str) -> Command {
+    Command::Notice(Notice::TimedOut(keys.into()))
 }
 
 impl T {

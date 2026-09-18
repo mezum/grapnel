@@ -179,9 +179,9 @@ fn emacs_cx_commands() {
     assert_eq!(after_cx(&mut t, "c", true), eaten("-LCtrl +LAlt +F4"));
     assert_eq!(after_cx(&mut t, "u", false), eaten("+LCtrl +z"));
     // C-x C-u is not bound, so like any unknown key after C-x it is dropped (not Ctrl+X = cut).
-    let undefined = |s: &str| grapnel_engine::Reaction { consume: true, commands: vec![notice(s)] };
-    assert_eq!(after_cx(&mut t, "u", true), undefined("C-x C-u は定義されていません"));
-    assert_eq!(after_cx(&mut t, "q", false), undefined("C-x q は定義されていません"));
+    let eaten_undefined = |s: &str| grapnel_engine::Reaction { consume: true, commands: vec![undefined(s)] };
+    assert_eq!(after_cx(&mut t, "u", true), eaten_undefined("C-x C-u"));
+    assert_eq!(after_cx(&mut t, "q", false), eaten_undefined("C-x q"));
 }
 
 #[test]

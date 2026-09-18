@@ -49,9 +49,26 @@ pub enum Command {
     ModeChanged(String),
     Control(ControlCmd),
     /// Runtime error to report to the user.
-    Error(String),
-    /// A short message for the user, e.g. an undefined key sequence (shown briefly, not an error).
-    Notice(String),
+    Error(Fault),
+    /// A short message for the user (shown briefly, not an error).
+    Notice(Notice),
+}
+
+/// The app puts these into words, so the engine stays language-neutral.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Notice {
+    /// This key sequence (formatted, e.g. `"C-x q"`) matches nothing.
+    Undefined(String),
+    /// This key sequence was left unfinished.
+    TimedOut(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Fault {
+    /// No action has this name (or `#id`).
+    UnknownAction(String),
+    /// This action calls others too deeply (likely a loop).
+    TooDeep(String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -170,7 +187,7 @@ impl Engine {
     /// Runs an action directly (input box result, pipe commands).
     pub fn invoke(&mut self, action: ActionId, arg: &str, win: &WindowInfo) -> Vec<Command> {
         if action >= self.cfg.actions.len() {
-            return vec![Command::Error(format!("unknown action #{action}"))];
+            return vec![Command::Error(Fault::UnknownAction(format!("#{action}")))];
         }
         let mut out = Vec::new();
         self.run_action(action, arg, win, 0, &mut out);
@@ -181,7 +198,7 @@ impl Engine {
     pub fn invoke_named(&mut self, name: &str, arg: &str, win: &WindowInfo) -> Vec<Command> {
         match self.cfg.action_id(name) {
             Some(id) => self.invoke(id, arg, win),
-            None => vec![Command::Error(format!("unknown action '{name}'"))],
+            None => vec![Command::Error(Fault::UnknownAction(name.into()))],
         }
     }
 

@@ -1,0 +1,35 @@
+# English texts; also the fallback for missing translations. Keep every locale's keys in sync.
+
+[tray]
+suspend = "Suspend"
+reload = "Reload settings"
+settings = "Open settings"
+exit = "Exit"
+suspended = " (suspended)"
+passthrough = " (passthrough)"
+
+[notice]
+undefined = "%{keys} is undefined"
+timed_out = "%{keys} timed out"
+
+[error]
+unknown_action = "No action named '%{name}'"
+too_deep = "Action '%{name}' calls other actions too deeply"
+hotkey = "Cannot register the hotkey: %{error}"
+hook = "Cannot install the input hooks: %{error}"
+run = "Cannot start %{program}: %{error}"
+tray = "Cannot add the tray icon: %{error}"
+input_box = "Cannot show the input box: %{error}"
+
+[fatal]
+no_config_path = "--config needs a path"
+not_running = "grapnel is not running: %{error}"
+window = "Cannot create the window: %{error}"
+already_running = "grapnel is already running (%{error})"
+config = "Cannot load the settings:"
+new_config = "# grapnel settings. See docs/spec.md for the format."
+
+[reload]
+done = "Settings loaded"
+failed = "Cannot load the settings"
+more = "(%{count} more)"

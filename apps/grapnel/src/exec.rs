@@ -29,7 +29,7 @@ fn run_until_sleep(cmds: Vec<Command>) -> Vec<Command> {
                 send::send(&std::mem::take(&mut batch));
                 std::thread::spawn(move || {
                     if let Err(e) = std::process::Command::new(&program).args(&args).spawn() {
-                        log::error!("{program} を起動できません: {e}");
+                        report!("error.run", program = program, error = e);
                     }
                 });
             }
