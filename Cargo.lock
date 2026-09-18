@@ -106,6 +106,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "grapnel"
+version = "0.1.0"
+dependencies = [
+ "grapnel-config",
+ "grapnel-engine",
+ "grapnel-keys",
+ "grapnel-pad",
+ "grapnel-win",
+ "log",
+ "windows",
+]
+
+[[package]]
 name = "grapnel-config"
 version = "0.1.0"
 dependencies = [
