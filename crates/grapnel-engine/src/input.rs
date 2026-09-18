@@ -223,6 +223,13 @@ impl Engine {
             self.candidates(win).find(|&i| rules[i].keys.0.len() > seq.len() && rules[i].keys.0.starts_with(&seq));
         let instant = matches!(key, Key::Wheel(_) | Key::Gesture(..));
         if let Some(i) = exact {
+            // A one-chord binding whose action has nothing for this window: leave the input alone.
+            let rule = &self.cfg.rules[i];
+            let has_impl =
+                self.cfg.actions[rule.action].impls.iter().any(|m| any_matches(&self.cfg.targets, &m.when, win));
+            if seq.len() == 1 && rule.fallback.is_none() && !has_impl {
+                return Reaction::default();
+            }
             self.pending = None;
             let out = self.fire(i, &seq, key.clone(), win);
             if !instant {
@@ -230,10 +237,10 @@ impl Engine {
             }
             return consumed(out);
         }
-        if let Some(i) = prefix {
-            let t = self.cfg.rules[i].timeout_ms;
-            let deadline = (t > 0).then(|| now + t as u64);
-            self.pending = Some(Pending { chords: seq, rule: i, deadline });
+        if prefix.is_some() {
+            let policy = self.cfg.policy(&seq, self.mode);
+            let deadline = (policy.timeout_ms > 0).then(|| now + policy.timeout_ms as u64);
+            self.pending = Some(Pending { chords: seq, policy, deadline });
             if !instant {
                 self.swallowed.insert(key);
             }
@@ -266,15 +273,14 @@ impl Engine {
     /// Resolves pending chords that cannot complete. `current` is the key that broke the sequence.
     pub(crate) fn mismatch(&mut self, current: Option<Key>) -> Vec<Command> {
         let p = self.pending.take().expect("mismatch without pending chords");
-        let cfg = self.cfg.clone();
-        let rule = &cfg.rules[p.rule];
+        let policy = p.policy;
         let mut out = vec![];
-        match (rule.on_mismatch, rule.fallback.clone()) {
+        match (policy.on_mismatch, policy.fallback.clone()) {
             (Mismatch::Discard, _) => {}
             (Mismatch::Fallback, Some(f)) => self.tap_seq(&f.0, &mut out),
             (Mismatch::Replay, _) | (Mismatch::Fallback, None) => {
                 self.tap_seq(&p.chords, &mut out);
-                if let Some(k) = current.clone().filter(|_| rule.on_mismatch == Mismatch::Replay) {
+                if let Some(k) = current.clone().filter(|_| policy.on_mismatch == Mismatch::Replay) {
                     self.inject_pass(k, &mut out);
                     return out;
                 }

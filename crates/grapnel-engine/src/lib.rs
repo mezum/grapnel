@@ -4,7 +4,7 @@
 mod input;
 mod output;
 
-use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, Step, WindowInfo, any_matches};
+use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, Policy, Step, WindowInfo, any_matches};
 use grapnel_keys::{Chord, Dir, Key, KeySeq, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -64,8 +64,8 @@ enum UserMod {
 
 struct Pending {
     chords: Vec<Chord>,
-    /// First rule the pending chords were a prefix of; its mismatch policy applies.
-    rule: usize,
+    /// Options of the keymap node the pending chords lead to.
+    policy: Policy,
     deadline: Option<u64>,
 }
 
