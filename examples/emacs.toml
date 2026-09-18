@@ -21,6 +21,21 @@ include = ["default-actions.toml"]
 "C-/" = "undo"
 "C-Space" = "set_mark"
 
+# C-x に続けて押すコマンド。Emacs 本体やターミナルでは C-x 自体を捕まえない (targets)。
+[keymap."C-x"]
+h = { do = "select_all", targets = ["non_emacs_app"] }
+"C-s" = { do = "save", targets = ["non_emacs_app"] }
+"C-w" = { do = "save_as", targets = ["non_emacs_app"] }
+k = { do = "close_document", targets = ["non_emacs_app"] }
+"C-f" = { do = "open_file", targets = ["non_emacs_app"] }
+"C-c" = { do = "quit_app", targets = ["non_emacs_app"] }
+# 対応するアプリ (Word) 以外では何も送らない (fallback が無いと元の C-x = 切り取りが送られる)。
+"C-u" = { do = "upcase_region", press = "tap", fallback = "", targets = ["non_emacs_app"] }
+
+# C-x の後に上に無いキーが来たら捨てる (送り直すと C-x が切り取りになるため)。
+[keymap."C-x".options]
+on_mismatch = "discard"
+
 # マーク中は Shift を押したままにするので、移動すると選択範囲が広がる
 # (キーマップに無い Ctrl+→ や PageDown なども同様)。
 # キーマップに無い入力 (文字入力・クリックなど) が来たら、Shift を離してからその入力を送り、マークを解除する。

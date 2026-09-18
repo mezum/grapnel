@@ -9,6 +9,9 @@ app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.e
 [targets.non_emacs_app]
 not = "emacs_like_app"
 
+[targets.ms_word]
+app = "WINWORD.EXE"
+
 [actions]
 # ---- カーソル移動と削除 ----
 forward_char = { non_emacs_app = "Right" }
@@ -36,6 +39,16 @@ select_next_line = { non_emacs_app = "S-Down" }
 select_previous_line = { non_emacs_app = "S-Up" }
 select_beginning_of_line = { non_emacs_app = "S-Home" }
 select_end_of_line = { non_emacs_app = "S-End" }
+
+# ---- ファイル・ウインドウ操作 ----
+select_all = "C-a"
+save = "C-s"
+save_as = "C-S-s"
+close_document = "C-w"
+open_file = "C-o"
+quit_app = "M-F4"
+# Windows には共通の大文字変換が無い。Word は Shift+F3 (大文字/小文字の切り替え)。
+upcase_region = { ms_word = "S-F3" }
 
 # ---- タブ・アプリの切り替え ----
 next_tab = "C-Tab"
