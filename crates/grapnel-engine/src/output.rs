@@ -2,7 +2,7 @@
 
 use crate::{Active, Command, Engine};
 use grapnel_config::{ActionId, Press, Step, WindowInfo, any_matches};
-use grapnel_keys::{Chord, Key, Mods};
+use grapnel_keys::{Chord, Key, KeySeq, Mods};
 
 const MAX_CALL_DEPTH: usize = 8;
 /// Unassigned VK sent before releasing Alt/Win so the menu or Start does not open.
@@ -36,40 +36,40 @@ impl Engine {
             }
             return out;
         };
-        let single = match imp.steps.as_slice() {
-            [Step::Keys(s)] if s.0.len() == 1 && !instant(&s.0[0].key) => Some(s.0[0].clone()),
+        // Keys-only output is held like a keyboard: earlier chords are tapped, the last one held.
+        let held = match imp.steps.as_slice() {
+            [Step::Keys(s)] => s.0.split_last().filter(|(last, _)| !instant(&last.key)),
             _ => None,
         };
-        match single.filter(|_| rule.press == Press::Hold && !instant(&trigger)) {
-            Some(c) => {
-                self.press_mods(c.mods, &mut out);
-                out.push(key(&c.key, true));
-                self.active.insert(trigger, Active::Hold(c));
+        match held.filter(|_| rule.press == Press::Hold && !instant(&trigger)) {
+            Some((last, before)) => {
+                self.tap_chords(before, &mut out);
+                self.press_mods(last.mods, &mut out);
+                out.push(key(&last.key, true));
+                self.active.insert(trigger, Active::Hold(last.clone()));
             }
             None => {
                 self.run_steps(&imp.steps, "", win, 0, &mut out);
                 if !instant(&trigger) {
-                    let input_only = imp
-                        .steps
-                        .iter()
-                        .all(|s| matches!(s, Step::Keys(_) | Step::Text(_) | Step::MouseMove { .. } | Step::Sleep(_)));
-                    self.active.insert(trigger, Active::Tap(input_only.then(|| imp.steps.clone())));
+                    let last = match imp.steps.last() {
+                        Some(Step::Keys(s)) => s.0.last().map(|c| Step::Keys(KeySeq(vec![c.clone()]))),
+                        Some(s @ (Step::Text(_) | Step::MouseMove { .. })) => Some(s.clone()),
+                        _ => None,
+                    };
+                    self.active.insert(trigger, Active::Tap(last));
                 }
             }
         }
         out
     }
 
-    /// Output for a key repeat of a held trigger.
+    /// Output for a key repeat of a held trigger: like a keyboard, only the last key repeats.
     pub(crate) fn repeat(&mut self, a: &Active, win: &WindowInfo) -> Vec<Command> {
         let mut out = vec![];
         match a {
-            Active::Hold(c) => {
-                self.press_mods(c.mods, &mut out);
-                out.push(key(&c.key, true));
-            }
+            Active::Hold(c) => out.push(key(&c.key, true)),
             Active::Pass(k) => out.push(key(k, true)),
-            Active::Tap(Some(steps)) => self.run_steps(steps, "", win, 0, &mut out),
+            Active::Tap(Some(step)) => self.run_steps(std::slice::from_ref(step), "", win, 0, &mut out),
             Active::Tap(None) => {}
         }
         out
@@ -89,20 +89,6 @@ impl Engine {
             Active::Pass(k) => out.push(key(&k, false)),
             Active::Tap(_) => {}
         }
-        out
-    }
-
-    /// Sends an unmapped key with emulated modifiers; held keys stay down until released.
-    pub(crate) fn emulate(&mut self, chord: Chord) -> Vec<Command> {
-        if instant(&chord.key) {
-            let mut out = vec![];
-            self.tap_seq(&[chord], &mut out);
-            return out;
-        }
-        let mut out = vec![];
-        self.press_mods(chord.mods, &mut out);
-        out.push(key(&chord.key, true));
-        self.active.insert(chord.key.clone(), Active::Hold(chord));
         out
     }
 
@@ -164,8 +150,13 @@ impl Engine {
         }
     }
 
-    /// Taps each chord with exactly its modifiers, then restores the physical modifier state.
+    /// Taps each chord with exactly its modifiers, then restores the held modifier state.
     pub(crate) fn tap_seq(&mut self, chords: &[Chord], out: &mut Vec<Command>) {
+        self.tap_chords(chords, out);
+        self.restore(out);
+    }
+
+    fn tap_chords(&mut self, chords: &[Chord], out: &mut Vec<Command>) {
         for c in chords.iter().filter(|c| !matches!(c.key, Key::Pad(_) | Key::Gesture(..))) {
             self.press_mods(c.mods, out);
             out.push(key(&c.key, true));
@@ -173,7 +164,6 @@ impl Engine {
                 self.key_up(&c.key, out);
             }
         }
-        self.restore(out);
     }
 
     /// Makes the OS modifier state equal `want` (real modifiers only).
@@ -193,9 +183,16 @@ impl Engine {
         }
     }
 
-    /// Makes the OS modifier state equal the physically held modifiers.
+    /// Makes the OS modifier state equal the held modifiers: physical ones plus the `as`
+    /// modifiers of held user modifiers.
     pub(crate) fn restore(&mut self, out: &mut Vec<Command>) {
-        let physical: Vec<Key> = self.down.iter().filter(|k| k.real_mod().is_some()).cloned().collect();
+        let mut physical: Vec<Key> = self.down.iter().filter(|k| k.real_mod().is_some()).cloned().collect();
+        let emulate = self.emulated_mods();
+        for (m, left) in REAL {
+            if emulate.contains(m) && !physical.iter().any(|k| k.real_mod() == Some(m)) {
+                physical.push(Key::Vk(left));
+            }
+        }
         let release: Vec<Key> = self.os_mods.iter().filter(|k| !physical.contains(k)).cloned().collect();
         if release.iter().any(|k| matches!(k.real_mod(), Some(Mods::ALT | Mods::WIN))) {
             out.extend([key(&MASK, true), key(&MASK, false)]);

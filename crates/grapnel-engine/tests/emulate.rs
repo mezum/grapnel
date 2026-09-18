@@ -1,18 +1,19 @@
-//! User modifiers with `as`: keys without a rule are sent with the emulated real modifiers.
+//! User modifiers with `as`: the emulated real modifiers are held while the user modifier is,
+//! and are only lifted for rule output that does not want them.
 mod common;
 use common::*;
 
 const CMD: &str = "[modifiers.Cmd]\nkey = \"F19\"\ntap = \"\"\nas = \"C\"";
 
 #[test]
-fn unmapped_keys_get_the_emulated_modifier() {
+fn emulated_modifier_is_held_with_the_user_modifier() {
     let mut t = t(&rule("Cmd-S-]", "\"C-Tab\"", "", CMD));
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
     assert_eq!(t.down("F19"), eaten(""));
-    assert_eq!(t.down("c"), eaten("+LCtrl +c"));
-    assert_eq!(t.down("c"), eaten("+c"));
-    assert_eq!(t.up("c"), eaten("-c -LCtrl"));
-    assert_eq!(t.up("F19"), eaten(""));
-    // Without Cmd nothing changes.
+    assert_eq!(t.down("c"), pass());
+    assert_eq!(t.down("c"), pass());
+    assert_eq!(t.up("c"), pass());
+    assert_eq!(t.up("F19"), eaten("-LCtrl"));
     assert_eq!(t.down("c"), pass());
 }
 
@@ -21,24 +22,33 @@ fn physical_modifiers_combine_with_the_emulated_one() {
     let mut t = t(&rule("Cmd-S-]", "\"C-Tab\"", "", CMD));
     t.down("F19");
     t.down("LShift");
-    assert_eq!(t.down("a"), eaten("+LCtrl +a"));
-    assert_eq!(t.up("a"), eaten("-a -LCtrl"));
+    assert_eq!(t.down("a"), pass());
+    assert_eq!(t.down("WheelUp"), pass());
+    assert_eq!(t.down("LButton"), pass());
 }
 
 #[test]
-fn rules_take_precedence() {
+fn rules_lift_only_what_they_do_not_want() {
     let mut t = t(&rule("Cmd-S-]", "\"C-Tab\"", "", CMD));
     t.down("F19");
     t.down("LShift");
-    assert_eq!(t.down("]"), eaten("+LCtrl -LShift +Tab"));
-    assert_eq!(t.up("]"), eaten("-Tab -LCtrl +LShift"));
+    assert_eq!(t.down("]"), eaten("-LShift +Tab"));
+    assert_eq!(t.down("]"), eaten("+Tab"));
+    assert_eq!(t.up("]"), eaten("-Tab +LShift"));
+    assert_eq!(t.up("LShift"), pass());
+    assert_eq!(t.up("F19"), eaten("-LCtrl"));
 }
 
 #[test]
-fn wheel_and_clicks_are_emulated_too() {
-    let mut t = t(&rule("Cmd-S-]", "\"C-Tab\"", "", CMD));
+fn tap_lifts_the_emulated_modifier() {
+    let mut t = t("[modifiers.Cmd]\nkey = \"F19\"\ntap = \"Esc\"\nas = \"C\"");
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
+    assert_eq!(t.up("F19"), eaten("-LCtrl +Esc -Esc"));
+}
+
+#[test]
+fn reset_releases_the_emulated_modifier() {
+    let mut t = t(CMD);
     t.down("F19");
-    assert_eq!(t.down("WheelUp"), eaten("+LCtrl +WheelUp -LCtrl"));
-    assert_eq!(t.down("LButton"), eaten("+LCtrl +LButton"));
-    assert_eq!(t.up("LButton"), eaten("-LButton -LCtrl"));
+    assert_eq!(t.e.reset(), keys("-LCtrl"));
 }

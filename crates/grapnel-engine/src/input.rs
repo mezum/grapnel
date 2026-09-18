@@ -7,10 +7,10 @@ impl Engine {
         self.cfg.modifiers.iter().position(|m| m.key == *key)
     }
 
-    /// Real modifiers emulated by the active user modifiers (`as`).
-    fn emulated_mods(&self) -> Mods {
-        let active = self.user_mods.iter().zip(&self.cfg.modifiers).filter(|(s, _)| **s == UserMod::Active);
-        active.fold(Mods::NONE, |a, (_, m)| a | m.emulate)
+    /// Real modifiers emulated (`as`) by user modifiers that are held down.
+    pub(crate) fn emulated_mods(&self) -> Mods {
+        let held = self.user_mods.iter().zip(&self.cfg.modifiers).filter(|(s, _)| **s != UserMod::Idle);
+        held.fold(Mods::NONE, |a, (_, m)| a | m.emulate)
     }
 
     /// Physical real modifiers plus active user modifiers.
@@ -38,10 +38,12 @@ impl Engine {
             return Reaction::default();
         }
         if let Some(i) = this_mod {
+            let mut out = vec![];
             if !repeat {
                 self.user_mods[i] = UserMod::Pending(now);
+                self.restore(&mut out); // presses its `as` modifiers
             }
-            return consumed(vec![]);
+            return consumed(out);
         }
         if repeat {
             if let Some(a) = self.active.remove(&key) {
@@ -72,14 +74,15 @@ impl Engine {
         }
         if let Some(i) = self.user_mod_index(&key) {
             let m = &self.cfg.modifiers[i];
-            let mut out = vec![];
-            if let UserMod::Pending(t) = self.user_mods[i]
-                && (m.tap_timeout_ms == 0 || now.saturating_sub(t) <= m.tap_timeout_ms as u64)
-            {
-                let tap = m.tap.clone();
-                self.tap_seq(&tap.0, &mut out);
-            }
+            let tap = match self.user_mods[i] {
+                UserMod::Pending(t) if m.tap_timeout_ms == 0 || now.saturating_sub(t) <= m.tap_timeout_ms as u64 => {
+                    m.tap.clone()
+                }
+                _ => KeySeq::default(),
+            };
             self.user_mods[i] = UserMod::Idle;
+            let mut out = vec![];
+            self.tap_seq(&tap.0, &mut out); // also releases its `as` modifiers
             return consumed(out);
         }
         if let Some(g) = self.gesture.take_if(|g| key == Key::Mouse(g.button)) {
@@ -198,11 +201,6 @@ impl Engine {
         }
         if self.pending.is_some() {
             return consumed(self.mismatch(Some(key)));
-        }
-        let emulate = self.emulated_mods();
-        if emulate != Mods::NONE && !matches!(key, Key::Pad(_) | Key::Gesture(..)) {
-            let chord = Chord { mods: self.current_mods().real() | emulate, key };
-            return consumed(self.emulate(chord));
         }
         let block = self.cfg.modes[self.mode].block_unmapped && matches!(key, Key::Vk(_) | Key::Sc(_));
         if block {

@@ -43,19 +43,19 @@ fn emacs_bindings_skip_emacs_and_terminals() {
 #[test]
 fn mac_cmd_modifier() {
     let mut t = example("mac-cmd.toml");
-    assert_eq!(t.tap("F19"), (eaten(""), eaten("")));
-    t.down("F19");
-    // Plain Cmd combinations become Ctrl.
-    assert_eq!(t.down("c"), eaten("+LCtrl +c"));
-    assert_eq!(t.up("c"), eaten("-c -LCtrl"));
-    // Tab switching and capture keep the physical Shift only where needed.
+    // Holding Cmd holds Ctrl, so plain Cmd combinations pass through as Ctrl ones.
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
+    assert_eq!(t.down("c"), pass());
+    t.up("c");
+    // Rules lift only what their output does not want.
     t.down("LShift");
-    assert_eq!(t.down("]"), eaten("+LCtrl -LShift +Tab"));
-    assert_eq!(t.up("]"), eaten("-Tab -LCtrl +LShift"));
-    assert_eq!(t.down("["), eaten("+LCtrl +Tab"));
-    assert_eq!(t.up("["), eaten("-Tab -LCtrl"));
-    assert_eq!(t.down("5"), eaten("+LWin +s -s +vk:0xE8 -vk:0xE8 -LWin"));
+    assert_eq!(t.down("]"), eaten("-LShift +Tab"));
+    assert_eq!(t.down("]"), eaten("+Tab"));
+    assert_eq!(t.up("]"), eaten("-Tab +LShift"));
+    assert_eq!(t.down("["), eaten("+Tab"));
+    assert_eq!(t.up("["), eaten("-Tab"));
+    assert_eq!(t.down("5"), eaten("-LCtrl +LWin +s -s +vk:0xE8 -vk:0xE8 -LWin +LCtrl"));
     assert_eq!(t.up("5"), eaten(""));
-    // Cmd-S-a is Ctrl+Shift+A.
-    assert_eq!(t.down("a"), eaten("+LCtrl +a"));
+    t.up("LShift");
+    assert_eq!(t.up("F19"), eaten("-LCtrl"));
 }

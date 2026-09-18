@@ -5,7 +5,7 @@ mod input;
 mod output;
 
 use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, Step, WindowInfo, any_matches};
-use grapnel_keys::{Chord, Dir, Key, Mods, MouseButton};
+use grapnel_keys::{Chord, Dir, Key, KeySeq, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -75,8 +75,8 @@ enum Active {
     Hold(Chord),
     /// The original key was injected and is passed through until released.
     Pass(Key),
-    /// A tap action; key repeat re-runs these steps (only when they are input-only).
-    Tap(Option<Vec<Step>>),
+    /// A tap action; key repeat re-runs only its last input step (last chord for keys).
+    Tap(Option<Step>),
 }
 
 struct Gesture {
@@ -168,6 +168,7 @@ impl Engine {
             out.extend(self.release(a));
         }
         self.down.retain(|k| k.real_mod().is_some());
+        self.user_mods.fill(UserMod::Idle);
         self.restore(&mut out);
         let mods = std::mem::take(&mut self.down);
         *self = Engine { mode: self.mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };

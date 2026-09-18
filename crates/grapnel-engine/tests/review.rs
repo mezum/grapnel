@@ -35,13 +35,13 @@ fn shared_hold_output_released_by_last_trigger() {
 }
 
 #[test]
-fn hold_repeat_reasserts_output_modifiers() {
+fn hold_repeat_follows_physical_modifiers_like_a_keyboard() {
     let mut t = t(&rule("C-a", "\"C-b\"", "", ""));
     t.down("LCtrl");
     assert_eq!(t.down("a"), eaten("+b"));
     t.up("LCtrl");
-    assert_eq!(t.down("a"), eaten("+LCtrl +b"));
-    assert_eq!(t.up("a"), eaten("-b -LCtrl"));
+    assert_eq!(t.down("a"), eaten("+b"));
+    assert_eq!(t.up("a"), eaten("-b"));
 }
 
 #[test]

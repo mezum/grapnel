@@ -23,11 +23,27 @@ fn tap_press_sends_immediately() {
 }
 
 #[test]
-fn multi_step_is_always_tap_and_repeats_input_steps() {
+fn hold_taps_earlier_chords_and_holds_the_last() {
     let mut t = t(&rule("a", "\"b c\"", "", ""));
-    assert_eq!(t.down("a"), eaten("+b -b +c -c"));
-    assert_eq!(t.down("a"), eaten("+b -b +c -c"));
-    assert_eq!(t.up("a"), eaten(""));
+    assert_eq!(t.down("a"), eaten("+b -b +c"));
+    assert_eq!(t.down("a"), eaten("+c"));
+    assert_eq!(t.up("a"), eaten("-c"));
+}
+
+#[test]
+fn repeat_sends_only_the_last_key() {
+    let mut t = t(&rule("a", "\"C-b\"", "", ""));
+    assert_eq!(t.down("a"), eaten("+LCtrl +b"));
+    assert_eq!(t.down("a"), eaten("+b"));
+    assert_eq!(t.up("a"), eaten("-b -LCtrl"));
+    // A tap action repeats only its last chord.
+    let mut t = t_tap();
+    assert_eq!(t.down("a"), eaten("+b -b +LCtrl +c -c -LCtrl"));
+    assert_eq!(t.down("a"), eaten("+LCtrl +c -c -LCtrl"));
+}
+
+fn t_tap() -> T {
+    t(&rule("a", "\"b C-c\"", "press = \"tap\"", ""))
 }
 
 #[test]
