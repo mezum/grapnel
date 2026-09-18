@@ -4,7 +4,7 @@
 mod input;
 mod output;
 
-use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, WindowInfo, any_matches};
+use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, Step, WindowInfo, any_matches};
 use grapnel_keys::{Chord, Dir, Key, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -70,11 +70,13 @@ struct Pending {
 }
 
 /// Output state of a trigger key that is still held.
-struct Active {
-    repeat: Vec<Command>,
-    release: Vec<Command>,
-    /// Restore modifiers to the physical state after `release`.
-    restore: bool,
+enum Active {
+    /// The output chord is held until the trigger is released.
+    Hold(Chord),
+    /// The original key was injected and is passed through until released.
+    Pass(Key),
+    /// A tap action; key repeat re-runs these steps (only when they are input-only).
+    Tap(Option<Vec<Step>>),
 }
 
 struct Gesture {
@@ -155,13 +157,26 @@ impl Engine {
         out
     }
 
-    /// Releases everything held and forgets all state. Call before unhooking.
+    /// Releases everything held and forgets all state except the mode and held modifiers.
+    /// Call before unhooking.
     pub fn reset(&mut self) -> Vec<Command> {
-        let mut out: Vec<Command> = self.active.drain().flat_map(|(_, a)| a.release).collect();
+        let mut out = Vec::new();
+        for (_, a) in std::mem::take(&mut self.active) {
+            out.extend(self.release(a));
+        }
         self.down.retain(|k| k.real_mod().is_some());
         self.restore(&mut out);
-        *self = Engine { mode: self.mode, ..Engine::new(self.cfg.clone()) };
+        let mods = std::mem::take(&mut self.down);
+        *self = Engine { mode: self.mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };
+        self.down = mods;
         out
+    }
+
+    /// Tells the engine which real modifier keys are physically held (e.g. read from the OS after re-hooking).
+    pub fn sync_modifiers(&mut self, held: &[Key]) {
+        self.down.retain(|k| k.real_mod().is_none());
+        self.down.extend(held.iter().cloned());
+        self.os_mods = held.to_vec();
     }
 }
 

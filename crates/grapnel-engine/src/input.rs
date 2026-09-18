@@ -17,26 +17,31 @@ impl Engine {
     pub(crate) fn on_down(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
         let instant = matches!(key, Key::Wheel(_) | Key::Gesture(..));
         let repeat = !instant && !self.down.insert(key.clone());
+        let this_mod = self.user_mod_index(&key);
+        if !repeat {
+            for (i, s) in self.user_mods.iter_mut().enumerate() {
+                if Some(i) != this_mod && matches!(s, UserMod::Pending(_)) {
+                    *s = UserMod::Active;
+                }
+            }
+        }
         if key.real_mod().is_some() {
             if !self.os_mods.contains(&key) {
                 self.os_mods.push(key);
             }
             return Reaction::default();
         }
-        if let Some(i) = self.user_mod_index(&key) {
+        if let Some(i) = this_mod {
             if !repeat {
                 self.user_mods[i] = UserMod::Pending(now);
             }
             return consumed(vec![]);
         }
-        for s in &mut self.user_mods {
-            if matches!(s, UserMod::Pending(_)) {
-                *s = UserMod::Active;
-            }
-        }
         if repeat {
-            if let Some(a) = self.active.get(&key) {
-                return consumed(a.repeat.clone());
+            if let Some(a) = self.active.remove(&key) {
+                let out = self.repeat(&a, win);
+                self.active.insert(key, a);
+                return consumed(out);
             }
             if self.swallowed.contains(&key) {
                 return consumed(vec![]);
@@ -77,11 +82,7 @@ impl Engine {
         }
         if let Some(a) = self.active.remove(&key) {
             self.swallowed.remove(&key);
-            let mut out = a.release;
-            if a.restore {
-                self.restore(&mut out);
-            }
-            return consumed(out);
+            return consumed(self.release(a));
         }
         Reaction { consume: self.swallowed.remove(&key), commands: vec![] }
     }
@@ -120,10 +121,7 @@ impl Engine {
             out.push(down.clone());
         }
         if let Some(a) = self.active.remove(&key) {
-            out.extend(a.release);
-            if a.restore {
-                self.restore(&mut out);
-            }
+            out.extend(self.release(a));
         } else if out.last() == Some(&down) {
             out.push(Command::Key { key: key.clone(), down: false });
         }
@@ -141,6 +139,32 @@ impl Engine {
     }
 
     fn match_key(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
+        let expired = self.pending.as_ref().is_some_and(|p| p.deadline.is_some_and(|d| d <= now));
+        if !expired {
+            return self.match_fresh(key, win, now);
+        }
+        let mut out = self.mismatch(None);
+        let mut r = self.match_fresh(key.clone(), win, now);
+        if !out.is_empty() && !r.consume {
+            // Injected output must not be overtaken by the original event, so inject it too.
+            self.inject_pass(key, &mut r.commands);
+            r.consume = true;
+        }
+        out.append(&mut r.commands);
+        Reaction { consume: r.consume, commands: out }
+    }
+
+    /// Injects `key` down and passes it through until released.
+    pub(crate) fn inject_pass(&mut self, key: Key, out: &mut Vec<Command>) {
+        if !matches!(key, Key::Gesture(..)) {
+            out.push(Command::Key { key: key.clone(), down: true });
+        }
+        if !matches!(key, Key::Wheel(_) | Key::Gesture(..)) {
+            self.active.insert(key.clone(), Active::Pass(key));
+        }
+    }
+
+    fn match_fresh(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
         let chord = Chord { mods: self.current_mods(), key: key.clone() };
         let mut seq = self.pending.as_ref().map(|p| p.chords.clone()).unwrap_or_default();
         seq.push(chord);
@@ -187,9 +211,8 @@ impl Engine {
             (Mismatch::Fallback, Some(f)) => self.tap_seq(&f.0, &mut out),
             (Mismatch::Replay, _) | (Mismatch::Fallback, None) => {
                 self.tap_seq(&p.chords, &mut out);
-                let replay = rule.on_mismatch == Mismatch::Replay;
-                if let Some(k) = current.clone().filter(|k| replay && !matches!(k, Key::Gesture(..))) {
-                    out.push(Command::Key { key: k, down: true });
+                if let Some(k) = current.clone().filter(|_| rule.on_mismatch == Mismatch::Replay) {
+                    self.inject_pass(k, &mut out);
                     return out;
                 }
             }

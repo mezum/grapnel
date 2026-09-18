@@ -31,17 +31,7 @@ impl Engine {
                 None => {
                     // Let the original input through: earlier chords as taps, the trigger as held.
                     self.tap_seq(&seq[..seq.len() - 1], &mut out);
-                    if !matches!(trigger, Key::Gesture(..)) {
-                        out.push(key(&trigger, true));
-                    }
-                    if !instant(&trigger) {
-                        let a = Active {
-                            repeat: vec![key(&trigger, true)],
-                            release: vec![key(&trigger, false)],
-                            restore: false,
-                        };
-                        self.active.insert(trigger, a);
-                    }
+                    self.inject_pass(trigger, &mut out);
                 }
             }
             return out;
@@ -54,8 +44,7 @@ impl Engine {
             Some(c) => {
                 self.press_mods(c.mods, &mut out);
                 out.push(key(&c.key, true));
-                let a = Active { repeat: vec![key(&c.key, true)], release: vec![key(&c.key, false)], restore: true };
-                self.active.insert(trigger, a);
+                self.active.insert(trigger, Active::Hold(c));
             }
             None => {
                 self.run_steps(&imp.steps, "", win, 0, &mut out);
@@ -64,12 +53,51 @@ impl Engine {
                         .steps
                         .iter()
                         .all(|s| matches!(s, Step::Keys(_) | Step::Text(_) | Step::MouseMove { .. } | Step::Sleep(_)));
-                    let repeat = if input_only { out.clone() } else { vec![] };
-                    self.active.insert(trigger, Active { repeat, release: vec![], restore: false });
+                    self.active.insert(trigger, Active::Tap(input_only.then(|| imp.steps.clone())));
                 }
             }
         }
         out
+    }
+
+    /// Output for a key repeat of a held trigger.
+    pub(crate) fn repeat(&mut self, a: &Active, win: &WindowInfo) -> Vec<Command> {
+        let mut out = vec![];
+        match a {
+            Active::Hold(c) => {
+                self.press_mods(c.mods, &mut out);
+                out.push(key(&c.key, true));
+            }
+            Active::Pass(k) => out.push(key(k, true)),
+            Active::Tap(Some(steps)) => self.run_steps(steps, "", win, 0, &mut out),
+            Active::Tap(None) => {}
+        }
+        out
+    }
+
+    /// Output when a held trigger is released. `a` must already be removed from `active`.
+    pub(crate) fn release(&mut self, a: Active) -> Vec<Command> {
+        let mut out = vec![];
+        match a {
+            Active::Hold(c) => {
+                let shared = self.active.values().any(|o| matches!(o, Active::Hold(h) if h.key == c.key));
+                if !shared {
+                    self.key_up(&c.key, &mut out);
+                }
+                self.restore(&mut out);
+            }
+            Active::Pass(k) => out.push(key(&k, false)),
+            Active::Tap(_) => {}
+        }
+        out
+    }
+
+    /// Releases `k`, masking a bare Alt/Win release.
+    fn key_up(&self, k: &Key, out: &mut Vec<Command>) {
+        if matches!(k.real_mod(), Some(Mods::ALT | Mods::WIN)) {
+            out.extend([key(&MASK, true), key(&MASK, false)]);
+        }
+        out.push(key(k, false));
     }
 
     pub(crate) fn run_action(
@@ -128,7 +156,7 @@ impl Engine {
             self.press_mods(c.mods, out);
             out.push(key(&c.key, true));
             if !matches!(c.key, Key::Wheel(_)) {
-                out.push(key(&c.key, false));
+                self.key_up(&c.key, out);
             }
         }
         self.restore(out);
