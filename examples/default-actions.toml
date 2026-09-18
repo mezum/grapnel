@@ -59,6 +59,12 @@ previous_tab = "C-S-Tab"
 switch_app = "M-Tab"
 switch_app_back = "M-S-Tab"
 
+# ---- 仮想デスクトップ ----
+previous_desktop = "W-C-Left"
+next_desktop = "W-C-Right"
+task_view = "W-Tab"
+show_desktop = "W-d"
+
 # ---- 画面キャプチャ ----
 # Snipping Tool のキャプチャバーを開く。バーで静止画と録画を切り替えられる。
 # 最初から録画にしたい場合は "W-S-r" にする。

@@ -27,5 +27,12 @@ as = "C"
 "M-Tab" = { do = "next_tab", keep_mods = true }
 "M-S-Tab" = { do = "previous_tab", keep_mods = true }
 
+# 仮想デスクトップ (macOS の Ctrl+矢印に合わせる)。物理 Ctrl+←/→ は単語移動ではなくなるが、
+# Cmd (F19)+←/→ は Ctrl+←/→ としてアプリに届くので、単語移動はそちらでできる。
+"C-Left" = "previous_desktop"
+"C-Right" = "next_desktop"
+"C-Up" = { do = "task_view", press = "tap" }        # Mission Control 相当
+"C-Down" = { do = "show_desktop", press = "tap" }   # アプリ Exposé は無いのでデスクトップの表示
+
 # スクリーンショット / 画面録画。
 "Cmd-S-5" = { do = "screenshot", press = "tap" }
