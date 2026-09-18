@@ -4,6 +4,11 @@
 use grapnel_schema::RawConfig;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+/// Paths the backend loaded; `save` refuses to write anywhere else.
+#[derive(Default)]
+struct Loaded(Mutex<Vec<PathBuf>>);
 
 /// One config file as edited in the UI.
 #[derive(Serialize, Deserialize)]
@@ -29,12 +34,10 @@ fn initial_entry() -> String {
 
 /// Reads the entry file and everything it includes. A missing entry yields one empty file.
 #[tauri::command]
-fn load(entry: String) -> Result<Vec<FileDoc>, Vec<String>> {
+fn load(entry: String, loaded: tauri::State<Loaded>) -> Result<Vec<FileDoc>, Vec<String>> {
     let path = PathBuf::from(&entry);
-    if !path.exists() {
-        return Ok(vec![FileDoc { path: entry, raw: RawConfig::default() }]);
-    }
-    let files = grapnel_config::load(&path)?;
+    let files = if path.exists() { grapnel_config::load(&path)? } else { vec![(path, RawConfig::default())] };
+    *loaded.0.lock().unwrap() = files.iter().map(|(p, _)| p.clone()).collect();
     Ok(files.into_iter().map(|(p, raw)| FileDoc { path: p.display().to_string(), raw }).collect())
 }
 
@@ -44,15 +47,25 @@ fn validate(files: Vec<FileDoc>) -> Vec<String> {
     grapnel_config::compile(&to_pairs(files)).err().unwrap_or_default()
 }
 
-/// Validates, then writes every file. Nothing is written when invalid.
+/// Validates, then writes every file (each atomically). Nothing is written when invalid.
+/// Afterwards the files are re-read from disk and checked again, which catches `include` edits
+/// that change which files belong to the configuration.
 #[tauri::command]
-fn save(files: Vec<FileDoc>) -> Result<(), Vec<String>> {
+fn save(files: Vec<FileDoc>, loaded: tauri::State<Loaded>) -> Result<(), Vec<String>> {
     let pairs = to_pairs(files);
+    let known = loaded.0.lock().unwrap().clone();
+    if let Some((p, _)) = pairs.iter().find(|(p, _)| !known.contains(p)) {
+        return Err(vec![format!("{}: 読み込んでいないファイルには保存できません", p.display())]);
+    }
     grapnel_config::compile(&pairs)?;
+    // ponytail: files are replaced one by one; a failure midway leaves earlier files saved.
     for (path, raw) in &pairs {
         grapnel_config::save(path, raw).map_err(|e| vec![format!("{}: {e}", path.display())])?;
     }
-    Ok(())
+    grapnel_config::load(&pairs[0].0).and_then(|f| grapnel_config::compile(&f)).map(drop).map_err(|mut e| {
+        e.insert(0, "保存しましたが、読み直すとエラーがあります (include を確認してください):".into());
+        e
+    })
 }
 
 /// Asks the running grapnel to reload its configuration.
@@ -63,6 +76,7 @@ fn apply() -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .manage(Loaded::default())
         .invoke_handler(tauri::generate_handler![initial_entry, load, validate, save, apply])
         .run(tauri::generate_context!())
         .expect("error while running grapnel-settings");
