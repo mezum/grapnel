@@ -188,7 +188,9 @@ fn emacs_redo_depends_on_the_app() {
     let mut t = example("emacs.toml");
     t.down("LCtrl");
     t.down("LShift");
-    for (app, out) in [("notepad.exe", "-LShift +y"), ("WINWORD.EXE", "-LShift +y"), ("blender.exe", "+z"), ("Photoshop.exe", "+z")] {
+    for (app, out) in
+        [("notepad.exe", "-LShift +y"), ("WINWORD.EXE", "-LShift +y"), ("blender.exe", "+z"), ("Photoshop.exe", "+z")]
+    {
         t.app(app);
         assert_eq!(t.down("/"), eaten(out), "{app}");
         t.up("/");
@@ -224,4 +226,16 @@ fn mac_virtual_desktops() {
     // Cmd (F19) + arrows still reach apps as Ctrl + arrows (word movement).
     t.down("F19");
     assert_eq!(t.down("Right"), pass());
+}
+
+#[test]
+fn emacs_meta_x_opens_a_bottom_prompt() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    t.down("LAlt");
+    let prompt = Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom };
+    assert_eq!(t.down("x").commands, vec![prompt]);
+    t.up("x");
+    t.app("emacs.exe");
+    assert_eq!(t.down("x"), pass());
 }

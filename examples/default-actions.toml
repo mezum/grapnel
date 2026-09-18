@@ -59,6 +59,10 @@ previous_tab = "C-S-Tab"
 switch_app = "M-Tab"
 switch_app_back = "M-S-Tab"
 
+# ---- コマンド ----
+# 画面下に 1 行の入力欄を出し、入力した名前のアクションを実行する (Emacs の M-x)。
+execute_extended_command = [{ input = "M-x", position = "bottom" }]
+
 # ---- 仮想デスクトップ ----
 previous_desktop = "W-C-Left"
 next_desktop = "W-C-Right"

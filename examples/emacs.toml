@@ -21,6 +21,8 @@ include = ["default-actions.toml"]
 "C-/" = "undo"
 "C-S-/" = "redo"
 "C-Space" = "set_mark"
+# 入力した名前のアクションを実行する。Emacs 本体やターミナルでは M-x をそのまま使う。
+"M-x" = { do = "execute_extended_command", targets = ["non_emacs_app"] }
 
 # C-x に続けて押すコマンド。Emacs 本体やターミナルでは C-x 自体を捕まえない (targets)。
 [keymap."C-x"]
