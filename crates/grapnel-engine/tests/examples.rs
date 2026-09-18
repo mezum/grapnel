@@ -1,6 +1,7 @@
 //! The shipped example configs compile and behave as documented.
 mod common;
 use common::*;
+use grapnel_engine::{Command, Reaction};
 
 fn example(name: &str) -> T {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples").join(name);
@@ -43,6 +44,37 @@ fn emacs_kill_and_yank() {
     t.down("LAlt");
     assert_eq!(t.down("w"), eaten("+LCtrl +vk:0xE8 -vk:0xE8 -LAlt +c"));
     assert_eq!(t.up("w"), eaten("-c -LCtrl +LAlt +vk:0xE8 -vk:0xE8"));
+}
+
+#[test]
+fn emacs_mark() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    t.down("LCtrl");
+    assert_eq!(t.down("Space").commands, vec![Command::ModeChanged("mark".into())]);
+    t.up("Space");
+    // Movement extends the selection.
+    assert_eq!(t.down("f"), eaten("-LCtrl +LShift +Right"));
+    assert_eq!(t.down("f"), eaten("+Right"));
+    assert_eq!(t.up("f"), eaten("-Right -LShift +LCtrl"));
+    assert_eq!(t.down("e"), eaten("-LCtrl +LShift +End"));
+    t.up("e");
+    // Cut ends the mark.
+    let r = t.down("w");
+    assert_eq!(r.commands.last(), Some(&Command::ModeChanged("default".into())));
+    t.up("w");
+    assert_eq!(t.down("f"), eaten("-LCtrl +Right"));
+    t.up("f");
+    t.up("LCtrl");
+    // Plain arrows extend too, and typing passes through and ends the mark.
+    t.down("LCtrl");
+    t.tap("Space");
+    t.up("LCtrl");
+    assert_eq!(t.down("Left"), eaten("+LShift +Left"));
+    t.up("Left");
+    assert_eq!(t.down("x"), Reaction { consume: false, commands: vec![Command::ModeChanged("default".into())] });
+    t.up("x");
+    assert_eq!(t.down("Left"), pass());
 }
 
 #[test]

@@ -1,4 +1,4 @@
-# Emacs 風のカーソル移動と削除。
+# Emacs 風のカーソル移動・削除・切り取りと貼り付け・マーク。
 # 使い方: grapnel.exe --config examples\emacs.toml
 # または %APPDATA%\grapnel\config.toml から include = ["...\\emacs.toml"] で読み込む。
 
@@ -8,6 +8,193 @@ app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.e
 
 [targets.others]
 not = "emacs_like_app"
+
+# ---- マーク (C-Space) ----
+# マークモードの間は、移動キーを Shift 付きで送って選択範囲を広げる。
+# ルールに無い入力 (文字入力・クリックなど) が来たら、その入力は流したままマークを解除する。
+# モードごとのルールは、全モード共通のルールより前に書く (宣言順で最初に合ったものが使われる)。
+[modes.mark]
+unmapped_to = "default"
+
+[[rules]]
+keys = "C-Space"
+action = "set_mark"
+modes = ["default"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-Space"
+action = "deactivate_mark"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-g"
+action = "deactivate_mark"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-f"
+action = "select_forward_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "Right"
+action = "select_forward_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-b"
+action = "select_backward_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "Left"
+action = "select_backward_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-n"
+action = "select_next_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "Down"
+action = "select_next_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-p"
+action = "select_previous_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "Up"
+action = "select_previous_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-a"
+action = "select_beginning_of_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "Home"
+action = "select_beginning_of_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-e"
+action = "select_end_of_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "End"
+action = "select_end_of_line"
+modes = ["mark"]
+targets = ["others"]
+
+# 編集系はいつもの動作をしてからマークを解除する。
+[[rules]]
+keys = "C-w"
+action = "mark_kill_region"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "M-w"
+action = "mark_kill_ring_save"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-y"
+action = "mark_yank"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-k"
+action = "mark_kill_line"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-h"
+action = "mark_delete_backward_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-d"
+action = "mark_delete_char"
+modes = ["mark"]
+targets = ["others"]
+
+[[rules]]
+keys = "C-/"
+action = "mark_undo"
+modes = ["mark"]
+targets = ["others"]
+
+[[actions.set_mark]]
+do = [{ mode = "mark" }]
+
+[[actions.deactivate_mark]]
+do = [{ mode = "default" }]
+
+[[actions.select_forward_char]]
+do = ["S-Right"]
+
+[[actions.select_backward_char]]
+do = ["S-Left"]
+
+[[actions.select_next_line]]
+do = ["S-Down"]
+
+[[actions.select_previous_line]]
+do = ["S-Up"]
+
+[[actions.select_beginning_of_line]]
+do = ["S-Home"]
+
+[[actions.select_end_of_line]]
+do = ["S-End"]
+
+[[actions.mark_kill_region]]
+do = [{ call = "kill_region" }, { mode = "default" }]
+
+[[actions.mark_kill_ring_save]]
+do = [{ call = "kill_ring_save" }, { mode = "default" }]
+
+[[actions.mark_yank]]
+do = [{ call = "yank" }, { mode = "default" }]
+
+[[actions.mark_kill_line]]
+do = [{ call = "kill_line" }, { mode = "default" }]
+
+[[actions.mark_delete_backward_char]]
+do = [{ call = "delete_backward_char" }, { mode = "default" }]
+
+[[actions.mark_delete_char]]
+do = [{ call = "delete_char" }, { mode = "default" }]
+
+[[actions.mark_undo]]
+do = [{ call = "undo" }, { mode = "default" }]
+
+# ---- 全モード共通 ----
 
 # 押している間は出力も押したまま (press の既定値 "hold") なので、
 # C-f を押し続ければ Right がキーリピートされる。
