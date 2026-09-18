@@ -11,6 +11,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde.workspace = true
+# Tauri reads command arguments through serde_json::Value; keep key order (keymap, targets).
+serde_json = { version = "1", features = ["preserve_order"] }
 grapnel-config.workspace = true
 grapnel-schema.workspace = true
 grapnel-win.workspace = true

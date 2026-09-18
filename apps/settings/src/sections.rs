@@ -1,7 +1,8 @@
-//! Form sections for settings, modes, modifiers, targets and rules.
+//! Form sections for settings, modes, modifiers, targets and the keymap.
 
 use crate::Store;
 use crate::fields::*;
+use crate::keymap::node_editor;
 use grapnel_schema::*;
 use leptos::prelude::*;
 use std::collections::BTreeMap;
@@ -100,6 +101,10 @@ pub fn modes() -> impl IntoView {
                 {check("定義外のキーを握りつぶす", &p, |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
                 {opt_text("unmapped_to (定義外の入力で移るモード)", &p, |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
                 {opt_text("hold (モード中に押したままにする修飾キー 例: S)", &p, |m| m.hold.clone(), |m, x| m.hold = x)}
+                <details class="mode-keymap">
+                    <summary>"このモード専用のキーマップ"</summary>
+                    {node_editor(p.map(|m| Some(&m.keymap), |m| Some(&mut m.keymap)))}
+                </details>
             }
         },
     )
@@ -148,45 +153,13 @@ pub fn targets() -> impl IntoView {
     )
 }
 
-const PRESS: &[(&str, &str)] = &[("", "既定 (hold)"), ("hold", "hold"), ("tap", "tap")];
-const MISMATCH: &[(&str, &str)] =
-    &[("", "既定 (replay)"), ("replay", "replay"), ("discard", "discard"), ("fallback", "fallback")];
-
-fn rule_row(store: Store, i: usize) -> impl IntoView {
-    let p = Place::<RawRule>::new(store, move |c| c.rules.get(i), move |c| c.rules.get_mut(i));
-    view! {
-        <div class="row">
-            <button class="del" on:click=move |_| store.edit(|c| drop(c.rules.remove(i)))>"削除"</button>
-            {keys("keys", &p, |r| r.keys.clone(), |r, x| r.keys = x, true)}
-            {text("action", &p, |r| r.action.clone(), |r, x| r.action = x)}
-            {list("targets", &p, |r| r.targets.clone(), |r, x| r.targets = x)}
-            {list("modes", &p, |r| r.modes.clone(), |r, x| r.modes = x)}
-            {select("press", &p, PRESS,
-                |r| match r.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
-                |r, x| r.press = match x.as_str() { "hold" => Some(Press::Hold), "tap" => Some(Press::Tap), _ => None })}
-            {opt_keys("fallback (空欄 = 元の入力)", &p, |r| r.fallback.clone(), |r, x| r.fallback = x)}
-            {check("fallback で何も送らない", &p, |r| r.fallback.as_deref() == Some(""), |r, x| r.fallback = x.then(String::new))}
-            {select("on_mismatch", &p, MISMATCH,
-                |r| match r.on_mismatch {
-                    None => "", Some(Mismatch::Replay) => "replay", Some(Mismatch::Discard) => "discard", Some(Mismatch::Fallback) => "fallback",
-                }.into(),
-                |r, x| r.on_mismatch = match x.as_str() {
-                    "replay" => Some(Mismatch::Replay), "discard" => Some(Mismatch::Discard), "fallback" => Some(Mismatch::Fallback), _ => None,
-                })}
-            {num("timeout_ms", &p, |r| r.timeout_ms, |r, x| r.timeout_ms = x)}
-            {check("keep_mods (入力の修飾キーを離すまで出力の修飾キーを保持)", &p, |r| r.keep_mods, |r, x| r.keep_mods = x)}
-        </div>
-    }
-}
-
-pub fn rules() -> impl IntoView {
+pub fn keymap() -> impl IntoView {
     let store = store();
+    let p = Place::<RawNode>::new(store, |c| Some(&c.keymap), |c| Some(&mut c.keymap));
     view! {
         <section>
-            <For each=move || indices(store.read(|c| c.rules.len())) key=|i| *i let:i>
-                {rule_row(store, i)}
-            </For>
-            <button on:click=move |_| store.edit(|c| c.rules.push(RawRule::default()))>"追加"</button>
+            <p class="hint">"全モード共通のキーマップ。キーは chord (例: C-x)。子の節にすると、続けて押すキー列 (C-x t 0 など) になる。"</p>
+            {node_editor(p)}
         </section>
     }
 }

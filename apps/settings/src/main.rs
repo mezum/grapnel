@@ -2,6 +2,7 @@
 
 mod actions;
 mod fields;
+mod keymap;
 mod sections;
 
 use fields::indices;
@@ -68,7 +69,7 @@ impl Store {
     }
 }
 
-const TABS: [&str; 6] = ["全般", "モード", "修飾キー", "ターゲット", "ルール", "アクション"];
+const TABS: [&str; 6] = ["全般", "モード", "修飾キー", "ターゲット", "キーマップ", "アクション"];
 
 #[component]
 fn App() -> impl IntoView {
@@ -152,7 +153,7 @@ fn App() -> impl IntoView {
                     1 => sections::modes().into_any(),
                     2 => sections::modifiers().into_any(),
                     3 => sections::targets().into_any(),
-                    4 => sections::rules().into_any(),
+                    4 => sections::keymap().into_any(),
                     _ => actions::actions().into_any(),
                 }}
             </main>
