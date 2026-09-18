@@ -1,5 +1,5 @@
 use grapnel_config::*;
-use grapnel_keys::{Key, Mods, parse_seq};
+use grapnel_keys::{Key, KeySeq, Mods, parse_seq};
 use std::path::{Path, PathBuf};
 
 fn files(list: &[(&str, &str)]) -> Vec<(PathBuf, RawConfig)> {
@@ -14,6 +14,10 @@ fn errs(list: &[(&str, &str)]) -> String {
     compile(&files(list)).unwrap_err().join("\n")
 }
 
+fn seq(s: &str, user: &[&str]) -> KeySeq {
+    parse_seq(s, user).unwrap()
+}
+
 const BASE: &str = r#"
 [settings]
 initial_mode = "normal"
@@ -21,22 +25,18 @@ passthrough = ["game"]
 suspend_hotkey = "C-M-p"
 [modes.normal]
 block_unmapped = true
+[modes.normal.keymap]
+"C-g" = [{ mode = "default" }]
 [modifiers.Mu]
 key = "Muhenkan"
 [targets.editor]
 app = "code.exe"
 [targets.game]
 app = 'C:\Games\*'
-[[rules]]
-keys = "Mu-j C-x"
-action = "down"
-targets = ["editor"]
-modes = ["normal"]
-press = "tap"
-fallback = ""
-[[actions.down]]
-when = ["editor"]
-do = ["Down", { call = "down" }, { mode = "default" }, { input = "?", then = "down" }]
+[keymap]
+"Mu-j" = { do = "down", press = "tap", fallback = "", targets = ["editor"] }
+[actions]
+down = { editor = ["Down", { call = "down" }, { mode = "default" }, { input = "?", then = "down" }], "*" = "Up" }
 "#;
 
 #[test]
@@ -46,59 +46,106 @@ fn compiles_base() {
     assert!(c.modes[1].block_unmapped);
     assert_eq!(c.settings.passthrough, [1]);
     assert_eq!(c.settings.suspend_hotkey.as_ref().unwrap().mods, Mods::CTRL | Mods::ALT);
-    assert_eq!(c.modifiers[0].tap, parse_seq("Muhenkan", &[]).unwrap());
+    assert_eq!(c.modifiers[0].tap, seq("Muhenkan", &[]));
     assert_eq!(c.targets[1].fields[0].0, Field::ExePath);
-    let r = &c.rules[0];
+    // The mode keymap comes first.
+    assert_eq!(c.rules[0].modes, [1]);
+    let r = &c.rules[1];
     assert_eq!(r.keys.0[0].mods, Mods::user(0));
-    assert_eq!((r.targets.as_slice(), r.modes.as_slice(), r.press), (&[0][..], &[1][..], Press::Tap));
+    assert_eq!((r.targets.as_slice(), r.modes.as_slice(), r.press), (&[0][..], &[][..], Press::Tap));
     assert_eq!(r.fallback, Some(Default::default()));
-    let steps = &c.actions[0].impls[0].steps;
-    assert_eq!(steps[1], Step::Call { action: 0, arg: None });
-    assert_eq!(steps[2], Step::Mode(0));
+    let down = &c.actions[c.action_id("down").unwrap()];
+    assert_eq!(down.impls.len(), 2);
+    assert_eq!(down.impls[0].when, [0]);
+    assert_eq!(down.impls[0].steps[1], Step::Call { action: 0, arg: None });
+    assert_eq!(down.impls[1].when, [] as [usize; 0]);
 }
 
 #[test]
 fn defaults() {
-    let c = ok("[[rules]]\nkeys = \"a\"\naction = \"x\"\n[[actions.x]]\ndo = [\"b\"]");
+    let c = ok("[keymap]\na = \"b\"");
     let r = &c.rules[0];
-    assert_eq!((r.press, r.on_mismatch, r.timeout_ms, &r.fallback), (Press::Hold, Mismatch::Replay, 0, &None));
+    assert_eq!((r.press, &r.fallback, r.keep_mods), (Press::Hold, &None, false));
+    assert_eq!(c.policy(&r.keys.0, 0), Policy::default());
     assert_eq!(c.settings.gesture_threshold, 30);
     assert_eq!(c.modes[c.settings.initial_mode].name, DEFAULT_MODE);
 }
 
 #[test]
-fn reports_unknown_names_with_location() {
-    let e = errs(&[("m.toml", "[[rules]]\nkeys = \"Foo\"\naction = \"nope\"\ntargets = [\"t\"]\nmodes = [\"z\"]")]);
-    assert!(e.contains("m.toml: rules[0].keys: unknown key 'Foo'"), "{e}");
-    assert!(e.contains("rules[0].action: unknown action 'nope'"), "{e}");
-    assert!(e.contains("rules[0].targets: unknown target 't'"), "{e}");
-    assert!(e.contains("rules[0].modes: unknown mode 'z'"), "{e}");
+fn strings_are_action_names_or_keys() {
+    let c = ok("[keymap]\na = \"undo\"\nb = \"C-z\"\n[actions]\nundo = \"C-z\"");
+    assert_eq!(c.rules[0].action, c.action_id("undo").unwrap());
+    let anon = &c.actions[c.rules[1].action];
+    assert_eq!(anon.impls[0].steps, [Step::Keys(seq("C-z", &[]))]);
+    assert!(errs(&[("m", "[keymap]\na = \"nope\"")]).contains("m: keymap.\"a\": unknown action or key 'nope'"));
 }
 
 #[test]
-fn rejects_bad_keys() {
-    let rule = |k: &str| {
-        format!("[modifiers.Mu]\nkey = \"Muhenkan\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\n[[actions.x]]\ndo = []")
-    };
-    assert!(errs(&[("m", &rule("LCtrl"))]).contains("is a modifier"));
-    assert!(errs(&[("m", &rule("Muhenkan"))]).contains("user modifier key"));
-    assert!(errs(&[("m", &rule(""))]).contains("empty"));
-    let e = errs(&[("m", "[[actions.x]]\ndo = [\"Pad.A\", \"Mu-a\", \"RButton:U\"]")]);
+fn tree_flattens_to_sequences_with_inherited_options() {
+    let c = ok(r#"
+[keymap.options]
+timeout_ms = 500
+[keymap."C-x"]
+"C-s" = "save"
+"t Enter" = "new"
+[keymap."C-x".t]
+"0" = "close"
+[keymap."C-x".t.options]
+on_mismatch = "fallback"
+fallback = "Esc"
+[actions]
+save = "C-s"
+new = "C-t"
+close = "C-w"
+"#);
+    let keys: Vec<_> = c.rules.iter().map(|r| r.keys.clone()).collect();
+    assert_eq!(keys, [seq("C-x C-s", &[]), seq("C-x t Enter", &[]), seq("C-x t 0", &[])]);
+    let root = c.policy(&seq("C-x", &[]).0, 0);
+    assert_eq!((root.on_mismatch, root.timeout_ms), (Mismatch::Replay, 500));
+    let t = c.policy(&seq("C-x t", &[]).0, 0);
+    assert_eq!((t.on_mismatch, t.timeout_ms, t.fallback), (Mismatch::Fallback, 500, Some(seq("Esc", &[]))));
+}
+
+#[test]
+fn reports_unknown_names_with_location() {
+    let e = errs(&[("m.toml", "[keymap]\nFoo = \"a\"\nb = { do = \"a\", targets = [\"t\"] }\nc = [{ mode = \"z\" }]")]);
+    assert!(e.contains("m.toml: keymap.\"Foo\": unknown key 'Foo'"), "{e}");
+    assert!(e.contains("keymap.\"b\".targets: unknown target 't'"), "{e}");
+    assert!(e.contains("keymap.\"c\"[0]: unknown mode 'z'"), "{e}");
+}
+
+#[test]
+fn rejects_bad_keys_and_options() {
+    let bind = |k: &str| format!("[modifiers.Mu]\nkey = \"Muhenkan\"\n[keymap]\n\"{k}\" = \"a\"");
+    assert!(errs(&[("m", &bind("LCtrl"))]).contains("is a modifier"));
+    assert!(errs(&[("m", &bind("Muhenkan"))]).contains("user modifier key"));
+    assert!(errs(&[("m", &bind(""))]).contains("empty"));
+    let e = errs(&[("m", "[actions]\nx = [\"Pad.A\", \"Mu-a\", \"RButton:U\"]")]);
     assert_eq!(e.lines().count(), 3, "{e}");
+    assert!(errs(&[("m", "[keymap]\na = { do = \"b\", pres = \"tap\" }")]).contains("unknown option 'pres'"));
     assert!(errs(&[("m", "[modifiers.C]\nkey = \"a\"")]).contains("name must be"));
     assert!(errs(&[("m", "[modifiers.X]\nkey = \"LShift\"")]).contains("cannot be"));
     assert!(errs(&[("m", "[settings]\nsuspend_hotkey = \"C-LButton\"")]).contains("suspend_hotkey"));
 }
 
 #[test]
-fn multi_file_merge_and_duplicates() {
-    let a = "[targets.t]\n[[actions.x]]\ndo = [\"a\"]\n[[rules]]\nkeys = \"a\"\naction = \"x\"";
-    let b = "[[actions.x]]\nwhen = [\"t\"]\ndo = [\"b\"]\n[[rules]]\nkeys = \"b\"\naction = \"x\"";
+fn duplicates_and_unreachable_bindings() {
+    let e = errs(&[("a", "[keymap]\n\"C-x\" = \"b\""), ("b", "[keymap]\n\"C-x\" = \"c\"\n\"C-x t\" = \"d\"")]);
+    assert!(e.contains("b: keymap.\"C-x\": already bound at a: keymap.\"C-x\""), "{e}");
+    assert!(e.contains("b: keymap.\"C-x t\": unreachable"), "{e}");
+    // A mode keymap may override the global one.
+    ok("[keymap]\na = \"b\"\n[modes.m.keymap]\na = \"c\"");
+}
+
+#[test]
+fn multi_file_merge_and_duplicate_definitions() {
+    let a = "[targets.t]\n[actions]\nx = \"a\"\n[keymap]\na = \"x\"";
+    let b = "[keymap]\nb = \"x\"";
     let c = compile(&files(&[("a", a), ("b", b)])).unwrap();
-    assert_eq!(c.actions[0].impls.len(), 2);
     assert_eq!(c.rules.len(), 2);
-    let e = errs(&[("a", a), ("b", "[targets.t]\n[settings]")]);
+    let e = errs(&[("a", a), ("b", "[targets.t]\n[actions]\nx = \"b\"\n[settings]")]);
     assert!(e.contains("b: targets.t: already defined in a"), "{e}");
+    assert!(e.contains("b: actions.x: already defined in a"), "{e}");
     assert!(e.contains("b: settings: only allowed in the entry file"), "{e}");
 }
 
@@ -111,9 +158,7 @@ fn circular_targets() {
 
 #[test]
 fn scancodes_are_collected() {
-    let c = ok(
-        "[modifiers.K]\nkey = \"Kana\"\n[[rules]]\nkeys = \"sc:0x7B Zenkaku\"\naction = \"x\"\n[[actions.x]]\ndo = []",
-    );
+    let c = ok("[modifiers.K]\nkey = \"Kana\"\n[keymap]\n\"sc:0x7B Zenkaku\" = \"a\"");
     assert_eq!(c.scancodes(), [0x29, 0x70, 0x7B]);
     assert_eq!(c.modifiers[0].key, Key::Sc(0x70));
 }
@@ -145,7 +190,7 @@ fn load_expands_includes_in_order_once() {
 fn load_reports_missing_and_invalid() {
     let d = temp_dir("bad");
     write(&d.join("config.toml"), "include = [\"missing.toml\", \"apps/bad.toml\"]");
-    write(&d.join("apps/bad.toml"), "[[rules]]\nkeys = 1");
+    write(&d.join("apps/bad.toml"), "[keymap]\na = 1");
     let e = load(&d.join("config.toml")).unwrap_err().join("\n");
     assert!(e.contains("include 'missing.toml': file not found"), "{e}");
     assert!(e.contains("bad.toml"), "{e}");
@@ -162,14 +207,13 @@ fn save_round_trips() {
 #[test]
 fn too_many_modifiers_is_an_error_not_a_panic() {
     let mut s: String = (0..29).map(|i| format!("[modifiers.U{i:02}]\nkey = \"F{}\"\n", i % 24 + 1)).collect();
-    s += "[[rules]]\nkeys = \"U28-a\"\naction = \"x\"\n[[actions.x]]\ndo = []";
+    s += "[keymap]\n\"U28-a\" = \"b\"";
     assert!(errs(&[("m", &s)]).contains("too many modifiers"));
 }
 
 #[test]
 fn scancode_modifiers_are_rejected() {
-    let e = errs(&[("m", "[[rules]]\nkeys = \"sc:0xE01D\"\naction = \"x\"\n[[actions.x]]\ndo = []")]);
-    assert!(e.contains("is a modifier"), "{e}");
+    assert!(errs(&[("m", "[keymap]\n\"sc:0xE01D\" = \"a\"")]).contains("is a modifier"));
     assert!(errs(&[("m", "[modifiers.X]\nkey = \"sc:0x2A\"")]).contains("cannot be"));
 }
 
@@ -200,28 +244,20 @@ fn modifier_as_emulates_real_modifiers() {
 
 #[test]
 fn keep_mods_needs_a_modifier() {
-    let rule = |k: &str| {
-        format!(
-            "[modifiers.Cmd]\nkey = \"F19\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\nkeep_mods = true\n[[actions.x]]\ndo = []"
-        )
-    };
-    assert!(ok(&rule("Cmd-Tab")).rules[0].keep_mods);
-    assert!(ok(&rule("M-Tab")).rules[0].keep_mods);
-    assert!(errs(&[("m", &rule("Tab"))]).contains("rules[0].keep_mods"));
+    let bind =
+        |k: &str| format!("[modifiers.Cmd]\nkey = \"F19\"\n[keymap]\n\"{k}\" = {{ do = \"a\", keep_mods = true }}");
+    assert!(ok(&bind("Cmd-Tab")).rules[0].keep_mods);
+    assert!(ok(&bind("M-Tab")).rules[0].keep_mods);
+    assert!(errs(&[("m", &bind("Tab"))]).contains("keymap.\"Tab\".keep_mods"));
 }
 
 #[test]
-fn modes_unmapped_to() {
-    let c = ok("[modes.mark]\nunmapped_to = \"default\"");
-    assert_eq!(c.modes[1].unmapped_to, Some(0));
+fn modes_unmapped_to_and_hold() {
+    let c = ok("[modes.mark]\nunmapped_to = \"default\"\nhold = \"S\"");
+    assert_eq!((c.modes[1].unmapped_to, c.modes[1].hold), (Some(0), Mods::SHIFT));
     assert_eq!(c.modes[0].unmapped_to, None);
     assert!(
         errs(&[("m", "[modes.mark]\nunmapped_to = \"nope\"")]).contains("modes.mark.unmapped_to: unknown mode 'nope'")
     );
-}
-
-#[test]
-fn modes_hold() {
-    assert_eq!(ok("[modes.mark]\nhold = \"S\"").modes[1].hold, Mods::SHIFT);
     assert!(errs(&[("m", "[modes.mark]\nhold = \"Q\"")]).contains("modes.mark.hold"));
 }
