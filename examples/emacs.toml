@@ -1,0 +1,77 @@
+# Emacs 風のカーソル移動と削除。
+# 使い方: grapnel.exe --config examples\emacs.toml
+# または %APPDATA%\grapnel\config.toml から include = ["...\\emacs.toml"] で読み込む。
+
+# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたいので、変換から外す。
+[targets.emacs_like_app]
+app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.exe$"
+
+[targets.others]
+not = "emacs_like_app"
+
+# 押している間は出力も押したまま (press の既定値 "hold") なので、
+# C-f を押し続ければ Right がキーリピートされる。
+
+[[rules]]
+keys = "C-f"
+action = "forward_char"
+targets = ["others"]
+
+[[rules]]
+keys = "C-b"
+action = "backward_char"
+targets = ["others"]
+
+[[rules]]
+keys = "C-n"
+action = "next_line"
+targets = ["others"]
+
+[[rules]]
+keys = "C-p"
+action = "previous_line"
+targets = ["others"]
+
+[[rules]]
+keys = "C-a"
+action = "beginning_of_line"
+targets = ["others"]
+
+[[rules]]
+keys = "C-e"
+action = "end_of_line"
+targets = ["others"]
+
+[[rules]]
+keys = "C-h"
+action = "delete_backward_char"
+targets = ["others"]
+
+[[rules]]
+keys = "C-d"
+action = "delete_char"
+targets = ["others"]
+
+[[actions.forward_char]]
+do = ["Right"]
+
+[[actions.backward_char]]
+do = ["Left"]
+
+[[actions.next_line]]
+do = ["Down"]
+
+[[actions.previous_line]]
+do = ["Up"]
+
+[[actions.beginning_of_line]]
+do = ["Home"]
+
+[[actions.end_of_line]]
+do = ["End"]
+
+[[actions.delete_backward_char]]
+do = ["Backspace"]
+
+[[actions.delete_char]]
+do = ["Delete"]

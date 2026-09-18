@@ -50,7 +50,7 @@ action = "left"
 do = ["Left"]
 ```
 
-書き方の詳細は [仕様書](docs/spec.md) を参照してください。
+書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を参照してください。
 
 ## 制限
 
