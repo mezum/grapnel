@@ -31,11 +31,11 @@ fn set_binding_kind(b: &mut RawBinding, k: String) {
     *b = match (k.as_str(), std::mem::replace(b, RawBinding::Short(String::new()))) {
         ("short", RawBinding::Leaf(RawLeaf { action: RawAction::Short(s), .. })) => RawBinding::Short(s),
         ("short", RawBinding::Short(s)) => RawBinding::Short(s),
-        ("steps", RawBinding::Short(s)) => RawBinding::Steps(short_to_steps(s)),
+        ("steps", RawBinding::Short(s)) => RawBinding::Steps(vec![RawStep::Short(s)]),
         ("steps", RawBinding::Steps(v)) => RawBinding::Steps(v),
         ("steps", RawBinding::Leaf(RawLeaf { action: RawAction::Steps(v), .. })) => RawBinding::Steps(v),
         ("steps", RawBinding::Leaf(RawLeaf { action: RawAction::Short(s), .. })) => {
-            RawBinding::Steps(short_to_steps(s))
+            RawBinding::Steps(vec![RawStep::Short(s)])
         }
         ("leaf", RawBinding::Short(s)) => leaf(RawAction::Short(s)),
         ("leaf", RawBinding::Steps(v)) => leaf(RawAction::Steps(v)),
@@ -51,7 +51,7 @@ fn set_binding_kind(b: &mut RawBinding, k: String) {
 fn leaf_editor(p: Place<RawLeaf>) -> AnyView {
     let action = p.map(|l| Some(&l.action), |l| Some(&mut l.action));
     view! {
-        {action_editor(action, true)}
+        {action_editor(action)}
         <div class="options">
             {select("press", &p, PRESS,
                 |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),

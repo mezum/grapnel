@@ -54,16 +54,6 @@ impl<V: 'static> Place<V> {
     }
 }
 
-/// A string binding as steps: keys stay keys, anything else is an action name to call.
-pub fn short_to_steps(s: String) -> Vec<grapnel_schema::RawStep> {
-    use grapnel_schema::RawStep;
-    if s.is_empty() || grapnel_keys::parse_seq(&s, &[]).is_ok() {
-        vec![RawStep::Short(s)]
-    } else {
-        vec![RawStep::Call { call: s, arg: None }]
-    }
-}
-
 /// Renames a key in place (order kept). Fails for an empty or taken name.
 pub fn rename_key<V>(m: &mut IndexMap<String, V>, old: &str, new: &str) -> bool {
     if new.is_empty() || m.contains_key(new) {

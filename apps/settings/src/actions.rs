@@ -6,7 +6,7 @@ use grapnel_schema::*;
 use leptos::prelude::*;
 
 const KINDS: &[(&str, &str)] = &[
-    ("keys", "キー入力"),
+    ("keys", "キー / アクション名"),
     ("text", "文字入力"),
     ("mouse_move", "マウス相対移動"),
     ("mouse_move_to", "マウス絶対移動"),
@@ -68,15 +68,14 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
     move || {
         let p = &p;
         match k.get().as_str() {
-            "keys" => keys(
-                "keys",
+            "keys" => keys_or_action(
+                "キー / アクション名",
                 p,
                 |s| match s {
                     RawStep::Short(k) | RawStep::Keys { keys: k } => k.clone(),
                     _ => String::new(),
                 },
                 |s, x| *s = RawStep::Short(x),
-                false,
             )
             .into_any(),
             "text" => text(
@@ -194,7 +193,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
     .into_any()
 }
 
-const STEPS_KINDS: &[(&str, &str)] = &[("keys", "キー"), ("steps", "手順")];
+const STEPS_KINDS: &[(&str, &str)] = &[("keys", "キー / アクション名"), ("steps", "手順")];
 
 /// Keys (a string) or a list of steps.
 fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
@@ -213,12 +212,11 @@ fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
     let fields = {
         let p = p.clone();
         move || match k.get() {
-            false => keys(
-                "キー",
+            false => keys_or_action(
+                "キー / アクション名",
                 &p,
                 |s| if let RawSteps::Short(k) = s { k.clone() } else { String::new() },
                 |s, x| *s = RawSteps::Short(x),
-                false,
             )
             .into_any(),
             true => steps_editor(p.map(
@@ -244,11 +242,9 @@ fn action_kind(a: &RawAction) -> String {
 
 fn set_action_kind(a: &mut RawAction, k: String) {
     *a = match (k.as_str(), std::mem::replace(a, RawAction::Short(String::new()))) {
-        ("steps", RawAction::Short(s)) => RawAction::Steps(short_to_steps(s)),
+        ("steps", RawAction::Short(s)) => RawAction::Steps(vec![RawStep::Short(s)]),
         ("steps", RawAction::Steps(v)) => RawAction::Steps(v),
-        ("by_target", RawAction::Short(s)) => {
-            RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Steps(short_to_steps(s)))]))
-        }
+        ("by_target", RawAction::Short(s)) => RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Short(s))])),
         ("by_target", RawAction::Steps(v)) => RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Steps(v))])),
         ("by_target", by @ RawAction::ByTarget(_)) => by,
         ("short", RawAction::Short(s)) => RawAction::Short(s),
@@ -256,8 +252,8 @@ fn set_action_kind(a: &mut RawAction, k: String) {
     }
 }
 
-/// An action: keys (or, in a keymap, an action name), steps, or target → steps in order.
-pub fn action_editor(p: Place<RawAction>, in_keymap: bool) -> AnyView {
+/// An action: keys or an action name, steps, or target → steps in order.
+pub fn action_editor(p: Place<RawAction>) -> AnyView {
     let k = {
         let p = p.clone();
         Memo::new(move |_| p.read(action_kind))
@@ -268,11 +264,7 @@ pub fn action_editor(p: Place<RawAction>, in_keymap: bool) -> AnyView {
             "short" => {
                 let get = |a: &RawAction| if let RawAction::Short(s) = a { s.clone() } else { String::new() };
                 let set = |a: &mut RawAction, x| *a = RawAction::Short(x);
-                if in_keymap {
-                    keys_or_action("キー / アクション名", &p, get, set).into_any()
-                } else {
-                    keys("キー", &p, get, set, false).into_any()
-                }
+                keys_or_action("キー / アクション名", &p, get, set).into_any()
             }
             "steps" => steps_editor(p.map(
                 |a| if let RawAction::Steps(v) = a { Some(v) } else { None },
@@ -336,7 +328,7 @@ pub fn actions() -> impl IntoView {
                     move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
                     move || d.edit(|m| drop(m.shift_remove(&del))),
                 )}
-                {action_editor(ap, false)}
+                {action_editor(ap)}
             </div>
         }
     };
