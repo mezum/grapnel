@@ -65,4 +65,13 @@ fn mac_cmd_modifier() {
     assert_eq!(t.down("Tab"), eaten("+Tab"));
     t.up("Tab");
     assert_eq!(t.up("F19"), eaten("+vk:0xE8 -vk:0xE8 -LAlt"));
+    // Physical Alt-Tab switches tabs, keeping Ctrl down until Alt is released.
+    t.down("LAlt");
+    assert_eq!(t.down("Tab"), eaten("+LCtrl +vk:0xE8 -vk:0xE8 -LAlt +Tab"));
+    t.up("Tab");
+    t.down("LShift");
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    t.up("Tab");
+    t.up("LShift");
+    assert_eq!(t.up("LAlt"), eaten("-LCtrl"));
 }

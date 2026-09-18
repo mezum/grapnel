@@ -88,6 +88,18 @@ impl Engine {
     pub(crate) fn on_up(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
         self.down.remove(&key);
         if let Some(m) = key.real_mod() {
+            // Last physical key of a modifier lifted by `keep_mods`: end the replacement. The OS
+            // already saw this modifier released, so the physical release is swallowed.
+            if let Some((lifted, _)) = self.real_kept
+                && lifted.contains(m)
+                && !self.down.iter().any(|k| k.real_mod() == Some(m))
+            {
+                self.real_kept = None;
+                self.os_mods.retain(|k| *k != key);
+                let mut out = vec![];
+                self.restore(&mut out);
+                return consumed(out);
+            }
             self.os_mods.retain(|k| *k != key);
             // A held `as` modifier still wants it: press it again after this release passes.
             let mut out = vec![];

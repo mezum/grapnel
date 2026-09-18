@@ -93,6 +93,9 @@ pub struct Engine {
     user_mods: Vec<UserMod>,
     /// Per user modifier: output modifiers kept pressed by a `keep_mods` rule (replaces `as`).
     kept: Vec<Mods>,
+    /// `keep_mods` on a real-modifier trigger: `(lifted, kept)` — the physical modifiers in `lifted`
+    /// are kept released and `kept` pressed until the user lets go of them.
+    real_kept: Option<(Mods, Mods)>,
     pending: Option<Pending>,
     active: HashMap<Key, Active>,
     swallowed: HashSet<Key>,
@@ -115,6 +118,7 @@ impl Engine {
             mode: cfg.settings.initial_mode,
             user_mods: vec![UserMod::Idle; cfg.modifiers.len()],
             kept: vec![Mods::NONE; cfg.modifiers.len()],
+            real_kept: None,
             down: HashSet::new(),
             os_mods: Vec::new(),
             pending: None,
@@ -173,6 +177,7 @@ impl Engine {
         self.down.retain(|k| k.real_mod().is_some());
         self.user_mods.fill(UserMod::Idle);
         self.kept.fill(Mods::NONE);
+        self.real_kept = None;
         self.restore(&mut out);
         let mods = std::mem::take(&mut self.down);
         *self = Engine { mode: self.mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };

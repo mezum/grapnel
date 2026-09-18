@@ -72,6 +72,11 @@ impl Engine {
         let Some(trigger) = seq.last() else { return };
         let user = trigger.mods.0 >> 4;
         let kept = Mods(mods.real().0 & !trigger.mods.real().0);
+        if user == 0 {
+            // Real-modifier trigger (e.g. Alt-Tab → Ctrl-Tab): replace the trigger's modifiers.
+            let lifted = Mods(trigger.mods.real().0 & !mods.real().0);
+            self.real_kept = Some((lifted, kept));
+        }
         for i in (0..self.kept.len()).filter(|i| user & (1 << i) != 0) {
             self.kept[i] = kept;
         }
@@ -200,8 +205,10 @@ impl Engine {
     /// Makes the OS modifier state equal the held modifiers: physical ones plus the `as`
     /// modifiers of held user modifiers.
     pub(crate) fn restore(&mut self, out: &mut Vec<Command>) {
-        let mut physical: Vec<Key> = self.down.iter().filter(|k| k.real_mod().is_some()).cloned().collect();
-        let emulate = self.emulated_mods();
+        let (lifted, real_kept) = self.real_kept.unwrap_or_default();
+        let mut physical: Vec<Key> =
+            self.down.iter().filter(|k| k.real_mod().is_some_and(|m| !lifted.contains(m))).cloned().collect();
+        let emulate = self.emulated_mods() | real_kept;
         for (m, left) in REAL {
             if emulate.contains(m) && !physical.iter().any(|k| k.real_mod() == Some(m)) {
                 physical.push(Key::Vk(left));

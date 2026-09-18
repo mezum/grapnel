@@ -96,3 +96,23 @@ fn keep_mods_holds_output_modifiers_until_the_user_modifier_is_released() {
     // Next time Cmd is Ctrl again.
     assert_eq!(t.down("F19"), eaten("+LCtrl"));
 }
+
+#[test]
+fn keep_mods_with_a_real_modifier_replaces_it_until_released() {
+    let cfg = "[[rules]]\nkeys = \"M-Tab\"\naction = \"tab\"\nkeep_mods = true\n\
+               [[rules]]\nkeys = \"M-S-Tab\"\naction = \"tabb\"\nkeep_mods = true\n\
+               [[actions.tab]]\ndo = [\"C-Tab\"]\n[[actions.tabb]]\ndo = [\"C-S-Tab\"]";
+    let mut t = t(cfg);
+    assert_eq!(t.down("LAlt"), pass());
+    assert_eq!(t.down("Tab"), eaten("+LCtrl +vk:0xE8 -vk:0xE8 -LAlt +Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    assert_eq!(t.down("LShift"), pass());
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    assert_eq!(t.up("LShift"), pass());
+    // Releasing Alt ends the replacement; the OS already saw Alt go up.
+    assert_eq!(t.up("LAlt"), eaten("-LCtrl"));
+    assert_eq!(t.down("a"), pass());
+}

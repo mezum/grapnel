@@ -32,6 +32,19 @@ keys = "Cmd-S-Tab"
 action = "switch_app_back"
 keep_mods = true
 
+# 物理 Alt-Tab / Alt-Shift-Tab はタブ切り替え (Ctrl-Tab / Ctrl-Shift-Tab) にする。
+# keep_mods により、Alt を離すまで Alt の代わりに Ctrl を押したままにするので、
+# ブラウザや VS Code の Ctrl-Tab の切り替え一覧も開いたままになる。
+[[rules]]
+keys = "M-Tab"
+action = "next_tab"
+keep_mods = true
+
+[[rules]]
+keys = "M-S-Tab"
+action = "previous_tab"
+keep_mods = true
+
 # スクリーンショット / 画面録画 (Snipping Tool のキャプチャバーを開く)。
 [[rules]]
 keys = "Cmd-S-5"
