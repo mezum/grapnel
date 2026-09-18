@@ -17,6 +17,7 @@ const KINDS: &[(&str, &str)] = &[
     ("control", "常駐側への指示"),
     ("input", "入力欄"),
 ];
+const POSITIONS: &[(&str, &str)] = &[("", "中央"), ("bottom", "画面下 (横幅いっぱい)")];
 const CONTROLS: &[(&str, &str)] = &[("suspend", "一時停止の切替"), ("reload", "再読み込み"), ("exit", "終了")];
 
 fn kind(s: &RawStep) -> String {
@@ -45,7 +46,7 @@ fn set_kind(s: &mut RawStep, k: String) {
         "call" => RawStep::Call { call: String::new(), arg: None },
         "mode" => RawStep::Mode { mode: String::new() },
         "control" => RawStep::Control { control: ControlCmd::Suspend },
-        "input" => RawStep::Input { input: String::new(), then: String::new() },
+        "input" => RawStep::Input { input: String::new(), then: None, position: None },
         _ => RawStep::Short(String::new()),
     }
 }
@@ -160,8 +161,14 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             _ => view! {
                 {text("prompt", p, |s| if let RawStep::Input { input, .. } = s { input.clone() } else { String::new() },
                     |s, x| if let RawStep::Input { input, .. } = s { *input = x })}
-                {text("then", p, |s| if let RawStep::Input { then, .. } = s { then.clone() } else { String::new() },
+                {opt_text("then (空欄 = 入力した名前のアクションを実行)", p,
+                    |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
                     |s, x| if let RawStep::Input { then, .. } = s { *then = x })}
+                {select("position", p, POSITIONS,
+                    |s| match s { RawStep::Input { position: Some(InputPosition::Bottom), .. } => "bottom", _ => "" }.into(),
+                    |s, x| if let RawStep::Input { position, .. } = s {
+                        *position = (x == "bottom").then_some(InputPosition::Bottom)
+                    })}
             }
             .into_any(),
         }
