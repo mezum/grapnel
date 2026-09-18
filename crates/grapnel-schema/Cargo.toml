@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 serde.workspace = true
 indexmap = { version = "2", features = ["serde"] }
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [dev-dependencies]
 toml.workspace = true

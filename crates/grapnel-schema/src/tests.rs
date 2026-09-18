@@ -88,3 +88,12 @@ fn rejects_malformed_input() {
     assert!(parse("[keymap.a.options]\ntypo = 1").is_err());
     assert!(parse("[actions]\na = 1").is_err());
 }
+
+#[test]
+fn unknown_leaf_options_survive_serialization() {
+    let c = parse("[keymap]\na = { do = \"b\", pres = \"tap\" }").unwrap();
+    let back = parse(&toml::to_string(&c).unwrap()).unwrap();
+    assert_eq!(back, c);
+    let RawBinding::Leaf(l) = &back.keymap.children["a"] else { panic!() };
+    assert!(l.unknown.contains_key("pres"));
+}

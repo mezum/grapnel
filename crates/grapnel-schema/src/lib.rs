@@ -162,10 +162,10 @@ pub struct RawLeaf {
     pub keep_mods: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<String>,
-    /// Unknown options (reported by the compiler). Being flattened also makes a leaf readable
-    /// only from a table, never from an array.
-    #[serde(flatten, skip_serializing)]
-    pub unknown: IndexMap<String, serde::de::IgnoredAny>,
+    /// Unknown options, kept so they round-trip and the compiler can report them. Being flattened
+    /// also makes a leaf readable only from a table, never from an array.
+    #[serde(flatten)]
+    pub unknown: IndexMap<String, serde_json::Value>,
 }
 
 /// An action: keys, steps, or target name (`"*"` = always) → steps, tried in order.
