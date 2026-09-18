@@ -80,7 +80,7 @@ pub enum Command {
 impl Engine {
     pub fn new(cfg: Arc<Config>) -> Self;
     pub fn handle(&mut self, ev: Event, win: &WindowInfo, now: u64) -> Reaction;
-    pub fn tick(&mut self, win: &WindowInfo, now: u64) -> Vec<Command>;   // chord の時間切れ
+    pub fn tick(&mut self, now: u64) -> Vec<Command>;                      // chord の時間切れ
     pub fn next_deadline(&self) -> Option<u64>;
     pub fn invoke(&mut self, action: ActionId, arg: &str, win: &WindowInfo) -> Vec<Command>;
     pub fn reset(&mut self) -> Vec<Command>;                                // 押しっぱなしを解放
