@@ -1,6 +1,7 @@
 //! Loads grapnel configuration files, validates them and compiles them into [`Config`].
 
 mod compile;
+mod keymap;
 mod load;
 mod matcher;
 
@@ -24,7 +25,10 @@ pub struct Config {
     /// Index = user modifier bit (see `Mods::user`).
     pub modifiers: Vec<Modifier>,
     pub targets: Vec<Target>,
+    /// Keymap leaves flattened to key sequences; mode-specific ones first.
     pub rules: Vec<Rule>,
+    /// Keymap nodes that set options, for chord-waiting behaviour.
+    pub prefixes: Vec<Prefix>,
     pub actions: Vec<Action>,
 }
 
@@ -67,11 +71,26 @@ pub struct Rule {
     pub press: Press,
     /// `None` = send the original input again.
     pub fallback: Option<KeySeq>,
+    /// Output modifiers stay pressed until the modifiers of the last chord in `keys` are released.
+    pub keep_mods: bool,
+}
+
+/// How to wait after a prefix: options of a keymap node, already merged with its ancestors'.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Policy {
     pub on_mismatch: Mismatch,
     /// 0 = no timeout.
     pub timeout_ms: u32,
-    /// Output modifiers stay pressed until the modifiers of the last chord in `keys` are released.
-    pub keep_mods: bool,
+    /// Sent for `on_mismatch = "fallback"`; `None` replays the pending chords.
+    pub fallback: Option<KeySeq>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Prefix {
+    pub keys: Vec<Chord>,
+    /// Empty = every mode.
+    pub modes: Vec<ModeId>,
+    pub policy: Policy,
 }
 
 #[derive(Clone, Debug)]
@@ -102,6 +121,17 @@ pub enum Step {
 impl Config {
     pub fn user_mod_names(&self) -> Vec<&str> {
         self.modifiers.iter().map(|m| m.name.as_str()).collect()
+    }
+
+    /// Policy for waiting after `pending` in `mode`: the deepest node with options on its path.
+    pub fn policy(&self, pending: &[Chord], mode: ModeId) -> Policy {
+        let applies = |p: &&Prefix| (p.modes.is_empty() || p.modes.contains(&mode)) && pending.starts_with(&p.keys);
+        // Deepest first; on a tie the mode-specific node (listed first) wins.
+        let best = self.prefixes.iter().filter(applies).fold(None::<&Prefix>, |best, p| match best {
+            Some(b) if b.keys.len() >= p.keys.len() => Some(b),
+            _ => Some(p),
+        });
+        best.map(|p| p.policy.clone()).unwrap_or_default()
     }
 
     pub fn action_id(&self, name: &str) -> Option<ActionId> {
