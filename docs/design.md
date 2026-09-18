@@ -122,7 +122,7 @@ impl Engine {
 | `window` | `SetWinEventHook` (前面切替・タイトル変更・フォーカス) の通知と、前面ウインドウの `WindowInfo` 取得 |
 | `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する |
 | `tray` | `Shell_NotifyIconW`、バルーン、メニュー (メニューはモーダルループを回すので自由関数) |
-| `toast` | モニターの左下か右下に短いメッセージを出す (Emacs のエコーエリア風)。フォーカスを奪わず、クリックを透過し、タイマーで消える。`Command::Notice` (左下) と実行中のエラー (右下) の表示に使う |
+| `toast` | モニターの左下に短いメッセージを出す (Emacs のエコーエリア風)。フォーカスを奪わず、クリックを透過し、タイマーで消える。`Command::Notice` と実行中のエラーの表示に使う |
 | `inputbox` | Edit を 1 つ持つポップアップ。Enter で確定、Esc で取消。前面化は Alt の注入でロックを外す (`AttachThreadInput` は相手のハングに巻き込まれるので使わない)。閉じたら元の前面ウインドウに戻す |
 | `pipe` | 名前付きパイプのサーバースレッド。最初のインスタンスの作成に失敗したら多重起動とみなす。クライアント側は混雑時に再試行する |
 
@@ -140,7 +140,7 @@ impl Engine {
 - タイマー: `Engine::next_deadline` から `SetTimer` を張り直す。
 - パススルー: 前面の変化 (UIA を使う設定では UIA の結果が届いた時点) で `settings.passthrough` を評価し、入ったら `Engine::reset` → フック解除、出たらフック再設置 → `GetAsyncKeyState` で修飾キーを同期。
 - 再読み込み: 読み込みとコンパイルはワーカースレッドで行い、結果をキューで受け取る。成功したら新しいエンジンに差し替えて修飾キーを同期し、失敗したらバルーンで知らせて旧設定を維持する。
-- ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書き、`error` は右下のトーストにも出す (設定の再読み込み結果はバルーン)。
+- ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書き、`error` は左下のトーストにも出す (設定の再読み込み結果はバルーン)。
 - 起動引数: `--config <path>`。`grapnel reload|suspend|exit` で起動中のインスタンスをパイプ経由で操作する。
 
 ## 8. 設定ツール (grapnel-settings)

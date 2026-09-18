@@ -110,8 +110,8 @@ fn tray_menu() {
     }
 }
 
-fn show_toast(text: &str, corner: toast::Corner, ms: u32) {
-    if let Err(e) = toast::show(text, corner, ms) {
+fn show_toast(text: &str, ms: u32) {
+    if let Err(e) = toast::show(text, ms) {
         log::warn!("cannot show a toast: {e}"); // not error: that would post another toast
     }
 }
@@ -135,10 +135,10 @@ fn handle(msg: Msg) {
         }
         Msg::Deferred(Command::Notice(text)) => {
             log::info!("{text}");
-            show_toast(&text, toast::Corner::BottomLeft, 2500);
+            show_toast(&text, 2500);
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
-        Msg::LogError(text) => show_toast(&text, toast::Corner::BottomRight, 5000),
+        Msg::LogError(text) => show_toast(&text, 5000),
         Msg::Reloaded(result) => {
             inputbox::close(); // its action id belongs to the old config
             with_app(|a| a.apply_reload(result));
