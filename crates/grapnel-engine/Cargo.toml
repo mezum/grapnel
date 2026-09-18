@@ -1,0 +1,13 @@
+[package]
+name = "grapnel-engine"
+description = "Platform-independent input remapping state machine for grapnel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+grapnel-keys.workspace = true
+grapnel-config.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
