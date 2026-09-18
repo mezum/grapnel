@@ -5,7 +5,7 @@ use grapnel_config::{Config, ControlCmd, Field, WindowInfo, any_matches};
 use grapnel_engine::{Command, Engine, Event};
 use grapnel_keys::Key;
 use grapnel_win::{hook, inputbox, uia::Uia, window};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -18,7 +18,7 @@ const TIMER_ID: usize = 1;
 const HOTKEY_ID: i32 = 1;
 const MODIFIER_VKS: [u8; 8] = [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C];
 
-pub fn load(path: &PathBuf) -> Result<Config, Vec<String>> {
+pub fn load(path: &Path) -> Result<Config, Vec<String>> {
     grapnel_config::load(path).and_then(|files| grapnel_config::compile(&files))
 }
 
