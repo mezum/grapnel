@@ -38,7 +38,7 @@ pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl
     view! {
         <div class="name">
             <input prop:value=name on:change=rename />
-            <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete")>"✕"</button>
+            <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
         </div>
     }
 }

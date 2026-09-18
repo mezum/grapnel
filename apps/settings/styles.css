@@ -62,9 +62,9 @@ button:hover:not(:disabled) { border-color: var(--muted); }
 button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 button.del { background: none; border-color: transparent; color: var(--muted); padding: 4px 8px; }
-button.del:hover { color: var(--error); border-color: var(--error); }
+button.del:hover:not(:disabled) { color: var(--error); border-color: var(--error); }
 button.add { background: none; border-style: dashed; color: var(--muted); align-self: flex-start; }
-button.add:hover { color: var(--accent); border-color: var(--accent); }
+button.add:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 input, select {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -80,6 +80,7 @@ header {
   top: 0;
   z-index: 1;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   padding: 10px 16px;

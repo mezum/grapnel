@@ -198,7 +198,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
             <div class="step">
                 {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
                 {step_fields(sp.clone())}
-                <button class="del" title=t!("ui.delete") on:click=move |_| del.edit(|v| drop(v.remove(j)))>"✕"</button>
+                <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete") on:click=move |_| del.edit(|v| drop(v.remove(j)))>"✕"</button>
             </div>
         }
     };
