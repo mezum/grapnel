@@ -18,6 +18,21 @@ pub fn t(cfg: &str) -> T {
     T { e: Engine::new(Arc::new(cfg)), win: WindowInfo::default(), now: 0 }
 }
 
+/// Loads a config file from disk, following `include`.
+pub fn t_file(path: &std::path::Path) -> T {
+    let files = grapnel_config::load(path).unwrap();
+    let cfg = compile(&files).unwrap_or_else(|e| {
+        panic!(
+            "{}",
+            e.join(
+                "
+"
+            )
+        )
+    });
+    T { e: Engine::new(Arc::new(cfg)), win: WindowInfo::default(), now: 0 }
+}
+
 pub fn k(s: &str) -> Key {
     parse_key(s).unwrap()
 }

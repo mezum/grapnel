@@ -3,9 +3,33 @@ mod common;
 use common::*;
 use grapnel_engine::{Command, Reaction};
 
+fn examples() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples")
+}
+
 fn example(name: &str) -> T {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples").join(name);
-    t(&std::fs::read_to_string(path).unwrap())
+    t_file(&examples().join(name))
+}
+
+#[test]
+fn examples_combine_through_includes() {
+    let dir = std::env::temp_dir().join(format!("grapnel-examples-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ex = examples().canonicalize().unwrap();
+    let text = format!("include = [{:?}, {:?}]", ex.join("emacs.toml"), ex.join("mac-cmd.toml"));
+    std::fs::write(dir.join("config.toml"), text).unwrap();
+    let mut t = t_file(&dir.join("config.toml"));
+    t.app("notepad.exe");
+    // mac-cmd.toml: Cmd-S-] switches tabs.
+    t.down("F19");
+    t.down("LShift");
+    assert_eq!(t.down("]"), eaten("-LShift +Tab"));
+    t.up("]");
+    t.up("LShift");
+    t.up("F19");
+    // emacs.toml: C-f moves right.
+    t.down("LCtrl");
+    assert_eq!(t.down("f"), eaten("-LCtrl +Right"));
 }
 
 #[test]
