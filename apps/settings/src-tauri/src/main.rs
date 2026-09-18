@@ -63,8 +63,9 @@ fn save(files: String, loaded: tauri::State<Loaded>) -> Result<(), SaveError> {
     }
     grapnel_config::compile(&pairs).map_err(unsaved)?;
     // ponytail: files are replaced one by one; a failure midway leaves earlier files saved.
-    for (path, raw) in &pairs {
-        grapnel_config::save(path, raw).map_err(|e| unsaved(vec![format!("{}: {e}", path.display())]))?;
+    for (i, (path, raw)) in pairs.iter().enumerate() {
+        let errors = |e| vec![format!("{}: {e}", path.display())];
+        grapnel_config::save(path, raw).map_err(|e| SaveError { saved: i > 0, errors: errors(e) })?;
     }
     let reread = grapnel_config::load(&pairs[0].0).and_then(|f| grapnel_config::compile(&f));
     reread.map(drop).map_err(|errors| SaveError { saved: true, errors })
@@ -73,7 +74,7 @@ fn save(files: String, loaded: tauri::State<Loaded>) -> Result<(), SaveError> {
 /// Errors are English; the front end words the status line.
 #[derive(serde::Serialize)]
 struct SaveError {
-    /// The files were written, but reading them back failed.
+    /// Some or all files were written (a later write or reading them back failed).
     saved: bool,
     errors: Vec<String>,
 }

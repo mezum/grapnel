@@ -251,7 +251,7 @@ fn main() {
     let (tx, rx) = mpsc::channel();
     let _ = TX.set(tx);
     RX.with(|r| *r.borrow_mut() = Some(rx));
-    logger::init();
+    logger::init(|detail| post(Msg::Toast(t!("error.library", detail = detail).into_owned())));
     let path = config_path(&args);
     let cfg =
         app::load(&path).unwrap_or_else(|errors| fatal(&format!("{}\n{}", t!("fatal.config"), errors.join("\n"))));

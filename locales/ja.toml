@@ -20,6 +20,7 @@ hook = "入力フックを設定できません: %{error}"
 run = "%{program} を起動できません: %{error}"
 tray = "トレイアイコンを追加できません: %{error}"
 input_box = "入力欄を表示できません: %{error}"
+library = "エラー: %{detail}"
 
 [fatal]
 no_config_path = "--config にパスがありません"
@@ -52,7 +53,7 @@ language_auto = "Windows の表示言語"
 loaded = "読み込みました"
 save_failed = "保存できませんでした。エラーを確認してください"
 saved = "保存しました"
-saved_with_errors = "保存しましたが、読み直すとエラーがあります (include を確認してください)"
+saved_with_errors = "保存しました (一部のみの場合もあります) が、エラーがあります。下を確認してください"
 applied = "保存して grapnel に再読み込みを指示しました"
 apply_failed = "grapnel に接続できません (起動していますか？): %{error}"
 

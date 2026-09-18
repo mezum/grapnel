@@ -56,7 +56,7 @@ struct Entry {
 
 #[derive(Deserialize)]
 struct SaveError {
-    /// The files were written, but reading them back failed.
+    /// Some or all files were written (a later write or reading them back failed).
     saved: bool,
     errors: Vec<String>,
 }

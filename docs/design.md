@@ -141,7 +141,7 @@ impl Engine {
 - タイマー: `Engine::next_deadline` から `SetTimer` を張り直す。
 - パススルー: 前面の変化 (UIA を使う設定では UIA の結果が届いた時点) で `settings.passthrough` を評価し、入ったら `Engine::reset` → フック解除、出たらフック再設置 → `GetAsyncKeyState` で修飾キーを同期。
 - 再読み込み: 読み込みとコンパイルはワーカースレッドで行い、結果をキューで受け取る。成功したら新しいエンジンに差し替えて修飾キーを同期し、失敗したらバルーンで知らせて旧設定を維持する。
-- ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書き、`error` は左下のトーストにも出す (設定の再読み込み結果はバルーン)。
+- ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書く。exe 自身のエラーは `report!` で左下のトーストに、ライブラリ crate が `log::error!` したものは「エラー:」の見出しを付けて英語の詳細のままトーストに出す (設定の再読み込み結果はバルーン)。
 - 起動引数: `--config <path>`。`grapnel reload|suspend|exit` で起動中のインスタンスをパイプ経由で操作する。
 
 ## 8. 設定ツール (grapnel-settings)
@@ -161,7 +161,7 @@ impl Engine {
 - ライブラリ crate は翻訳しない。画面に出る情報は型で返す (`Command::Notice(Notice)`、`Command::Error(Fault)`) か、英語の文字列 (設定の検証エラー) で返し、exe 側で文言にする。
 - 常駐 exe:
   - 起動時に Windows の表示言語 (`GetUserPreferredUILanguages` の先頭) を設定し、設定を読んだら `settings.language` で上書きする (再読み込みのたびにも)。
-  - 画面に出るエラーは `report!(key, 引数...)` で出す。ログには英語 (`locale = "en"`) で、トーストには現在の言語で出す。ロガーはもう画面に出さない (ライブラリ crate の `log::error!` はログだけに残る)。
+  - 画面に出るエラーは `report!(key, 引数...)` で出す。ログには英語 (`locale = "en"`) で、トーストには現在の言語で出す。
 - 設定ツール:
   - 言語は `RwSignal` に持ち、起動時は `navigator.language`。右上のセレクトで変えると `set_locale` して画面全体を描き直す (状態はシグナルなので残る)。
   - バックエンドは英語の詳細だけを返し、見出しや状態の文言はフロントエンドで訳す。

@@ -1,12 +1,14 @@
-//! Debug builds log to stdout. Release builds append to `%LOCALAPPDATA%\grapnel\grapnel.log`
-//! Logs are always English; errors meant for the user go through `report!`.
+//! Debug builds log to stdout. Release builds append to `%LOCALAPPDATA%\grapnel\grapnel.log`.
+//! Logs are always English. The exe shows its own errors with `report!`; errors logged by the
+//! library crates (which don't translate) go to `on_library_error` as well.
 
-use log::{LevelFilter, Metadata, Record};
+use log::{Level, LevelFilter, Metadata, Record};
 use std::io::Write;
 use std::sync::Mutex;
 
 struct Logger {
     file: Option<Mutex<std::fs::File>>,
+    on_library_error: fn(String),
 }
 
 impl log::Log for Logger {
@@ -25,12 +27,16 @@ impl log::Log for Logger {
             }
             None => println!("{line}"),
         }
+        let own = r.target() == "grapnel" || r.target().starts_with("grapnel::");
+        if r.level() == Level::Error && !own {
+            (self.on_library_error)(r.args().to_string());
+        }
     }
 
     fn flush(&self) {}
 }
 
-pub fn init() {
+pub fn init(on_library_error: fn(String)) {
     let file = if cfg!(debug_assertions) {
         None
     } else {
@@ -40,5 +46,5 @@ pub fn init() {
     };
     let level = if cfg!(debug_assertions) { LevelFilter::Debug } else { LevelFilter::Info };
     log::set_max_level(level);
-    let _ = log::set_logger(Box::leak(Box::new(Logger { file })));
+    let _ = log::set_logger(Box::leak(Box::new(Logger { file, on_library_error })));
 }
