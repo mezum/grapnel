@@ -10,7 +10,7 @@ crates/
   grapnel-engine    変換エンジン。入力イベント → 出力コマンドの純粋な状態機械
   grapnel-pad       gilrs でパッド入力をボタンの押下/解放に変換する
   grapnel-win       Win32: フック, SendInput, 前面ウインドウ/UIA, トレイ, 入力欄, パイプ
-  grapnel           常駐 exe。上記を配線する
+apps/grapnel/       常駐 exe。上記を配線する
 apps/settings/      grapnel-settings-ui: Leptos (CSR, trunk) のフロントエンド
   src-tauri/        grapnel-settings: Tauri 2 のバックエンド (設定ツールの exe)
 ```
@@ -22,7 +22,7 @@ keys ← schema ← config ← engine ← win ← grapnel(bin) → pad
 keys, schema ← settings-ui          schema, config, win ← settings (Tauri)
 ```
 
-`cargo test` は既定メンバー (crates/*) だけを対象にする。設定ツールは `apps/settings` で `cargo tauri build` する。
+`cargo test` は既定メンバー (crates/* と apps/grapnel) だけを対象にする。ライブラリは crates/、実行ファイルは apps/ に置く。設定ツールは `apps/settings` で `cargo tauri build` する。
 
 ## 2. grapnel-keys
 
