@@ -2,6 +2,7 @@
 //! and are only lifted for rule output that does not want them.
 mod common;
 use common::*;
+use grapnel_engine::Reaction;
 
 const CMD: &str = "[modifiers.Cmd]\nkey = \"F19\"\ntap = \"\"\nas = \"C\"";
 
@@ -51,4 +52,22 @@ fn reset_releases_the_emulated_modifier() {
     let mut t = t(CMD);
     t.down("F19");
     assert_eq!(t.e.reset(), keys("-LCtrl"));
+}
+
+#[test]
+fn releasing_the_physical_modifier_keeps_the_emulated_one() {
+    let mut t = t(CMD);
+    t.down("F19");
+    assert_eq!(t.down("LCtrl"), pass());
+    assert_eq!(t.up("LCtrl"), Reaction { consume: false, commands: keys("+LCtrl") });
+    assert_eq!(t.up("F19"), eaten("-LCtrl"));
+}
+
+#[test]
+fn plain_user_modifier_leaves_held_output_alone() {
+    let mut t = t(&rule("a", "\"C-b\"", "", "[modifiers.Mu]\nkey = \"F19\"\ntap = \"\""));
+    assert_eq!(t.down("a"), eaten("+LCtrl +b"));
+    assert_eq!(t.down("F19"), eaten(""));
+    assert_eq!(t.up("F19"), eaten(""));
+    assert_eq!(t.down("a"), eaten("+b"));
 }

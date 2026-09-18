@@ -41,7 +41,9 @@ impl Engine {
             let mut out = vec![];
             if !repeat {
                 self.user_mods[i] = UserMod::Pending(now);
-                self.restore(&mut out); // presses its `as` modifiers
+                if self.cfg.modifiers[i].emulate != Mods::NONE {
+                    self.restore(&mut out); // presses its `as` modifiers
+                }
             }
             return consumed(out);
         }
@@ -68,9 +70,14 @@ impl Engine {
 
     pub(crate) fn on_up(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
         self.down.remove(&key);
-        if key.real_mod().is_some() {
+        if let Some(m) = key.real_mod() {
             self.os_mods.retain(|k| *k != key);
-            return Reaction::default();
+            // A held `as` modifier still wants it: press it again after this release passes.
+            let mut out = vec![];
+            if self.emulated_mods().contains(m) {
+                self.restore(&mut out);
+            }
+            return Reaction { consume: false, commands: out };
         }
         if let Some(i) = self.user_mod_index(&key) {
             let m = &self.cfg.modifiers[i];
@@ -82,7 +89,9 @@ impl Engine {
             };
             self.user_mods[i] = UserMod::Idle;
             let mut out = vec![];
-            self.tap_seq(&tap.0, &mut out); // also releases its `as` modifiers
+            if !tap.0.is_empty() || m.emulate != Mods::NONE {
+                self.tap_seq(&tap.0, &mut out); // also releases its `as` modifiers
+            }
             return consumed(out);
         }
         if let Some(g) = self.gesture.take_if(|g| key == Key::Mouse(g.button)) {
