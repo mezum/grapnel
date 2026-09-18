@@ -4,64 +4,65 @@
 
 ```
 crates/
-  grapnel-keys      キー名・chord・キー列の型と解析 (no deps, wasm 可)
+  grapnel-keys      キー名・chord・キー列の型と解析 (依存なし, wasm 可)
   grapnel-schema    設定ファイルの serde 型 (serde のみ, wasm 可)
   grapnel-config    読み込み・include・検証・コンパイル, ターゲット照合 (regex)
   grapnel-engine    変換エンジン。入力イベント → 出力コマンドの純粋な状態機械
-  grapnel-pad       gilrs でパッド入力を Key の押下/解放に変換する
+  grapnel-pad       gilrs でパッド入力をボタンの押下/解放に変換する
   grapnel-win       Win32: フック, SendInput, 前面ウインドウ/UIA, トレイ, 入力欄, パイプ
   grapnel           常駐 exe。上記を配線する
-apps/settings/
-  src-tauri         grapnel-settings (Tauri 2)。読込/検証/保存/適用のコマンド
-  ui                Leptos (CSR, trunk)。フォーム UI
+apps/settings/      grapnel-settings-ui: Leptos (CSR, trunk) のフロントエンド
+  src-tauri/        grapnel-settings: Tauri 2 のバックエンド (設定ツールの exe)
 ```
 
 依存の向き:
 
 ```
-keys ← schema ← config ← engine ← grapnel(bin) → win, pad
-keys, schema ← ui          keys, schema, config ← src-tauri
+keys ← schema ← config ← engine ← win ← grapnel(bin) → pad
+keys, schema ← settings-ui          schema, config, win ← settings (Tauri)
 ```
 
-`cargo test` は既定メンバー (crates/*) だけを対象にする。Tauri 側は `cargo tauri build` で別に作る。
+`cargo test` は既定メンバー (crates/*) だけを対象にする。設定ツールは `apps/settings` で `cargo tauri build` する。
 
 ## 2. grapnel-keys
 
 ```rust
 pub enum Key {
-    Vk(u8), Sc(u16),                  // キーボード
+    Vk(u8), Sc(u16),                  // キーボード (Sc は 0xE0xx で拡張キー)
     Mouse(MouseButton), Wheel(WheelDir),
     Gesture(MouseButton, Vec<Dir>),
     Pad(PadButton),
 }
-pub struct Mods { pub ctrl, alt, shift, win: bool, pub user: u32 /* ビット集合 */ }
+pub struct Mods(pub u32);             // bit0-3 = C/M/S/W, bit4 以降 = ユーザー修飾キー (最大 28)
 pub struct Chord { pub mods: Mods, pub key: Key }
 pub struct KeySeq(pub Vec<Chord>);
+pub fn parse_seq(s: &str, user_mods: &[&str]) -> Result<KeySeq, String>;
+pub fn format_seq(seq: &KeySeq, user_mods: &[&str]) -> String;
 ```
 
-- 解析は `parse_seq(s, &user_mod_names)` で、ユーザー修飾名の表を受け取ってビット番号へ変換する。
-- `Display` で正規形の文字列に戻せる (設定ツールでの表示と往復テストに使う)。
-- VK の名前表はこの crate に持つ。スキャンコードとの変換は OS に頼る (grapnel-win)。
+- ユーザー修飾キーの名前はビット番号で表すので、解析と整形には名前の表を渡す。
+- 半角/全角・かな・英数は IME の状態で VK が変わるため、スキャンコードの名前として定義する。
 
 ## 3. grapnel-schema
 
-TOML と 1 対 1 の serde 型 (`RawConfig`, `RawRule`, `RawAction`, `RawStep` ...)。
+TOML と 1 対 1 の serde 型 (`RawConfig`, `RawRule`, `RawActionImpl`, `RawStep` ...)。
 意味の検証はしない。設定ツールのフロントエンド (wasm) とバックエンドで共有する。
-`RawStep` は `#[serde(untagged)]` で文字列 (= keys) とテーブルの両方を受ける。
+`RawStep` は `#[serde(untagged)]` で文字列 (= keys) と種類ごとのテーブルを受ける。
 
 ## 4. grapnel-config
 
 ```rust
-pub fn load(entry: &Path) -> Result<Vec<(PathBuf, RawConfig)>, Vec<Error>>   // include 展開
-pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Error>>
+pub fn load(entry: &Path) -> Result<Vec<(PathBuf, RawConfig)>, Vec<String>>   // include 展開
+pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>>
 pub fn save(path: &Path, raw: &RawConfig) -> io::Result<()>
+pub fn any_matches(targets: &[Target], ids: &[TargetId], win: &WindowInfo) -> bool
 ```
 
-- `Config` はエンジンが使う形: 名前を添字に解決済み (`TargetId`, `ActionId`, `ModeId`)。
-- ターゲットは `Matcher` (Exact / Regex) に変換する。glob は正規表現へ変換する。
-- `WindowInfo { exe_name, exe_path, title, class, control, uia_id, uia_name, uia_type }` と `Config::target_matches(id, &WindowInfo)` を提供する。
-- エラーはファイル名と位置 (例 `rules[3].keys`) を含む文字列で、見つかったものをすべて返す。
+- `Config` はエンジンが使う形で、名前は添字 (`TargetId`, `ActionId`, `ModeId`) に解決済み。
+- ターゲットの文字列は `Matcher` (Exact / Regex) に変換する。glob は正規表現に変換する。
+- エラーは `ファイル: 位置: 内容` (例 `main.toml: rules[3].keys: unknown key 'Foo'`) の形で、見つかったものをすべて返す。
 - include の glob は最後のパス要素にだけワイルドカードを許す。
+- `Config::scancodes()` はルールと修飾キーで使うスキャンコードの一覧。フックはこれに含まれるキーだけ `Key::Sc` で報告する。
 
 ## 5. grapnel-engine
 
@@ -75,7 +76,7 @@ pub enum Command {
     Text(String), MouseMove { x: i32, y: i32, absolute: bool },
     Sleep(u32), Run { program: String, args: Vec<String> },
     InputBox { prompt: String, then: ActionId },
-    ModeChanged(String), Control(Control),
+    ModeChanged(String), Control(ControlCmd), Error(String),
 }
 impl Engine {
     pub fn new(cfg: Arc<Config>) -> Self;
@@ -84,6 +85,7 @@ impl Engine {
     pub fn next_deadline(&self) -> Option<u64>;
     pub fn invoke(&mut self, action: ActionId, arg: &str, win: &WindowInfo) -> Vec<Command>;
     pub fn reset(&mut self) -> Vec<Command>;                                // 押しっぱなしを解放
+    pub fn sync_modifiers(&mut self, held: &[Key]);                         // フック再設置時など
 }
 ```
 
@@ -91,48 +93,59 @@ impl Engine {
 
 | 状態 | 内容 |
 | --- | --- |
-| `down` | 物理的に押されているキーの集合 (リピート判定と修飾状態) |
+| `down` | 物理的に押されているキーの集合 (リピート判定と chord の修飾状態) |
 | `os_mods` | OS から見て押されている修飾キー (退避と復元の基準) |
 | `pending` | 待機中の chord 列と最初に合った接頭辞ルール、期限 |
-| `user_mods` | ユーザー修飾キーの状態 (保留 / 有効) |
-| `holds` | 入力キー → 離したときに送るコマンド |
+| `user_mods` | ユーザー修飾キーの状態 (待機 / 保留 / 有効) |
+| `active` | 押されている入力キー → `Hold(出力 chord)` / `Pass(元のキー)` / `Tap(リピート時に再実行する手順)` |
 | `swallowed` | 押下を握りつぶしたキー。解放も握りつぶす |
 | `gesture` | 記録中のボタン、移動量の累計、方向列 |
 | `mode` | 現在のモード |
 
-ジェスチャーでボタン単体として扱う場合や `replay` では、握りつぶした入力を `Command::Key` で送り直す。
+- リピートでは保存したコマンドを再送せず、その時点の修飾状態から出力を作り直す。
+- 素通しにしたい入力を一度握りつぶした場合 (replay、既定の fallback、時間切れ後の入力) は、`Pass` として注入し、解放まで追跡する。
+- ソースは `lib.rs` (型と公開 API)、`input.rs` (入力処理と照合)、`output.rs` (出力生成と修飾キーの退避) に分ける。
 
 ## 6. grapnel-win
 
 | モジュール | 内容 |
 | --- | --- |
-| `hook` | LL フックの設置/解除。コールバックで `Event` に変換してクロージャを呼び、戻り値で握りつぶす。`dwExtraInfo` が自分の印なら素通し |
+| `hook` | LL フックの設置/解除。コールバックで `Event` に変換してスレッドローカルのハンドラを呼び、戻り値で握りつぶす。`dwExtraInfo` が自分の印 (`INJECT_TAG`) なら素通し |
 | `send` | `Command::Key/Text/MouseMove` を `INPUT` 配列に変換して `SendInput`。変換部は純粋関数でテストする |
-| `window` | `SetWinEventHook` (前面切替・タイトル変更・フォーカス) で `WindowInfo` を更新する。UIA はワーカースレッドで取得して結果をメッセージで返す |
-| `tray` | `Shell_NotifyIconW`、メニュー、バルーン |
-| `inputbox` | Edit を 1 つ持つポップアップ。Enter で確定、Esc で取消 |
-| `pipe` | 名前付きパイプのサーバースレッド。受けたコマンドをメインスレッドへ `PostMessage` |
-| `notify` | `MessageBoxW` |
+| `window` | `SetWinEventHook` (前面切替・タイトル変更・フォーカス) の通知と、前面ウインドウの `WindowInfo` 取得 |
+| `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する |
+| `tray` | `Shell_NotifyIconW`、バルーン、メニュー (メニューはモーダルループを回すので自由関数) |
+| `inputbox` | Edit を 1 つ持つポップアップ。Enter で確定、Esc で取消。前面化は Alt の注入でロックを外す (`AttachThreadInput` は相手のハングに巻き込まれるので使わない)。閉じたら元の前面ウインドウに戻す |
+| `pipe` | 名前付きパイプのサーバースレッド。最初のインスタンスの作成に失敗したら多重起動とみなす。クライアント側は混雑時に再試行する |
 
 ## 7. 常駐 exe (grapnel)
 
-- メインスレッドにメッセージ専用ウインドウを作り、フック・WinEvent・タイマー・トレイ・ホットキー・パイプ・パッドの通知をすべてここで受ける。エンジンはこのスレッドだけが触るので同期は不要。
-- パッドは gilrs のスレッドでポーリングし、`Down/Up` を `PostMessage` で送る。
-- コマンドの実行: 最初の `Sleep` までは呼び出し元 (フック内) で同期的に送る。`Sleep` 以降はワーカースレッドへ渡して順に実行する。フック内で同期的に送るのは、後続の物理入力より先に出力を届けるため。
-- `Run` は `std::process::Command::spawn`、`InputBox` はポップアップを出し、確定時に `Engine::invoke`。
+- メインスレッドに非表示のウインドウを作り、フック・WinEvent・タイマー・トレイ・ホットキーをすべてここで受ける。エンジンはこのスレッドの `App` (スレッドローカルの `RefCell`) だけが触る。
+- 他スレッド (パイプ、パッド、ワーカー、ログ) からの仕事は、プロセス内のキュー (`Mutex<VecDeque<Msg>>`) に積み、`WM_QUEUE` で起こして処理する。メッセージの引数にポインタは載せない (他プロセスから偽装されうるため)。
+- コマンドの実行 (`exec.rs`):
+  - 最初の `Sleep` までは呼び出し元 (フック内) で順に送る。後続の物理入力より先に出力を届けるため。
+  - `Sleep` 以降はワーカースレッドで実行する。一時停止・パススルー・再読み込み・終了で世代番号を進め、未実行の分は捨てる。
+  - `Run` は起動用のスレッドを立てて `std::process::Command::spawn` する (フックのスレッドを止めない)。
+  - それ以外 (`InputBox`、`ModeChanged`、`Control`、`Error`) はキュー経由でメインスレッドが処理する。入力欄はウインドウを作る際にメッセージが回るので、`App` を借用していない状態で開く。
+- 入力欄が前面にある間は、修飾キー以外の入力を変換しない (修飾キーの状態だけ追跡する)。開く前にエンジンを `reset` し、開いたときの `WindowInfo` で後続のアクションを選ぶ。
+- 一時停止のホットキーは、ルールやモードに握りつぶされないようフックの段階で素通しにする。
 - タイマー: `Engine::next_deadline` から `SetTimer` を張り直す。
-- パススルー: 前面が変わるたびに `settings.passthrough` を評価し、入ったら `Engine::reset` → フック解除、出たらフック再設置。
-- 再読み込み: `load` → `compile` に成功したら `Engine::reset` して新しいエンジンに差し替える。失敗したらバルーンで知らせて旧設定を維持する。
-- ログ: `log` crate。デバッグでは stdout、リリースではファイルへ書き、`error` はバルーンも出す。
+- パススルー: 前面の変化 (UIA を使う設定では UIA の結果が届いた時点) で `settings.passthrough` を評価し、入ったら `Engine::reset` → フック解除、出たらフック再設置 → `GetAsyncKeyState` で修飾キーを同期。
+- 再読み込み: 読み込みとコンパイルはワーカースレッドで行い、結果をキューで受け取る。成功したら新しいエンジンに差し替えて修飾キーを同期し、失敗したらバルーンで知らせて旧設定を維持する。
+- ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書き、`error` はバルーンも出す。
+- 起動引数: `--config <path>`。`grapnel reload|suspend|exit` で起動中のインスタンスをパイプ経由で操作する。
 
 ## 8. 設定ツール (grapnel-settings)
 
-- Tauri コマンド: `load(entry?) -> Vec<FileDoc>`, `validate(files) -> Vec<String>`, `save(files) -> Result`, `apply() -> Result`。`FileDoc = { path, raw: RawConfig }`。
-- `apply` はパイプに `reload` を書く (`std::fs::OpenOptions` でパイプを開ける)。
-- UI: 左にファイル一覧、右にセクションのタブ (settings / modes / modifiers / targets / rules / actions)。各セクションは行の一覧と追加・削除ボタン。キー欄は入力のたびに `grapnel-keys` で解析してエラーを出す。
-- 保存は `validate` が空のときだけ許す。
+- Tauri コマンド: `initial_entry()`, `load(entry) -> Vec<FileDoc>`, `validate(files) -> Vec<String>`, `save(files)`, `apply()`。`FileDoc = { path, raw: RawConfig }`。
+- `save` は全ファイルを検証してから書く。`apply` はパイプに `reload` を書く。
+- フロントエンドは serde_wasm_bindgen の JSON 互換モードで引数を渡す (マップを JS の `Map` ではなく普通のオブジェクトにするため)。
+- UI: 上にエントリのパスと読み込み・保存・保存して適用、ファイルのタブ、セクションのタブ (全般 / モード / 修飾キー / ターゲット / ルール / アクション)、検証エラーの一覧。編集のたびに検証し、エラーがあれば保存ボタンを無効にする。
+- 値の入出力は `Place` (現在のファイル内の 1 か所を指す読み書きの組) とフィールド関数 (`text`, `opt_text`, `list`, `num`, `keys`, `check`, `select`) で束ねる。入力は `change` イベントで反映する (打鍵ごとの再描画でフォーカスを失わないため)。
+- キー欄は `grapnel-keys` でその場で構文を検証する。
 
 ## 9. テスト方針
 
-- keys / schema / config / engine は単体テストで TDD。engine は `Event` 列 → `Reaction` 列のシナリオテストで仕様書 3 章の各項目を検証する。
-- win は `send` の変換部だけ単体テストし、残りは手動で確認する。
+- keys / schema / config / engine は単体テストで TDD。engine は `Event` 列 → `Reaction` 列のシナリオテストで仕様書 3 章の各項目を検証する (`tests/basic.rs`, `tests/advanced.rs`, `tests/review.rs`)。
+- win は `send` の変換部、マウスメッセージの変換、パイプの送受信を単体テストし、残りは手動で確認する。
+- pad はスティックのヒステリシスと複数台の合成・切断を単体テストする。
