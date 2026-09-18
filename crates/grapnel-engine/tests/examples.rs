@@ -51,29 +51,31 @@ fn emacs_mark() {
     let mut t = example("emacs.toml");
     t.app("notepad.exe");
     t.down("LCtrl");
-    assert_eq!(t.down("Space").commands, vec![Command::ModeChanged("mark".into())]);
+    assert_eq!(t.down("Space").commands, [vec![Command::ModeChanged("mark".into())], keys("+LShift")].concat());
     t.up("Space");
-    // Movement extends the selection.
-    assert_eq!(t.down("f"), eaten("-LCtrl +LShift +Right"));
+    // Shift is held, so movement only needs Ctrl lifted.
+    assert_eq!(t.down("f"), eaten("-LCtrl +Right"));
     assert_eq!(t.down("f"), eaten("+Right"));
-    assert_eq!(t.up("f"), eaten("-Right -LShift +LCtrl"));
-    assert_eq!(t.down("e"), eaten("-LCtrl +LShift +End"));
+    assert_eq!(t.up("f"), eaten("-Right +LCtrl"));
+    assert_eq!(t.down("e"), eaten("-LCtrl +End"));
     t.up("e");
-    // Cut ends the mark.
-    let r = t.down("w");
-    assert_eq!(r.commands.last(), Some(&Command::ModeChanged("default".into())));
+    // Cut ends the mark and releases Shift.
+    t.down("w");
     t.up("w");
+    assert_eq!(t.e.mode_name(), "default");
     assert_eq!(t.down("f"), eaten("-LCtrl +Right"));
     t.up("f");
     t.up("LCtrl");
-    // Plain arrows extend too, and typing passes through and ends the mark.
+    // Plain arrows extend too; typing releases Shift first, then types and ends the mark.
     t.down("LCtrl");
     t.tap("Space");
     t.up("LCtrl");
-    assert_eq!(t.down("Left"), eaten("+LShift +Left"));
+    assert_eq!(t.down("Left"), eaten("+Left"));
     t.up("Left");
-    assert_eq!(t.down("x"), Reaction { consume: false, commands: vec![Command::ModeChanged("default".into())] });
-    t.up("x");
+    let mut expected = vec![Command::ModeChanged("default".into())];
+    expected.extend(keys("-LShift +x"));
+    assert_eq!(t.down("x"), Reaction { consume: true, commands: expected });
+    assert_eq!(t.up("x"), eaten("-x"));
     assert_eq!(t.down("Left"), pass());
 }
 

@@ -10,11 +10,13 @@ app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.e
 not = "emacs_like_app"
 
 # ---- マーク (C-Space) ----
-# マークモードの間は、移動キーを Shift 付きで送って選択範囲を広げる。
-# ルールに無い入力 (文字入力・クリックなど) が来たら、その入力は流したままマークを解除する。
+# マークモードの間は Shift を押したままにするので、移動すると選択範囲が広がる
+# (ルールに無い Ctrl+→ や PageDown なども同様)。
+# ルールに無い入力 (文字入力・クリックなど) が来たら、Shift を離してからその入力を送り、マークを解除する。
 # モードごとのルールは、全モード共通のルールより前に書く (宣言順で最初に合ったものが使われる)。
 [modes.mark]
 unmapped_to = "default"
+hold = "S"
 
 [[rules]]
 keys = "C-Space"
