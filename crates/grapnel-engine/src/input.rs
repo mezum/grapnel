@@ -242,11 +242,17 @@ impl Engine {
         if self.pending.is_some() {
             return consumed(self.mismatch(Some(key)));
         }
-        let block = self.cfg.modes[self.mode].block_unmapped && matches!(key, Key::Vk(_) | Key::Sc(_));
+        let mode = &self.cfg.modes[self.mode];
+        let block = mode.block_unmapped && matches!(key, Key::Vk(_) | Key::Sc(_));
+        let mut commands = vec![];
+        if let Some(to) = mode.unmapped_to {
+            self.mode = to;
+            commands.push(Command::ModeChanged(self.cfg.modes[to].name.clone()));
+        }
         if block {
             self.swallowed.insert(key);
         }
-        Reaction { consume: block, commands: vec![] }
+        Reaction { consume: block, commands }
     }
 
     /// Resolves pending chords that cannot complete. `current` is the key that broke the sequence.

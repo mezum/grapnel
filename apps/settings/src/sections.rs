@@ -96,7 +96,10 @@ pub fn modes() -> impl IntoView {
         |store, name| {
             let (a, b) = (name.clone(), name);
             let p = Place::<RawMode>::new(store, move |c| c.modes.get(&a), move |c| c.modes.get_mut(&b));
-            check("定義外のキーを握りつぶす", &p, |m| m.block_unmapped, |m, x| m.block_unmapped = x)
+            view! {
+                {check("定義外のキーを握りつぶす", &p, |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
+                {opt_text("unmapped_to (定義外の入力で移るモード)", &p, |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
+            }
         },
     )
 }

@@ -44,6 +44,9 @@ pub struct RawSettings {
 pub struct RawMode {
     #[serde(default, skip_serializing_if = "is_false")]
     pub block_unmapped: bool,
+    /// Mode to switch to when an input matches no rule in this mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unmapped_to: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

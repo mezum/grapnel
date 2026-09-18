@@ -1,7 +1,7 @@
 mod common;
 use common::*;
 use grapnel_config::ControlCmd;
-use grapnel_engine::Command;
+use grapnel_engine::{Command, Reaction};
 
 fn cx(t: &mut T) {
     t.down("LCtrl");
@@ -154,4 +154,25 @@ fn reset_releases_holds() {
     t.down("a");
     assert_eq!(t.e.reset(), keys("-Home +LCtrl"));
     assert_eq!(t.up("a"), pass());
+}
+
+#[test]
+fn unmapped_input_leaves_a_mode_with_unmapped_to() {
+    let cfg = "[modes.mark]\nunmapped_to = \"default\"\n\
+               [[rules]]\nkeys = \"C-Space\"\naction = \"mark\"\nmodes = [\"default\"]\n\
+               [[rules]]\nkeys = \"C-f\"\naction = \"sel\"\nmodes = [\"mark\"]\n\
+               [[actions.mark]]\ndo = [{ mode = \"mark\" }]\n[[actions.sel]]\ndo = [\"S-Right\"]";
+    let mut t = t(cfg);
+    t.down("LCtrl");
+    assert_eq!(t.down("Space").commands, vec![Command::ModeChanged("mark".into())]);
+    t.up("Space");
+    assert!(t.down("f").consume);
+    t.up("f");
+    assert_eq!(t.e.mode_name(), "mark");
+    t.up("LCtrl");
+    // Modifiers alone do not leave; any other unmapped input does, and still passes through.
+    assert_eq!(t.tap("LShift"), (pass(), pass()));
+    assert_eq!(t.down("z"), Reaction { consume: false, commands: vec![Command::ModeChanged("default".into())] });
+    assert_eq!(t.e.mode_name(), "default");
+    assert_eq!(t.up("z"), pass());
 }

@@ -50,7 +50,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         return Err(vec!["no configuration files".into()]);
     }
     let mut errors = Vec::new();
-    let mut modes = vec![Mode { name: DEFAULT_MODE.into(), block_unmapped: false }];
+    let mut modes = vec![Mode { name: DEFAULT_MODE.into(), block_unmapped: false, unmapped_to: None }];
     let mut raw_mods: Vec<(&Path, &str, &RawModifier)> = Vec::new();
     let mut raw_targets: Vec<(&Path, &str, &RawTarget)> = Vec::new();
     let mut actions: Vec<Action> = Vec::new();
@@ -70,7 +70,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         for (name, m) in &raw.modes {
             match modes.iter_mut().find(|x| x.name == *name) {
                 Some(x) => x.block_unmapped = m.block_unmapped,
-                None => modes.push(Mode { name: name.clone(), block_unmapped: m.block_unmapped }),
+                None => modes.push(Mode { name: name.clone(), block_unmapped: m.block_unmapped, unmapped_to: None }),
             }
         }
         raw_mods.extend(raw.modifiers.iter().map(|(n, m)| (path.as_path(), n.as_str(), m)));
@@ -97,6 +97,11 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
     let mut rules = Vec::new();
     for (path, raw) in files {
         let mut c = Ctx { errors: &mut errors, file: path };
+        for (name, m) in &raw.modes {
+            if let Some(to) = &m.unmapped_to {
+                modes[mode_ix[name]].unmapped_to = c.id(&format!("modes.{name}.unmapped_to"), "mode", &mode_ix, to);
+            }
+        }
         for (i, r) in raw.rules.iter().enumerate() {
             let at = |f: &str| format!("rules[{i}].{f}");
             let keys = c.ok(&at("keys"), parse_seq(&r.keys, &user));

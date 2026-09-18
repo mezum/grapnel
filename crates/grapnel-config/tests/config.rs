@@ -209,3 +209,13 @@ fn keep_mods_needs_a_modifier() {
     assert!(ok(&rule("M-Tab")).rules[0].keep_mods);
     assert!(errs(&[("m", &rule("Tab"))]).contains("rules[0].keep_mods"));
 }
+
+#[test]
+fn modes_unmapped_to() {
+    let c = ok("[modes.mark]\nunmapped_to = \"default\"");
+    assert_eq!(c.modes[1].unmapped_to, Some(0));
+    assert_eq!(c.modes[0].unmapped_to, None);
+    assert!(
+        errs(&[("m", "[modes.mark]\nunmapped_to = \"nope\"")]).contains("modes.mark.unmapped_to: unknown mode 'nope'")
+    );
+}

@@ -40,6 +40,8 @@ pub struct Settings {
 pub struct Mode {
     pub name: String,
     pub block_unmapped: bool,
+    /// Switch to this mode when an input matches no rule.
+    pub unmapped_to: Option<ModeId>,
 }
 
 #[derive(Clone, Debug)]
