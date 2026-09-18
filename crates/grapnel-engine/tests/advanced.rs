@@ -126,7 +126,7 @@ fn call_input_and_control() {
         vec![
             Command::Text("<1>".into()),
             Command::Text("1".into()),
-            Command::InputBox { prompt: "?".into(), then: y },
+            Command::InputBox { prompt: "?".into(), then: Some(y), position: grapnel_config::InputPosition::Center },
             Command::Control(ControlCmd::Exit),
         ]
     );
@@ -206,4 +206,21 @@ fn reset_leaves_a_holding_mode() {
     t.up("LCtrl");
     assert_eq!(t.e.reset(), keys("-LShift"));
     assert_eq!(t.e.mode_name(), "default");
+}
+
+#[test]
+fn input_box_without_then_and_invoking_by_name() {
+    let mut t = t(
+        "[keymap]\n\"M-x\" = [{ input = \"M-x\", position = \"bottom\" }]\n[actions]\nhello = [{ text = \"hi {arg}\" }]",
+    );
+    t.down("LAlt");
+    let out = t.down("x").commands;
+    assert_eq!(
+        out,
+        vec![Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom }]
+    );
+    t.up("x");
+    t.up("LAlt");
+    assert_eq!(t.e.invoke_named("hello", "", &t.win), vec![Command::Text("hi ".into())]);
+    assert!(matches!(t.e.invoke_named("nope", "", &t.win).as_slice(), [Command::Error(e)] if e.contains("nope")));
 }

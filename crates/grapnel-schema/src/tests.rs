@@ -97,3 +97,14 @@ fn unknown_leaf_options_survive_serialization() {
     let RawBinding::Leaf(l) = &back.keymap.children["a"] else { panic!() };
     assert!(l.unknown.contains_key("pres"));
 }
+
+#[test]
+fn input_step_then_is_optional_and_has_a_position() {
+    let c = parse("[actions]\nm = [{ input = \"M-x\", position = \"bottom\" }]\nn = [{ input = \"?\", then = \"m\" }]")
+        .unwrap();
+    let RawAction::Steps(m) = &c.actions["m"] else { panic!() };
+    assert_eq!(m[0], RawStep::Input { input: "M-x".into(), then: None, position: Some(InputPosition::Bottom) });
+    let RawAction::Steps(n) = &c.actions["n"] else { panic!() };
+    assert_eq!(n[0], RawStep::Input { input: "?".into(), then: Some("m".into()), position: None });
+    assert!(parse("[actions]\nm = [{ input = \"x\", position = \"left\" }]").is_err());
+}

@@ -230,8 +230,23 @@ pub enum RawStep {
     },
     Input {
         input: String,
-        then: String,
+        /// Action to run with the text; without it the text names the action to run.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        then: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        position: Option<InputPosition>,
     },
+}
+
+/// Where the input box appears.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum InputPosition {
+    /// Centered, a third of the way down the primary screen.
+    #[default]
+    Center,
+    /// Full width along the bottom of the foreground window's monitor.
+    Bottom,
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@ mod load;
 mod matcher;
 
 pub use compile::compile;
-pub use grapnel_schema::{ControlCmd, Mismatch, Press, RawConfig};
+pub use grapnel_schema::{ControlCmd, InputPosition, Mismatch, Press, RawConfig};
 pub use load::{default_entry, load, save};
 pub use matcher::{Field, Matcher, Target, TargetId, WindowInfo, any_matches, target_matches};
 
@@ -117,13 +117,28 @@ pub struct ActionImpl {
 pub enum Step {
     Keys(KeySeq),
     Text(String),
-    MouseMove { x: i32, y: i32, absolute: bool },
+    MouseMove {
+        x: i32,
+        y: i32,
+        absolute: bool,
+    },
     Sleep(u32),
-    Run { program: String, args: Vec<String> },
-    Call { action: ActionId, arg: Option<String> },
+    Run {
+        program: String,
+        args: Vec<String>,
+    },
+    Call {
+        action: ActionId,
+        arg: Option<String>,
+    },
     Mode(ModeId),
     Control(ControlCmd),
-    Input { prompt: String, then: ActionId },
+    /// `then: None` runs the action named by the text.
+    Input {
+        prompt: String,
+        then: Option<ActionId>,
+        position: InputPosition,
+    },
 }
 
 impl Config {

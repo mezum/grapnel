@@ -165,7 +165,9 @@ impl Engine {
                     self.restore(out); // press/release the modes' `hold` modifiers
                 }
                 Step::Control(c) => out.push(Command::Control(*c)),
-                Step::Input { prompt, then } => out.push(Command::InputBox { prompt: prompt.clone(), then: *then }),
+                Step::Input { prompt, then, position } => {
+                    out.push(Command::InputBox { prompt: prompt.clone(), then: *then, position: *position })
+                }
             }
         }
     }

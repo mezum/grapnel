@@ -286,8 +286,12 @@ pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, 
         RawStep::Call { call, arg } => Step::Call { action: c.id(at, "action", actions, call)?, arg: arg.clone() },
         RawStep::Mode { mode } => Step::Mode(c.id(at, "mode", modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
-        RawStep::Input { input, then } => {
-            Step::Input { prompt: input.clone(), then: c.id(at, "action", actions, then)? }
+        RawStep::Input { input, then, position } => {
+            let then = match then {
+                Some(t) => Some(c.id(at, "action", actions, t)?),
+                None => None,
+            };
+            Step::Input { prompt: input.clone(), then, position: position.unwrap_or_default() }
         }
     })
 }

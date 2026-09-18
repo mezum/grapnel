@@ -316,3 +316,15 @@ fn step_strings_call_actions_when_named() {
     // An action's own string may name another action.
     assert_eq!(c.actions[c.action_id("undo2").unwrap()].impls[0].steps, [Step::Call { action: undo, arg: None }]);
 }
+
+#[test]
+fn input_step_without_then_runs_the_typed_action() {
+    let c = ok("[actions]\nmx = [{ input = \"M-x\", position = \"bottom\" }]\nq = [{ input = \"?\", then = \"mx\" }]");
+    let mx = c.action_id("mx").unwrap();
+    assert_eq!(
+        c.actions[mx].impls[0].steps[0],
+        Step::Input { prompt: "M-x".into(), then: None, position: InputPosition::Bottom }
+    );
+    let q = &c.actions[c.action_id("q").unwrap()].impls[0].steps[0];
+    assert_eq!(q, &Step::Input { prompt: "?".into(), then: Some(mx), position: InputPosition::Center });
+}

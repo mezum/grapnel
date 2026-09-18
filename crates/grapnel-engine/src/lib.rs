@@ -4,7 +4,9 @@
 mod input;
 mod output;
 
-use grapnel_config::{ActionId, Config, ControlCmd, Mismatch, ModeId, Policy, Step, WindowInfo, any_matches};
+use grapnel_config::{
+    ActionId, Config, ControlCmd, InputPosition, Mismatch, ModeId, Policy, Step, WindowInfo, any_matches,
+};
 use grapnel_keys::{Chord, Dir, Key, KeySeq, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -38,9 +40,11 @@ pub enum Command {
         program: String,
         args: Vec<String>,
     },
+    /// `then: None`: the text is the name of the action to run.
     InputBox {
         prompt: String,
-        then: ActionId,
+        then: Option<ActionId>,
+        position: InputPosition,
     },
     ModeChanged(String),
     Control(ControlCmd),
@@ -169,6 +173,14 @@ impl Engine {
         let mut out = Vec::new();
         self.run_action(action, arg, win, 0, &mut out);
         out
+    }
+
+    /// Runs the action with this name (e.g. typed into an M-x prompt).
+    pub fn invoke_named(&mut self, name: &str, arg: &str, win: &WindowInfo) -> Vec<Command> {
+        match self.cfg.action_id(name) {
+            Some(id) => self.invoke(id, arg, win),
+            None => vec![Command::Error(format!("unknown action '{name}'"))],
+        }
     }
 
     /// Releases everything held and forgets all state except the mode and held modifiers.
