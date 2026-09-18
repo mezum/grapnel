@@ -1,0 +1,16 @@
+[package]
+name = "grapnel-settings"
+description = "Settings editor for grapnel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde.workspace = true
+grapnel-config.workspace = true
+grapnel-schema.workspace = true
+grapnel-win.workspace = true

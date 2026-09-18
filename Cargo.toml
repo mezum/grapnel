@@ -1,6 +1,15 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "apps/settings", "apps/settings/src-tauri"]
+default-members = [
+    "crates/grapnel-keys",
+    "crates/grapnel-schema",
+    "crates/grapnel-config",
+    "crates/grapnel-engine",
+    "crates/grapnel-win",
+    "crates/grapnel-pad",
+    "crates/grapnel",
+]
 
 [workspace.package]
 edition = "2024"
