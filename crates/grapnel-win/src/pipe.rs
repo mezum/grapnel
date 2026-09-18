@@ -12,9 +12,18 @@ pub fn name() -> String {
     format!(r"\\.\pipe\grapnel-{}", std::env::var("USERNAME").unwrap_or_default())
 }
 
-/// Sends one command to the running instance.
+/// Sends one command to the running instance, waiting briefly while the pipe is busy.
 pub fn send(cmd: &str) -> std::io::Result<()> {
-    std::fs::OpenOptions::new().write(true).open(name())?.write_all(format!("{cmd}\n").as_bytes())
+    const ERROR_PIPE_BUSY: i32 = 231;
+    let mut tries = 0;
+    loop {
+        match std::fs::OpenOptions::new().write(true).open(name()) {
+            Ok(mut f) => return f.write_all(format!("{cmd}\n").as_bytes()),
+            Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY) && tries < 40 => tries += 1,
+            Err(e) => return Err(e),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 }
 
 /// Creates the pipe and serves it on a thread, calling `on_line` for each received line.
@@ -52,7 +61,7 @@ pub fn serve(on_line: impl Fn(String) + Send + 'static) -> windows::core::Result
             }
             let mut file = ManuallyDrop::new(unsafe { std::fs::File::from_raw_handle(h.0) });
             let mut text = String::new();
-            let _ = file.read_to_string(&mut text);
+            let _ = (&mut *file).take(4096).read_to_string(&mut text); // commands are tiny
             let _ = unsafe { DisconnectNamedPipe(h) };
             text.lines().map(str::trim).filter(|l| !l.is_empty()).for_each(|l| on_line(l.to_string()));
         }

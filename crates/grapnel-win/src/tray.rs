@@ -53,25 +53,26 @@ impl Tray {
         copy(&mut d.szInfo, text);
         let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &d) };
     }
+}
 
-    /// Shows a menu at the cursor and returns the chosen id. Items are `(id, label, checked)`.
-    pub fn menu(&self, items: &[(u32, &str, bool)]) -> Option<u32> {
-        unsafe {
-            let menu = CreatePopupMenu().ok()?;
-            for &(id, label, checked) in items {
-                let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
-                let label = wide(label);
-                let _ = AppendMenuW(menu, flags, id as usize, windows::core::PCWSTR(label.as_ptr()));
-            }
-            let mut pt = POINT::default();
-            let _ = GetCursorPos(&mut pt);
-            let _ = SetForegroundWindow(self.hwnd);
-            let flags = TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON;
-            let id = TrackPopupMenu(menu, flags, pt.x, pt.y, None, self.hwnd, None).0 as u32;
-            let _ = PostMessageW(Some(self.hwnd), WM_NULL, WPARAM(0), LPARAM(0));
-            let _ = DestroyMenu(menu);
-            (id != 0).then_some(id)
+/// Shows a menu for `hwnd` at the cursor and returns the chosen id. Items are `(id, label, checked)`.
+/// Runs a modal loop, so hold no `RefCell` borrows across it.
+pub fn menu(hwnd: HWND, items: &[(u32, &str, bool)]) -> Option<u32> {
+    unsafe {
+        let menu = CreatePopupMenu().ok()?;
+        for &(id, label, checked) in items {
+            let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
+            let label = wide(label);
+            let _ = AppendMenuW(menu, flags, id as usize, windows::core::PCWSTR(label.as_ptr()));
         }
+        let mut pt = POINT::default();
+        let _ = GetCursorPos(&mut pt);
+        let _ = SetForegroundWindow(hwnd);
+        let flags = TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON;
+        let id = TrackPopupMenu(menu, flags, pt.x, pt.y, None, hwnd, None).0 as u32;
+        let _ = PostMessageW(Some(hwnd), WM_NULL, WPARAM(0), LPARAM(0));
+        let _ = DestroyMenu(menu);
+        (id != 0).then_some(id)
     }
 }
 

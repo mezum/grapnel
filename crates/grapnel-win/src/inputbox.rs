@@ -8,7 +8,6 @@ use windows::Win32::Foundation::LRESULT;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Gdi::{COLOR_WINDOW, DEFAULT_GUI_FONT, GetStockObject, HBRUSH};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{SetFocus, VK_ESCAPE, VK_RETURN};
 use windows::Win32::UI::WindowsAndMessaging::*;
 use windows::core::{PCWSTR, w};
@@ -17,6 +16,8 @@ struct Open {
     frame: HWND,
     edit: HWND,
     token: usize,
+    /// Foreground window to give focus back to.
+    previous: HWND,
 }
 
 thread_local! {
@@ -40,23 +41,21 @@ fn register() {
     unsafe { RegisterClassW(&wc) }; // fails harmlessly if already registered
 }
 
-/// Forces our window to the foreground even though another app currently owns it.
+/// Brings our window to the front despite the foreground lock: a (masked) Alt press unlocks it.
+/// Unlike `AttachThreadInput`, this cannot hang on an unresponsive foreground app.
 fn force_foreground(hwnd: HWND) {
-    unsafe {
-        let fg = GetWindowThreadProcessId(GetForegroundWindow(), None);
-        let me = GetCurrentThreadId();
-        let attached = fg != me && AttachThreadInput(fg, me, true).as_bool();
-        let _ = SetForegroundWindow(hwnd);
-        if attached {
-            let _ = AttachThreadInput(fg, me, false);
-        }
-    }
+    let alt = |down| grapnel_engine::Command::Key { key: grapnel_keys::Key::Vk(0xA4), down };
+    let mask = |down| grapnel_engine::Command::Key { key: grapnel_keys::Key::Vk(0xE8), down };
+    crate::send::send(&[alt(true), mask(true), mask(false)]);
+    let _ = unsafe { SetForegroundWindow(hwnd) };
+    crate::send::send(&[alt(false)]);
 }
 
 /// Opens a prompt, replacing any open one. `token` is returned with the result.
 pub fn open(prompt: &str, token: usize) -> windows::core::Result<()> {
     close();
     register();
+    let previous = unsafe { GetForegroundWindow() };
     let (w, h) = (480, 64);
     unsafe {
         let x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
@@ -97,14 +96,18 @@ pub fn open(prompt: &str, token: usize) -> windows::core::Result<()> {
         let _ = ShowWindow(frame, SW_SHOW);
         force_foreground(frame);
         let _ = SetFocus(Some(edit));
-        OPEN.with(|o| *o.borrow_mut() = Some(Open { frame, edit, token }));
+        OPEN.with(|o| *o.borrow_mut() = Some(Open { frame, edit, token, previous }));
     }
     Ok(())
 }
 
+/// Closes the prompt and returns focus to the window that was in front before it.
 pub fn close() {
     if let Some(o) = OPEN.with(|o| o.borrow_mut().take()) {
-        let _ = unsafe { DestroyWindow(o.frame) };
+        unsafe {
+            let _ = SetForegroundWindow(o.previous);
+            let _ = DestroyWindow(o.frame);
+        }
     }
 }
 
