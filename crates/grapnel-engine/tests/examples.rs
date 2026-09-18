@@ -29,6 +29,23 @@ fn emacs_bindings() {
 }
 
 #[test]
+fn emacs_kill_and_yank() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    t.down("LCtrl");
+    assert_eq!(t.down("k"), eaten("-LCtrl +LShift +End -End +LCtrl -LShift +x"));
+    assert_eq!(t.up("k"), eaten("-x"));
+    for (key, out) in [("w", "x"), ("y", "v"), ("/", "z")] {
+        assert_eq!(t.down(key), eaten(&format!("+{out}")), "C-{key}");
+        assert_eq!(t.up(key), eaten(&format!("-{out}")), "C-{key} up");
+    }
+    t.up("LCtrl");
+    t.down("LAlt");
+    assert_eq!(t.down("w"), eaten("+LCtrl +vk:0xE8 -vk:0xE8 -LAlt +c"));
+    assert_eq!(t.up("w"), eaten("-c -LCtrl +LAlt +vk:0xE8 -vk:0xE8"));
+}
+
+#[test]
 fn emacs_bindings_skip_emacs_and_terminals() {
     let mut t = example("emacs.toml");
     for exe in ["emacs.exe", "WindowsTerminal.exe"] {

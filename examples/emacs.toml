@@ -52,6 +52,34 @@ keys = "C-d"
 action = "delete_char"
 targets = ["others"]
 
+# 切り取り・コピー・貼り付け・元に戻す。
+# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
+
+[[rules]]
+keys = "C-k"
+action = "kill_line"
+targets = ["others"]
+
+[[rules]]
+keys = "C-w"
+action = "kill_region"
+targets = ["others"]
+
+[[rules]]
+keys = "M-w"
+action = "kill_ring_save"
+targets = ["others"]
+
+[[rules]]
+keys = "C-y"
+action = "yank"
+targets = ["others"]
+
+[[rules]]
+keys = "C-/"
+action = "undo"
+targets = ["others"]
+
 [[actions.forward_char]]
 do = ["Right"]
 
@@ -75,3 +103,20 @@ do = ["Backspace"]
 
 [[actions.delete_char]]
 do = ["Delete"]
+
+# 行末まで選択して切り取る。
+# 注意: 行末で押すと選択が空になり、VS Code などは Ctrl+X で行全体を切り取る。
+[[actions.kill_line]]
+do = ["S-End C-x"]
+
+[[actions.kill_region]]
+do = ["C-x"]
+
+[[actions.kill_ring_save]]
+do = ["C-c"]
+
+[[actions.yank]]
+do = ["C-v"]
+
+[[actions.undo]]
+do = ["C-z"]
