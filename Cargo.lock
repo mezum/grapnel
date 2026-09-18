@@ -1532,9 +1532,11 @@ version = "0.1.0"
 dependencies = [
  "grapnel-keys",
  "grapnel-schema",
+ "js-sys",
  "leptos",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]

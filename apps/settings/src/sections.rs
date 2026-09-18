@@ -13,9 +13,12 @@ fn store() -> Store {
 type MapOf<V> = fn(&mut RawConfig) -> &mut BTreeMap<String, V>;
 
 /// Name input (renames on change) and a delete button for a map entry.
-fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl IntoView {
+pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl IntoView {
     let (old, del) = (name.clone(), name.clone());
-    let rename = move |new: String| {
+    let rename = move |ev: leptos::ev::Event| {
+        let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
+        let new = input.value();
+        let mut ok = false;
         store.edit(|c| {
             let m = map(c);
             if !new.is_empty()
@@ -23,12 +26,16 @@ fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl Int
                 && let Some(v) = m.remove(&old)
             {
                 m.insert(new, v);
+                ok = true;
             }
-        })
+        });
+        if !ok {
+            input.set_value(&old); // empty or taken name: keep the old one
+        }
     };
     view! {
         <div class="name">
-            <input prop:value=name on:change=move |ev| rename(event_target_value(&ev)) />
+            <input prop:value=name on:change=rename />
             <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del)))>"削除"</button>
         </div>
     }
@@ -66,7 +73,12 @@ pub fn settings() -> impl IntoView {
     view! {
         <section>
             {list("include (glob 可)", &top, |c| c.include.clone(), |c, x| c.include = x)}
-            <Show when=move || store.cur.get() == 0 fallback=|| view! { <p>"settings はエントリファイルにだけ書けます。"</p> }>
+            <Show when=move || store.cur.get() == 0 fallback=move || view! {
+                <p>"settings はエントリファイルにだけ書けます。"</p>
+                <Show when=move || store.read(|c| c.settings.is_some())>
+                    <button class="del" on:click=move |_| store.edit(|c| c.settings = None)>"このファイルの settings を削除"</button>
+                </Show>
+            }>
                 {opt_text("initial_mode", &s, |s| s.initial_mode.clone(), |s, x| s.initial_mode = x)}
                 {list("passthrough (ターゲット)", &s, |s| s.passthrough.clone(), |s, x| s.passthrough = x)}
                 {opt_keys("suspend_hotkey", &s, |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x)}

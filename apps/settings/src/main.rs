@@ -17,9 +17,10 @@ extern "C" {
     async fn invoke(cmd: &str, args: JsValue) -> Result<JsValue, JsValue>;
 }
 
-/// Calls a Tauri command. Maps are sent as plain objects so they survive JSON.
+/// Calls a Tauri command. Arguments go through JSON text so every map key (even `__proto__`)
+/// becomes an own property.
 async fn call<A: Serialize, R: DeserializeOwned, E: DeserializeOwned>(cmd: &str, args: &A) -> Result<R, E> {
-    let args = args.serialize(&serde_wasm_bindgen::Serializer::json_compatible()).unwrap();
+    let args = js_sys::JSON::parse(&serde_json::to_string(args).unwrap()).unwrap();
     match invoke(cmd, args).await {
         Ok(v) => Ok(serde_wasm_bindgen::from_value(v).unwrap()),
         Err(e) => Err(serde_wasm_bindgen::from_value(e).unwrap()),
@@ -108,7 +109,7 @@ fn App() -> impl IntoView {
             let files = Files { files: store.docs.get_untracked() };
             if let Err(e) = call::<_, (), Vec<String>>("save", &files).await {
                 errors.set(e);
-                return status.set("エラーがあるため保存しませんでした".into());
+                return status.set("保存できませんでした。エラーを確認してください".into());
             }
             status.set("保存しました".into());
             if apply {
@@ -119,13 +120,14 @@ fn App() -> impl IntoView {
             }
         })
     };
+    let cannot_save = move || !errors.with(Vec::is_empty) || store.docs.with(Vec::is_empty);
 
     view! {
         <header>
             <input class="entry" prop:value=move || entry.get() on:change=move |ev| entry.set(event_target_value(&ev)) />
             <button on:click=move |_| load()>"読み込み"</button>
-            <button on:click=move |_| save(false) disabled=move || !errors.with(Vec::is_empty)>"保存"</button>
-            <button on:click=move |_| save(true) disabled=move || !errors.with(Vec::is_empty)>"保存して適用"</button>
+            <button on:click=move |_| save(false) disabled=cannot_save>"保存"</button>
+            <button on:click=move |_| save(true) disabled=cannot_save>"保存して適用"</button>
             <span class="status">{move || status.get()}</span>
         </header>
         <nav class="files">

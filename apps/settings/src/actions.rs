@@ -227,7 +227,7 @@ pub fn actions() -> impl IntoView {
                     {
                         let (n1, n2, n3) = (name.clone(), name.clone(), name.clone());
                         view! {
-                    <ActionName name=n1 />
+                    {crate::sections::name_field(store, n1, |c| &mut c.actions)}
                     <For
                         each=move || indices(store.read(|c| c.actions.get(&n2).map_or(0, Vec::len)))
                         key=|i| *i
@@ -244,28 +244,5 @@ pub fn actions() -> impl IntoView {
             </For>
             <button on:click=add>"アクションを追加"</button>
         </section>
-    }
-}
-
-/// Rename/delete for an action (all implementations move together).
-#[component]
-fn ActionName(name: String) -> impl IntoView {
-    let store = use_context::<Store>().expect("store");
-    let (old, del) = (name.clone(), name.clone());
-    let rename = move |new: String| {
-        store.edit(|c| {
-            if !new.is_empty()
-                && !c.actions.contains_key(&new)
-                && let Some(v) = c.actions.remove(&old)
-            {
-                c.actions.insert(new, v);
-            }
-        })
-    };
-    view! {
-        <div class="name">
-            <input prop:value=name on:change=move |ev| rename(event_target_value(&ev)) />
-            <button class="del" on:click=move |_| store.edit(|c| drop(c.actions.remove(&del)))>"削除"</button>
-        </div>
     }
 }
