@@ -1,0 +1,6 @@
+[package]
+name = "grapnel-keys"
+description = "Key, chord and key-sequence types and parser for grapnel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true

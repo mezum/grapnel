@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+grapnel-keys = { path = "crates/grapnel-keys" }
+grapnel-schema = { path = "crates/grapnel-schema" }
+grapnel-config = { path = "crates/grapnel-config" }
+grapnel-engine = { path = "crates/grapnel-engine" }
+grapnel-win = { path = "crates/grapnel-win" }
+grapnel-pad = { path = "crates/grapnel-pad" }
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+regex = "1"
+log = "0.4"
