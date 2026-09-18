@@ -50,7 +50,7 @@ action = "left"
 do = ["Left"]
 ```
 
-書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を参照してください。
+書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を、F19 を macOS の Cmd キーのように使う例は [examples/mac-cmd.toml](examples/mac-cmd.toml) を参照してください。
 
 ## 制限
 

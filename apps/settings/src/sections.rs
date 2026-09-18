@@ -114,6 +114,7 @@ pub fn modifiers() -> impl IntoView {
                 {opt_keys("tap (空欄 = key と同じ)", &p, |m| m.tap.clone(), |m, x| m.tap = x)}
                 {check("tap で何も送らない", &p, |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
                 {num("tap_timeout_ms", &p, |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x)}
+            {opt_text("as (例: C, C-S)", &p, |m| m.emulate.clone(), |m, x| m.emulate = x)}
             }
         },
     )

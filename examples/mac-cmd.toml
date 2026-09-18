@@ -1,0 +1,36 @@
+# F19 を macOS の Cmd キーのように使う。
+# 使い方: %APPDATA%\grapnel\config.toml に include = ["...\\mac-cmd.toml"] を書く。
+
+# 押している間は Ctrl として働く (as = "C")。単独で押しても何も送らない (tap = "")。
+# 下のルールに合わない組み合わせは、すべて Ctrl に置き換えて送る:
+#   Cmd-c → Ctrl+C、Cmd-S-z → Ctrl+Shift+Z、Cmd+クリック → Ctrl+クリック など。
+[modifiers.Cmd]
+key = "F19"
+tap = ""
+as = "C"
+
+# タブ移動 (JIS 配列の [ ] キー。Shift を押しているので刻印上は { })。
+[[rules]]
+keys = "Cmd-S-]"
+action = "next_tab"
+
+[[rules]]
+keys = "Cmd-S-["
+action = "previous_tab"
+
+# スクリーンショット / 画面録画 (Snipping Tool のキャプチャバーを開く)。
+[[rules]]
+keys = "Cmd-S-5"
+action = "capture"
+press = "tap"
+
+[[actions.next_tab]]
+do = ["C-Tab"]
+
+[[actions.previous_tab]]
+do = ["C-S-Tab"]
+
+# Win+Shift+S でキャプチャバーが開き、そこで静止画と録画を切り替えられる。
+# 最初から録画にしたい場合は "W-S-r" にする。
+[[actions.capture]]
+do = ["W-S-s"]
