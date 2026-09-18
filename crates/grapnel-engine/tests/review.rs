@@ -1,6 +1,7 @@
 //! Regression tests for sequences found in review.
 mod common;
 use common::*;
+use grapnel_engine::Reaction;
 
 #[test]
 fn tap_repeat_reruns_with_current_modifiers() {
@@ -74,7 +75,8 @@ fn expired_prefix_is_resolved_before_next_key() {
     let mut t1 = t(&rule("x y", "\"z\"", "", "[keymap.x.options]\ntimeout_ms = 100\non_mismatch = \"discard\""));
     t1.tap("x");
     t1.now = 101;
-    assert_eq!(t1.down("y"), pass());
+    // The expired prefix is reported, and y itself passes untouched (no injection needed).
+    assert_eq!(t1.down("y"), Reaction { consume: false, commands: vec![notice("x は時間切れになりました")] });
     let mut t2 = t(&rule("x y", "\"z\"", "", "[keymap.x.options]\ntimeout_ms = 100"));
     t2.tap("x");
     t2.now = 101;

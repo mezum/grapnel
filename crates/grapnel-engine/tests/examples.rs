@@ -179,8 +179,9 @@ fn emacs_cx_commands() {
     assert_eq!(after_cx(&mut t, "c", true), eaten("-LCtrl +LAlt +F4"));
     assert_eq!(after_cx(&mut t, "u", false), eaten("+LCtrl +z"));
     // C-x C-u is not bound, so like any unknown key after C-x it is dropped (not Ctrl+X = cut).
-    assert_eq!(after_cx(&mut t, "u", true), eaten(""));
-    assert_eq!(after_cx(&mut t, "q", false), eaten(""));
+    let undefined = |s: &str| grapnel_engine::Reaction { consume: true, commands: vec![notice(s)] };
+    assert_eq!(after_cx(&mut t, "u", true), undefined("C-x C-u は定義されていません"));
+    assert_eq!(after_cx(&mut t, "q", false), undefined("C-x q は定義されていません"));
 }
 
 #[test]
@@ -233,7 +234,8 @@ fn emacs_meta_x_opens_a_bottom_prompt() {
     let mut t = example("emacs.toml");
     t.app("notepad.exe");
     t.down("LAlt");
-    let prompt = Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom };
+    let prompt =
+        Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom };
     assert_eq!(t.down("x").commands, vec![prompt]);
     t.up("x");
     t.app("emacs.exe");

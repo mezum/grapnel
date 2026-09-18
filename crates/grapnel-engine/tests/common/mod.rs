@@ -56,6 +56,11 @@ pub fn pass() -> Reaction {
     Reaction::default()
 }
 
+/// A notice shown to the user (e.g. an undefined key sequence).
+pub fn notice(text: &str) -> Command {
+    Command::Notice(text.to_string())
+}
+
 impl T {
     pub fn down(&mut self, s: &str) -> Reaction {
         self.e.handle(Event::Down(k(s)), &self.win, self.now)

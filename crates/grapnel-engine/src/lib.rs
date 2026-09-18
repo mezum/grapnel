@@ -50,6 +50,8 @@ pub enum Command {
     Control(ControlCmd),
     /// Runtime error to report to the user.
     Error(String),
+    /// A short message for the user, e.g. an undefined key sequence (shown briefly, not an error).
+    Notice(String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

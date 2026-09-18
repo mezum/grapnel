@@ -198,7 +198,9 @@ impl Engine {
         }
         let mut out = self.mismatch(None);
         let mut r = self.match_fresh(key.clone(), win, now);
-        if !out.is_empty() && !r.consume {
+        let sent_input =
+            out.iter().any(|c| matches!(c, Command::Key { .. } | Command::Text(_) | Command::MouseMove { .. }));
+        if sent_input && !r.consume {
             // Injected output must not be overtaken by the original event, so inject it too.
             self.inject_pass(key, &mut r.commands);
             r.consume = true;
@@ -277,11 +279,28 @@ impl Engine {
         Reaction { consume: block, commands }
     }
 
+    /// "C-x q は定義されていません" / "C-x は時間切れになりました".
+    fn undefined(&self, pending: &[Chord], current: Option<&Key>) -> Command {
+        let names = self.cfg.user_mod_names();
+        let mut keys = grapnel_keys::format_seq(&KeySeq(pending.to_vec()), &names);
+        match current {
+            Some(k) => {
+                let chord = Chord { mods: self.current_mods(), key: k.clone() };
+                keys = format!("{keys} {}", grapnel_keys::format_chord(&chord, &names));
+                Command::Notice(format!("{keys} は定義されていません"))
+            }
+            None => Command::Notice(format!("{keys} は時間切れになりました")),
+        }
+    }
+
     /// Resolves pending chords that cannot complete. `current` is the key that broke the sequence.
     pub(crate) fn mismatch(&mut self, current: Option<Key>) -> Vec<Command> {
         let p = self.pending.take().expect("mismatch without pending chords");
         let policy = p.policy;
         let mut out = vec![];
+        if policy.on_mismatch != Mismatch::Replay {
+            out.push(self.undefined(&p.chords, current.as_ref()));
+        }
         match (policy.on_mismatch, policy.fallback.clone()) {
             (Mismatch::Discard, _) => {}
             (Mismatch::Fallback, Some(f)) => self.tap_seq(&f.0, &mut out),

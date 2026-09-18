@@ -30,11 +30,14 @@ fn mismatch_replay_resends_prefix_and_current_key() {
 fn mismatch_discard_and_fallback() {
     let mut t1 = t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\non_mismatch = \"discard\""));
     cx(&mut t1);
-    assert_eq!(t1.tap("q"), (eaten(""), eaten("")));
+    let r = Reaction { consume: true, commands: vec![notice("C-x q は定義されていません")] };
+    assert_eq!(t1.tap("q"), (r, eaten("")));
     let mut t2 =
         t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\non_mismatch = \"fallback\"\nfallback = \"Esc\""));
     cx(&mut t2);
-    assert_eq!(t2.tap("q"), (eaten("+Esc -Esc"), eaten("")));
+    let mut r = eaten("+Esc -Esc");
+    r.commands.insert(0, notice("C-x q は定義されていません"));
+    assert_eq!(t2.tap("q"), (r, eaten("")));
 }
 
 #[test]
@@ -223,4 +226,20 @@ fn input_box_without_then_and_invoking_by_name() {
     t.up("LAlt");
     assert_eq!(t.e.invoke_named("hello", "", &t.win), vec![Command::Text("hi ".into())]);
     assert!(matches!(t.e.invoke_named("nope", "", &t.win).as_slice(), [Command::Error(e)] if e.contains("nope")));
+}
+
+#[test]
+fn replay_and_timeout_notices() {
+    // replay sends the keys on, so it is not reported.
+    let mut t1 = t(&rule("C-x t", "\"b\"", "", ""));
+    t1.down("LCtrl");
+    t1.tap("x");
+    t1.up("LCtrl");
+    assert!(!t1.down("q").commands.iter().any(|c| matches!(c, Command::Notice(_))));
+    // A discarded timeout is reported.
+    let mut t2 =
+        t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\non_mismatch = \"discard\"\ntimeout_ms = 100"));
+    t2.down("LCtrl");
+    t2.tap("x");
+    assert_eq!(t2.e.tick(100), vec![notice("C-x は時間切れになりました")]);
 }
