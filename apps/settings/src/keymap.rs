@@ -4,12 +4,25 @@ use crate::actions::{action_editor, steps_editor};
 use crate::fields::*;
 use grapnel_schema::*;
 use leptos::prelude::*;
+use rust_i18n::t;
 
-const BINDING_KINDS: &[(&str, &str)] =
-    &[("short", "キー / アクション名"), ("steps", "手順"), ("leaf", "設定付き"), ("node", "子の節 (続けて押す)")];
-const PRESS: &[(&str, &str)] = &[("", "既定 (hold)"), ("hold", "hold"), ("tap", "tap")];
-const MISMATCH: &[(&str, &str)] =
-    &[("", "親と同じ"), ("replay", "replay"), ("discard", "discard"), ("fallback", "fallback")];
+fn binding_kinds() -> Options {
+    vec![
+        ("short".into(), t!("ui.keys_or_action")),
+        ("steps".into(), t!("ui.steps")),
+        ("leaf".into(), t!("ui.keymap.leaf")),
+        ("node".into(), t!("ui.keymap.node")),
+    ]
+}
+
+fn press() -> Options {
+    vec![("".into(), t!("ui.keymap.press_default")), ("hold".into(), "hold".into()), ("tap".into(), "tap".into())]
+}
+
+fn mismatch() -> Options {
+    let own = ["replay", "discard", "fallback"].map(|m| (m.into(), m.into()));
+    std::iter::once(("".into(), t!("ui.keymap.inherit"))).chain(own).collect()
+}
 
 fn binding_kind(b: &RawBinding) -> String {
     match b {
@@ -53,13 +66,13 @@ fn leaf_editor(p: Place<RawLeaf>) -> AnyView {
     view! {
         {action_editor(action)}
         <div class="options">
-            {select("press", &p, PRESS,
+            {select("press", &p, press(),
                 |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
                 |l, x| l.press = match x.as_str() { "hold" => Some(Press::Hold), "tap" => Some(Press::Tap), _ => None })}
-            {opt_keys("fallback (空欄 = 元の入力)", &p, |l| l.fallback.clone(), |l, x| l.fallback = x)}
-            {check("fallback で何も送らない", &p, |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
-            {check("keep_mods (入力の修飾キーを離すまで出力の修飾キーを保持)", &p, |l| l.keep_mods, |l, x| l.keep_mods = x)}
-            {list("targets (入力を捕まえる条件)", &p, |l| l.targets.clone(), |l, x| l.targets = x)}
+            {opt_keys(&t!("ui.keymap.fallback"), &p, |l| l.fallback.clone(), |l, x| l.fallback = x)}
+            {check(&t!("ui.keymap.fallback_none"), &p, |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
+            {check(&t!("ui.keymap.keep_mods"), &p, |l| l.keep_mods, |l, x| l.keep_mods = x)}
+            {list(&t!("ui.keymap.targets"), &p, |l| l.targets.clone(), |l, x| l.targets = x)}
         </div>
     }
     .into_any()
@@ -69,8 +82,8 @@ fn options_editor(p: Place<RawNode>) -> AnyView {
     let o = p.map(|n| n.options.as_ref(), |n| Some(n.options.get_or_insert_default()));
     view! {
         <details class="options">
-            <summary>"節の設定 (子孫に引き継ぐ)"</summary>
-            {select("on_mismatch", &o, MISMATCH,
+            <summary>{t!("ui.keymap.options")}</summary>
+            {select("on_mismatch", &o, mismatch(),
                 |o| match o.on_mismatch {
                     None => "", Some(Mismatch::Replay) => "replay", Some(Mismatch::Discard) => "discard", Some(Mismatch::Fallback) => "fallback",
                 }.into(),
@@ -93,7 +106,7 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
         let p = p.clone();
         move || match k.get().as_str() {
             "short" => keys_or_action(
-                "キー / アクション名",
+                &t!("ui.keys_or_action"),
                 &p,
                 |b| if let RawBinding::Short(s) = b { s.clone() } else { String::new() },
                 |b, x| *b = RawBinding::Short(x),
@@ -113,7 +126,7 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
             )),
         }
     };
-    view! { {select("種類", &p, BINDING_KINDS, binding_kind, set_binding_kind)} {fields} }.into_any()
+    view! { {select(&t!("ui.kind"), &p, binding_kinds(), binding_kind, set_binding_kind)} {fields} }.into_any()
 }
 
 /// A keymap node: its options and one row per chord, recursively.
@@ -146,7 +159,7 @@ pub fn node_editor(p: Place<RawNode>) -> AnyView {
             <For each=move || list.read(|n| n.children.keys().cloned().collect::<Vec<_>>()) key=|k| k.clone() let:k>
                 {row(k)}
             </For>
-            <button on:click=add_row>"キーを追加"</button>
+            <button on:click=add_row>{t!("ui.keymap.add_key")}</button>
         </div>
     }
     .into_any()

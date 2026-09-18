@@ -4,21 +4,34 @@ use crate::Store;
 use crate::fields::*;
 use grapnel_schema::*;
 use leptos::prelude::*;
+use rust_i18n::t;
 
-const KINDS: &[(&str, &str)] = &[
-    ("keys", "キー / アクション名"),
-    ("text", "文字入力"),
-    ("mouse_move", "マウス相対移動"),
-    ("mouse_move_to", "マウス絶対移動"),
-    ("sleep", "待機"),
-    ("run", "プログラム起動"),
-    ("call", "アクション呼び出し"),
-    ("mode", "モード切替"),
-    ("control", "常駐側への指示"),
-    ("input", "入力欄"),
-];
-const POSITIONS: &[(&str, &str)] = &[("", "中央"), ("bottom", "画面下 (横幅いっぱい)")];
-const CONTROLS: &[(&str, &str)] = &[("suspend", "一時停止の切替"), ("reload", "再読み込み"), ("exit", "終了")];
+fn kinds() -> Options {
+    vec![
+        ("keys".into(), t!("ui.keys_or_action")),
+        ("text".into(), t!("ui.step.text")),
+        ("mouse_move".into(), t!("ui.step.mouse_move")),
+        ("mouse_move_to".into(), t!("ui.step.mouse_move_to")),
+        ("sleep".into(), t!("ui.step.sleep")),
+        ("run".into(), t!("ui.step.run")),
+        ("call".into(), t!("ui.step.call")),
+        ("mode".into(), t!("ui.step.mode")),
+        ("control".into(), t!("ui.step.control")),
+        ("input".into(), t!("ui.step.input")),
+    ]
+}
+
+fn positions() -> Options {
+    vec![("".into(), t!("ui.step.center")), ("bottom".into(), t!("ui.step.bottom"))]
+}
+
+fn controls() -> Options {
+    vec![
+        ("suspend".into(), t!("ui.step.suspend")),
+        ("reload".into(), t!("ui.step.reload")),
+        ("exit".into(), t!("ui.step.exit")),
+    ]
+}
 
 fn kind(s: &RawStep) -> String {
     match s {
@@ -70,7 +83,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
         let p = &p;
         match k.get().as_str() {
             "keys" => keys_or_action(
-                "キー / アクション名",
+                &t!("ui.keys_or_action"),
                 p,
                 |s| match s {
                     RawStep::Short(k) | RawStep::Keys { keys: k } => k.clone(),
@@ -80,7 +93,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             )
             .into_any(),
             "text" => text(
-                "text ({arg} で引数)",
+                &t!("ui.step.text_label"),
                 p,
                 |s| if let RawStep::Text { text } = s { text.clone() } else { String::new() },
                 |s, x| *s = RawStep::Text { text: x },
@@ -139,7 +152,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             "control" => select(
                 "control",
                 p,
-                CONTROLS,
+                controls(),
                 |s| {
                     match s {
                         RawStep::Control { control: ControlCmd::Reload } => "reload",
@@ -161,10 +174,10 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             _ => view! {
                 {text("prompt", p, |s| if let RawStep::Input { input, .. } = s { input.clone() } else { String::new() },
                     |s, x| if let RawStep::Input { input, .. } = s { *input = x })}
-                {opt_text("then (空欄 = 入力した名前のアクションを実行)", p,
+                {opt_text(&t!("ui.step.then"), p,
                     |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
                     |s, x| if let RawStep::Input { then, .. } = s { *then = x })}
-                {select("position", p, POSITIONS,
+                {select("position", p, positions(),
                     |s| match s { RawStep::Input { position: Some(InputPosition::Bottom), .. } => "bottom", _ => "" }.into(),
                     |s, x| if let RawStep::Input { position, .. } = s {
                         *position = (x == "bottom").then_some(InputPosition::Bottom)
@@ -183,7 +196,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
         let del = p.clone();
         view! {
             <div class="step">
-                {select("種類", &sp, KINDS, kind, set_kind)}
+                {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
                 {step_fields(sp.clone())}
                 <button class="del" on:click=move |_| del.edit(|v| drop(v.remove(j)))>"×"</button>
             </div>
@@ -194,13 +207,15 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
             <For each=move || indices(list.read(|v| v.len())) key=|j| *j let:j>
                 {step(j)}
             </For>
-            <button on:click=move |_| add.edit(|v| v.push(RawStep::Short(String::new())))>"手順を追加"</button>
+            <button on:click=move |_| add.edit(|v| v.push(RawStep::Short(String::new())))>{t!("ui.add_step")}</button>
         </div>
     }
     .into_any()
 }
 
-const STEPS_KINDS: &[(&str, &str)] = &[("keys", "キー / アクション名"), ("steps", "手順")];
+fn steps_kinds() -> Options {
+    vec![("keys".into(), t!("ui.keys_or_action")), ("steps".into(), t!("ui.steps"))]
+}
 
 /// Keys (a string) or a list of steps.
 fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
@@ -220,7 +235,7 @@ fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
         let p = p.clone();
         move || match k.get() {
             false => keys_or_action(
-                "キー / アクション名",
+                &t!("ui.keys_or_action"),
                 &p,
                 |s| if let RawSteps::Short(k) = s { k.clone() } else { String::new() },
                 |s, x| *s = RawSteps::Short(x),
@@ -232,11 +247,16 @@ fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
             )),
         }
     };
-    view! { {select("種類", &p, STEPS_KINDS, kind, set_kind)} {fields} }.into_any()
+    view! { {select(&t!("ui.kind"), &p, steps_kinds(), kind, set_kind)} {fields} }.into_any()
 }
 
-const ACTION_KINDS: &[(&str, &str)] =
-    &[("short", "キー / アクション名"), ("steps", "手順"), ("by_target", "ターゲットごと")];
+fn action_kinds() -> Options {
+    vec![
+        ("short".into(), t!("ui.keys_or_action")),
+        ("steps".into(), t!("ui.steps")),
+        ("by_target".into(), t!("ui.action.by_target")),
+    ]
+}
 
 fn action_kind(a: &RawAction) -> String {
     match a {
@@ -271,7 +291,7 @@ pub fn action_editor(p: Place<RawAction>) -> AnyView {
             "short" => {
                 let get = |a: &RawAction| if let RawAction::Short(s) = a { s.clone() } else { String::new() };
                 let set = |a: &mut RawAction, x| *a = RawAction::Short(x);
-                keys_or_action("キー / アクション名", &p, get, set).into_any()
+                keys_or_action(&t!("ui.keys_or_action"), &p, get, set).into_any()
             }
             "steps" => steps_editor(p.map(
                 |a| if let RawAction::Steps(v) = a { Some(v) } else { None },
@@ -283,7 +303,7 @@ pub fn action_editor(p: Place<RawAction>) -> AnyView {
             )),
         }
     };
-    view! { {select("種類", &p, ACTION_KINDS, action_kind, set_action_kind)} {fields} }.into_any()
+    view! { {select(&t!("ui.kind"), &p, action_kinds(), action_kind, set_action_kind)} {fields} }.into_any()
 }
 
 /// Target name (`*` = always) → keys or steps, evaluated top to bottom.
@@ -311,11 +331,11 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
         })
     };
     view! {
-        <p class="hint">"上から順に評価し、最初に合ったターゲットの出力を使う (* は常に合う)。"</p>
+        <p class="hint">{t!("ui.action.by_target_hint")}</p>
         <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|t| t.clone() let:t>
             {row(t)}
         </For>
-        <button on:click=add_row>"ターゲットを追加"</button>
+        <button on:click=add_row>{t!("ui.action.add_target")}</button>
     }
     .into_any()
 }
@@ -350,7 +370,7 @@ pub fn actions() -> impl IntoView {
             <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|n| n.clone() let:name>
                 {row(name)}
             </For>
-            <button on:click=add_action>"アクションを追加"</button>
+            <button on:click=add_action>{t!("ui.action.add")}</button>
         </section>
     }
 }

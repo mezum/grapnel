@@ -3,7 +3,12 @@
 use crate::Store;
 use grapnel_schema::{IndexMap, RawConfig};
 use leptos::prelude::*;
+use rust_i18n::t;
+use std::borrow::Cow;
 use std::sync::Arc;
+
+/// Drop-down entries: (value, label).
+pub type Options = Vec<(Cow<'static, str>, Cow<'static, str>)>;
 
 type Get<V> = dyn for<'a> Fn(&'a RawConfig) -> Option<&'a V> + Send + Sync;
 type GetMut<V> = dyn for<'a> Fn(&'a mut RawConfig) -> Option<&'a mut V> + Send + Sync;
@@ -83,14 +88,14 @@ pub fn name_row(
     view! {
         <div class="name">
             <input prop:value=name on:change=on_change />
-            <button class="del" on:click=move |_| delete()>"削除"</button>
+            <button class="del" on:click=move |_| delete()>{t!("ui.delete")}</button>
         </div>
     }
 }
 
 /// Binds a string-ish input. `to`/`from` convert between the field and the input text.
 fn input<V: 'static, T: Default + 'static>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> T,
     set: fn(&mut V, T),
@@ -98,6 +103,7 @@ fn input<V: 'static, T: Default + 'static>(
     from: fn(String) -> T,
     check: Option<Check>,
 ) -> impl IntoView + use<V, T> {
+    let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
     let value = move || to(pg.read(get));
     let error = {
@@ -113,18 +119,13 @@ fn input<V: 'static, T: Default + 'static>(
     }
 }
 
-pub fn text<V>(
-    label: &'static str,
-    p: &Place<V>,
-    get: fn(&V) -> String,
-    set: fn(&mut V, String),
-) -> impl IntoView + use<V> {
+pub fn text<V>(label: &str, p: &Place<V>, get: fn(&V) -> String, set: fn(&mut V, String)) -> impl IntoView + use<V> {
     input(label, p, get, set, |s| s, |s| s, None)
 }
 
 /// Empty input means "not set".
 pub fn opt_text<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<String>,
     set: fn(&mut V, Option<String>),
@@ -134,7 +135,7 @@ pub fn opt_text<V>(
 
 /// Comma-separated list.
 pub fn list<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> Vec<String>,
     set: fn(&mut V, Vec<String>),
@@ -144,7 +145,7 @@ pub fn list<V>(
 }
 
 pub fn num<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<u32>,
     set: fn(&mut V, Option<u32>),
@@ -156,7 +157,7 @@ type Check = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 /// Keys to send, or the name of an action defined in any loaded file.
 pub fn keys_or_action<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> String,
     set: fn(&mut V, String),
@@ -164,7 +165,8 @@ pub fn keys_or_action<V>(
     let store = p.store;
     let check: Check = Arc::new(move |s: &str| {
         let named = store.docs.with(|d| d.iter().any(|f| f.raw.actions.contains_key(s)));
-        (!named && grapnel_keys::parse_seq(s, &[]).is_err()).then(|| format!("unknown action or key '{s}'"))
+        (!named && grapnel_keys::parse_seq(s, &[]).is_err())
+            .then(|| t!("ui.unknown_action_or_key", name = s).into_owned())
     });
     input(label, p, get, set, |s| s, |s| s, Some(check))
 }
@@ -179,7 +181,7 @@ fn key_check(store: Store, user_mods: bool) -> Option<Check> {
 }
 
 pub fn keys<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> String,
     set: fn(&mut V, String),
@@ -190,7 +192,7 @@ pub fn keys<V>(
 
 /// Optional key sequence; empty input means "not set".
 pub fn opt_keys<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<String>,
     set: fn(&mut V, Option<String>),
@@ -199,12 +201,8 @@ pub fn opt_keys<V>(
     input(label, p, get, set, Option::unwrap_or_default, from, key_check(p.store, false))
 }
 
-pub fn check<V>(
-    label: &'static str,
-    p: &Place<V>,
-    get: fn(&V) -> bool,
-    set: fn(&mut V, bool),
-) -> impl IntoView + use<V> {
+pub fn check<V>(label: &str, p: &Place<V>, get: fn(&V) -> bool, set: fn(&mut V, bool)) -> impl IntoView + use<V> {
+    let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
     view! {
         <label class="field check">
@@ -216,18 +214,19 @@ pub fn check<V>(
 
 /// Drop-down over `options` (value, label). The field is converted with `get`/`set` as strings.
 pub fn select<V>(
-    label: &'static str,
+    label: &str,
     p: &Place<V>,
-    options: &'static [(&'static str, &'static str)],
+    options: Options,
     get: fn(&V) -> String,
     set: fn(&mut V, String),
 ) -> impl IntoView + use<V> {
+    let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
     view! {
         <label class="field">
             <span>{label}</span>
             <select prop:value=move || pg.read(get) on:change=move |ev| ps.edit(|v| set(v, event_target_value(&ev)))>
-                {options.iter().map(|(v, l)| view! { <option value=*v>{*l}</option> }).collect_view()}
+                {options.into_iter().map(|(v, l)| view! { <option value=v.into_owned()>{l.into_owned()}</option> }).collect_view()}
             </select>
         </label>
     }
