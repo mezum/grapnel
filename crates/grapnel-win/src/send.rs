@@ -92,7 +92,13 @@ pub fn send(cmds: &[Command]) {
             Raw::Key { vk, scan, flags } => INPUT {
                 r#type: INPUT_KEYBOARD,
                 Anonymous: INPUT_0 {
-                    ki: KEYBDINPUT { wVk: VIRTUAL_KEY(vk), wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: INJECT_TAG },
+                    ki: KEYBDINPUT {
+                        wVk: VIRTUAL_KEY(vk),
+                        wScan: scan,
+                        dwFlags: flags,
+                        time: 0,
+                        dwExtraInfo: INJECT_TAG,
+                    },
                 },
             },
             Raw::Mouse { flags, data, dx, dy } => INPUT {
