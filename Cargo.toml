@@ -24,6 +24,6 @@ grapnel-engine = { path = "crates/grapnel-engine" }
 grapnel-win = { path = "crates/grapnel-win" }
 grapnel-pad = { path = "crates/grapnel-pad" }
 serde = { version = "1", features = ["derive"] }
-toml = "1"
+toml = { version = "1", features = ["preserve_order"] }
 regex = "1"
 log = "0.4"

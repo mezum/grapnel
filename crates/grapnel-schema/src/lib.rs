@@ -1,5 +1,6 @@
 //! Serde types that mirror one grapnel TOML file 1:1. No semantic validation here.
 
+pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -20,10 +21,10 @@ pub struct RawConfig {
     pub modifiers: BTreeMap<String, RawModifier>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub targets: BTreeMap<String, RawTarget>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rules: Vec<RawRule>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub actions: BTreeMap<String, Vec<RawActionImpl>>,
+    #[serde(default, skip_serializing_if = "RawNode::is_empty")]
+    pub keymap: RawNode,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub actions: IndexMap<String, RawAction>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -50,6 +51,9 @@ pub struct RawMode {
     /// Real modifiers (`"S"`, `"C-S"`, ...) kept pressed while in this mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hold: Option<String>,
+    /// Bindings that only apply in this mode.
+    #[serde(default, skip_serializing_if = "RawNode::is_empty")]
+    pub keymap: RawNode,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -107,35 +111,77 @@ pub enum Mismatch {
     Fallback,
 }
 
+/// A keymap node: chord → binding, plus options inherited by the subtree.
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
-#[serde(deny_unknown_fields)]
-pub struct RawRule {
-    pub keys: String,
-    pub action: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub targets: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub modes: Vec<String>,
+pub struct RawNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub press: Option<Press>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fallback: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub on_mismatch: Option<Mismatch>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u32>,
-    /// Keep the output's modifiers pressed until the rule's user modifiers are released.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub keep_mods: bool,
+    pub options: Option<RawNodeOptions>,
+    #[serde(flatten)]
+    pub children: IndexMap<String, RawBinding>,
+}
+
+impl RawNode {
+    pub fn is_empty(&self) -> bool {
+        self.options.is_none() && self.children.is_empty()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub struct RawActionImpl {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub when: Vec<String>,
+pub struct RawNodeOptions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_mismatch: Option<Mismatch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
+}
+
+/// What a chord in a keymap does. Tried in this order when reading.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum RawBinding {
+    /// An action name, or keys to send.
+    Short(String),
+    Steps(Vec<RawStep>),
+    /// A table with `do`.
+    Leaf(RawLeaf),
+    /// Any other table: the chord is a prefix.
+    Node(RawNode),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RawLeaf {
     #[serde(rename = "do")]
-    pub steps: Vec<RawStep>,
+    pub action: RawAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub press: Option<Press>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keep_mods: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
+    /// Unknown options (reported by the compiler). Being flattened also makes a leaf readable
+    /// only from a table, never from an array.
+    #[serde(flatten, skip_serializing)]
+    pub unknown: IndexMap<String, serde::de::IgnoredAny>,
+}
+
+/// An action: keys, steps, or target name (`"*"` = always) → steps, tried in order.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum RawAction {
+    Short(String),
+    Steps(Vec<RawStep>),
+    ByTarget(IndexMap<String, RawSteps>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum RawSteps {
+    Short(String),
+    Steps(Vec<RawStep>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
