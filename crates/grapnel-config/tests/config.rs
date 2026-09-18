@@ -301,3 +301,18 @@ fn reachability_respects_targets_and_modes() {
     // A mode binding does not hide a longer global one (it still works in other modes).
     ok("[keymap]\n\"a b\" = \"y\"\n[modes.edit.keymap]\na = \"x\"");
 }
+
+#[test]
+fn step_strings_call_actions_when_named() {
+    let c = ok("[keymap]\na = [\"undo\", \"C-s\", { keys = \"C-z\" }]\n[actions]\nundo = \"C-z\"\nundo2 = \"undo\"");
+    let undo = c.action_id("undo").unwrap();
+    let steps = &c.actions[c.rules[0].action].impls[0].steps;
+    assert_eq!(steps[0], Step::Call { action: undo, arg: None });
+    assert_eq!(steps[1], Step::Keys(seq("C-s", &[])));
+    // `{ keys = ... }` always means keys.
+    assert!(
+        errs(&[("m", "[keymap]\na = [{ keys = \"undo\" }]\n[actions]\nundo = \"C-z\"")]).contains("unknown key 'undo'")
+    );
+    // An action's own string may name another action.
+    assert_eq!(c.actions[c.action_id("undo2").unwrap()].impls[0].steps, [Step::Call { action: undo, arg: None }]);
+}

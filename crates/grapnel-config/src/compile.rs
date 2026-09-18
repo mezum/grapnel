@@ -275,6 +275,8 @@ fn reaches(ts: &[Target], from: TargetId, goal: TargetId, seen: &mut Vec<bool>) 
 
 pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, modes: &Names) -> Option<Step> {
     Some(match s {
+        // A bare string calls the action of that name if there is one; `{ keys = ... }` is always keys.
+        RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: None },
         RawStep::Short(k) | RawStep::Keys { keys: k } => Step::Keys(c.output(at, k)?),
         RawStep::Text { text } => Step::Text(text.clone()),
         RawStep::MouseMove { mouse_move: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: false },
