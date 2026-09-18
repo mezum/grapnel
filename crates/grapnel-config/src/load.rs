@@ -58,10 +58,28 @@ fn expand(pattern: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(paths)
 }
 
+/// Serializes a file readably. Each action is then rewritten inline: as a table, TOML would list
+/// scalar entries before sub-tables and so reorder target-keyed implementations, whose order matters.
+fn to_toml(raw: &RawConfig) -> Result<String, String> {
+    let text = toml::to_string_pretty(raw).map_err(|e| e.to_string())?;
+    if raw.actions.is_empty() {
+        return Ok(text);
+    }
+    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e: toml_edit::TomlError| e.to_string())?;
+    let inline = toml_edit::ser::to_document(&raw.actions).map_err(|e| e.to_string())?;
+    let mut actions = toml_edit::Table::new();
+    for (name, item) in inline.iter() {
+        let value = item.clone().into_value().map_err(|_| format!("action '{name}' is not a value"))?;
+        actions.insert(name, toml_edit::Item::Value(value));
+    }
+    doc["actions"] = toml_edit::Item::Table(actions);
+    Ok(doc.to_string())
+}
+
 /// Writes one file by replacing it atomically, so a failed write never truncates the original.
 /// Comments in the original file are not preserved.
 pub fn save(path: &Path, raw: &RawConfig) -> std::io::Result<()> {
-    let text = toml::to_string_pretty(raw).map_err(std::io::Error::other)?;
+    let text = to_toml(raw).map_err(std::io::Error::other)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }

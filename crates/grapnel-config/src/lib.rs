@@ -85,12 +85,20 @@ pub struct Policy {
     pub fallback: Option<KeySeq>,
 }
 
+/// Options set on one keymap node; unset fields are inherited from shallower nodes.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct NodeOptions {
+    pub on_mismatch: Option<Mismatch>,
+    pub timeout_ms: Option<u32>,
+    pub fallback: Option<KeySeq>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Prefix {
     pub keys: Vec<Chord>,
     /// Empty = every mode.
     pub modes: Vec<ModeId>,
-    pub policy: Policy,
+    pub options: NodeOptions,
 }
 
 #[derive(Clone, Debug)]
@@ -123,15 +131,23 @@ impl Config {
         self.modifiers.iter().map(|m| m.name.as_str()).collect()
     }
 
-    /// Policy for waiting after `pending` in `mode`: the deepest node with options on its path.
+    /// Policy for waiting after `pending` in `mode`: options of every node on its path, deeper
+    /// nodes (and, at equal depth, mode nodes) overriding shallower ones field by field.
     pub fn policy(&self, pending: &[Chord], mode: ModeId) -> Policy {
-        let applies = |p: &&Prefix| (p.modes.is_empty() || p.modes.contains(&mode)) && pending.starts_with(&p.keys);
-        // Deepest first; on a tie the mode-specific node (listed first) wins.
-        let best = self.prefixes.iter().filter(applies).fold(None::<&Prefix>, |best, p| match best {
-            Some(b) if b.keys.len() >= p.keys.len() => Some(b),
-            _ => Some(p),
-        });
-        best.map(|p| p.policy.clone()).unwrap_or_default()
+        let mut path: Vec<&Prefix> = self
+            .prefixes
+            .iter()
+            .filter(|p| (p.modes.is_empty() || p.modes.contains(&mode)) && pending.starts_with(&p.keys))
+            .collect();
+        path.sort_by_key(|p| (p.keys.len(), !p.modes.is_empty()));
+        path.iter().fold(Policy::default(), |mut policy, p| {
+            policy.on_mismatch = p.options.on_mismatch.unwrap_or(policy.on_mismatch);
+            policy.timeout_ms = p.options.timeout_ms.unwrap_or(policy.timeout_ms);
+            if p.options.fallback.is_some() {
+                policy.fallback = p.options.fallback.clone();
+            }
+            policy
+        })
     }
 
     pub fn action_id(&self, name: &str) -> Option<ActionId> {

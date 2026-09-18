@@ -131,12 +131,12 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         let mut c = Ctx { errors: &mut errors, file: path };
         for (name, m) in &raw.modes {
             let at = format!("modes.{name}.keymap");
-            walker.walk(&mut c, &m.keymap, &[], &at, &[mode_ix[name]], &Policy::default());
+            walker.walk(&mut c, &m.keymap, &[], &at, &[mode_ix[name]]);
         }
     }
     for (path, raw) in files {
         let mut c = Ctx { errors: &mut errors, file: path };
-        walker.walk(&mut c, &raw.keymap, &[], "keymap", &[], &Policy::default());
+        walker.walk(&mut c, &raw.keymap, &[], "keymap", &[]);
     }
     check_conflicts(&rules, &locations, &mut errors);
 

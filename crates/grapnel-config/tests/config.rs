@@ -261,3 +261,43 @@ fn modes_unmapped_to_and_hold() {
     );
     assert!(errs(&[("m", "[modes.mark]\nhold = \"Q\"")]).contains("modes.mark.hold"));
 }
+
+#[test]
+fn save_keeps_target_order_with_step_lists() {
+    let d = temp_dir("order");
+    let raw: RawConfig = toml::from_str(
+        "[targets.editor]\n[actions]\ntest = { editor = [{ text = \"E\" }], \"*\" = \"Esc\" }\n[keymap]\na = \"test\"",
+    )
+    .unwrap();
+    save(&d.join("c.toml"), &raw).unwrap();
+    let back = &load(&d.join("c.toml")).unwrap()[0].1;
+    assert_eq!(back, &raw, "{}", std::fs::read_to_string(d.join("c.toml")).unwrap());
+    let c = compile(&[(d.join("c.toml"), back.clone())]).unwrap();
+    assert_eq!(c.actions[c.action_id("test").unwrap()].impls[0].when, [0]);
+}
+
+#[test]
+fn options_inherit_across_files_and_shorthand_paths() {
+    let main = "include = []\n[keymap.options]\non_mismatch = \"discard\"\n[keymap.\"a b\".options]\ntimeout_ms = 50";
+    let extra = "[keymap.a]\nx = \"y\"\n[keymap.a.options]\ntimeout_ms = 100\n[keymap.\"a b\"]\nc = \"d\"";
+    let c = compile(&files(&[("main", main), ("extra", extra)])).unwrap();
+    let a = c.policy(&seq("a", &[]).0, 0);
+    assert_eq!((a.on_mismatch, a.timeout_ms), (Mismatch::Discard, 100));
+    let ab = c.policy(&seq("a b", &[]).0, 0);
+    assert_eq!((ab.on_mismatch, ab.timeout_ms), (Mismatch::Discard, 50));
+    // Mode nodes inherit global defaults too.
+    let m = compile(&files(&[("m", "[keymap.options]\ntimeout_ms = 7\n[modes.v.keymap.g]\nx = \"y\"\n[modes.v.keymap.g.options]\non_mismatch = \"discard\"")])).unwrap();
+    let g = m.policy(&seq("g", &[]).0, 1);
+    assert_eq!((g.on_mismatch, g.timeout_ms), (Mismatch::Discard, 7));
+}
+
+#[test]
+fn reachability_respects_targets_and_modes() {
+    // A short binding limited by targets does not hide longer ones.
+    ok("[targets.editor]\napp = \"code.exe\"\n[keymap]\na = { do = \"x\", targets = [\"editor\"] }\n\"a b\" = \"y\"");
+    // A global binding hides a longer mode binding.
+    let e = errs(&[("m", "[keymap]\na = \"x\"\n[modes.edit.keymap]\n\"a b\" = \"y\"")]);
+    assert!(e.contains("m: modes.edit.keymap.\"a b\": unreachable"), "{e}");
+    // A mode binding does not hide a longer global one (it still works in other modes).
+    ok("[keymap]\n\"a b\" = \"y\"\n[modes.edit.keymap]\na = \"x\"");
+}

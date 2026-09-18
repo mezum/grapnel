@@ -10,3 +10,4 @@ grapnel-keys.workspace = true
 grapnel-schema.workspace = true
 regex.workspace = true
 toml.workspace = true
+toml_edit = { version = "0.25", features = ["serde"] }

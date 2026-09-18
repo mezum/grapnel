@@ -21,15 +21,11 @@ pub(crate) struct Walker<'a> {
 }
 
 impl Walker<'_> {
-    pub fn walk(&mut self, c: &mut Ctx, node: &RawNode, path: &[Chord], at: &str, modes: &[ModeId], parent: &Policy) {
-        let mut policy = parent.clone();
+    pub fn walk(&mut self, c: &mut Ctx, node: &RawNode, path: &[Chord], at: &str, modes: &[ModeId]) {
         if let Some(o) = &node.options {
-            policy.on_mismatch = o.on_mismatch.unwrap_or(policy.on_mismatch);
-            policy.timeout_ms = o.timeout_ms.unwrap_or(policy.timeout_ms);
-            if let Some(f) = &o.fallback {
-                policy.fallback = c.output(&format!("{at}.options.fallback"), f);
-            }
-            self.prefixes.push(Prefix { keys: path.to_vec(), modes: modes.to_vec(), policy: policy.clone() });
+            let fallback = o.fallback.as_ref().and_then(|f| c.output(&format!("{at}.options.fallback"), f));
+            let options = NodeOptions { on_mismatch: o.on_mismatch, timeout_ms: o.timeout_ms, fallback };
+            self.prefixes.push(Prefix { keys: path.to_vec(), modes: modes.to_vec(), options });
         }
         for (key, binding) in &node.children {
             let at = format!("{at}.\"{key}\"");
@@ -46,7 +42,7 @@ impl Walker<'_> {
             };
             let keys: Vec<Chord> = path.iter().cloned().chain(chords).collect();
             match binding {
-                RawBinding::Node(n) => self.walk(c, n, &keys, &at, modes, &policy),
+                RawBinding::Node(n) => self.walk(c, n, &keys, &at, modes),
                 RawBinding::Short(s) => {
                     let action = self.reference(c, &at, s);
                     self.leaf(c, &at, keys, modes, action, None);
@@ -152,15 +148,17 @@ pub(crate) fn compile_action(
     }
 }
 
-/// Same key twice in one mode, or a key hidden behind a shorter binding.
+/// Same key twice in one mode, or a key hidden behind a shorter binding (in the same mode, or a
+/// global one hiding a mode one). A short binding limited by `targets` hides nothing.
 pub(crate) fn check_conflicts(rules: &[Rule], locations: &[(PathBuf, String)], errors: &mut Vec<String>) {
     for (i, a) in rules.iter().enumerate() {
-        for (j, b) in rules.iter().enumerate().filter(|(j, b)| *j != i && b.modes == a.modes) {
+        for (j, b) in rules.iter().enumerate().filter(|(j, _)| *j != i) {
             let (fa, la) = &locations[i];
             let (fb, lb) = &locations[j];
-            if a.keys == b.keys && i < j {
+            let hides = a.targets.is_empty() && (a.modes == b.modes || (a.modes.is_empty() && !b.modes.is_empty()));
+            if a.keys == b.keys && a.modes == b.modes && i < j {
                 errors.push(format!("{}: {lb}: already bound at {}: {la}", fb.display(), fa.display()));
-            } else if b.keys.0.len() > a.keys.0.len() && b.keys.0.starts_with(&a.keys.0) {
+            } else if hides && b.keys.0.len() > a.keys.0.len() && b.keys.0.starts_with(&a.keys.0) {
                 errors.push(format!(
                     "{}: {lb}: unreachable because {} binds its prefix at {la}",
                     fb.display(),
