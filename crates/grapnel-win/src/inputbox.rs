@@ -6,10 +6,7 @@ use crate::wide;
 use std::cell::RefCell;
 use windows::Win32::Foundation::LRESULT;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::Graphics::Gdi::{
-    COLOR_WINDOW, DEFAULT_GUI_FONT, GetMonitorInfoW, GetStockObject, HBRUSH, MONITOR_DEFAULTTONEAREST, MONITORINFO,
-    MonitorFromWindow,
-};
+use windows::Win32::Graphics::Gdi::{COLOR_WINDOW, DEFAULT_GUI_FONT, GetStockObject, HBRUSH};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SetFocus, VK_ESCAPE, VK_RETURN};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -57,15 +54,11 @@ fn force_foreground(hwnd: HWND) {
 /// along the bottom of the work area of the monitor that holds the foreground window.
 fn placement(bottom: bool) -> (i32, i32, i32, i32) {
     let h = 64;
+    if bottom {
+        let r = crate::window::foreground_work_area();
+        return (r.left, r.bottom - h, r.right - r.left, h);
+    }
     unsafe {
-        if bottom {
-            let monitor = MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTONEAREST);
-            let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
-            if GetMonitorInfoW(monitor, &mut info).as_bool() {
-                let r = info.rcWork;
-                return (r.left, r.bottom - h, r.right - r.left, h);
-            }
-        }
         let w = 480;
         ((GetSystemMetrics(SM_CXSCREEN) - w) / 2, GetSystemMetrics(SM_CYSCREEN) / 3, w, h)
     }

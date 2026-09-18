@@ -2,7 +2,8 @@
 
 use grapnel_config::WindowInfo;
 use std::cell::Cell;
-use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, WPARAM};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow};
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
@@ -59,6 +60,18 @@ pub fn foreground_info() -> WindowInfo {
         class: class_name(hwnd),
         control,
         ..Default::default()
+    }
+}
+
+/// Work area (screen minus taskbar) of the monitor that holds the foreground window.
+pub fn foreground_work_area() -> RECT {
+    unsafe {
+        let monitor = MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+        if GetMonitorInfoW(monitor, &mut info).as_bool() {
+            return info.rcWork;
+        }
+        RECT { left: 0, top: 0, right: GetSystemMetrics(SM_CXSCREEN), bottom: GetSystemMetrics(SM_CYSCREEN) }
     }
 }
 

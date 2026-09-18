@@ -4,6 +4,7 @@ pub mod hook;
 pub mod inputbox;
 pub mod pipe;
 pub mod send;
+pub mod toast;
 pub mod tray;
 pub mod uia;
 pub mod window;

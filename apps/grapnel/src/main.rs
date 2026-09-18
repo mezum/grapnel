@@ -10,7 +10,7 @@ use app::{App, PAD_ENABLED};
 use grapnel_config::{Config, InputPosition};
 use grapnel_engine::{Command, Event};
 use grapnel_keys::Key;
-use grapnel_win::{hook, inputbox, pipe, tray, tray::Tray, window};
+use grapnel_win::{hook, inputbox, pipe, toast, tray, tray::Tray, window};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -118,6 +118,12 @@ fn handle(msg: Msg) {
             with_app(|a| a.before_prompt(then));
             if let Err(e) = inputbox::open(&prompt, position == InputPosition::Bottom) {
                 log::error!("入力欄を表示できません: {e}");
+            }
+        }
+        Msg::Deferred(Command::Notice(text)) => {
+            log::info!("{text}");
+            if let Err(e) = toast::show(&text, 2500) {
+                log::warn!("cannot show notice: {e}");
             }
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
