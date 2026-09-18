@@ -54,5 +54,5 @@ End = "select_end_of_line"
 
 # mark モードを使うアクションは、モードを定義しているこのファイルに置く。
 [actions]
-set_mark = { others = [{ mode = "mark" }] }
+set_mark = { non_emacs_app = [{ mode = "mark" }] }
 deactivate_mark = [{ mode = "default" }]

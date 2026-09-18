@@ -2,40 +2,40 @@
 # アプリごとに出力を変えたいときは、ここのアクションにターゲットごとの出力を足す。
 
 # Emacs 本体やターミナルでは Ctrl キーをそのまま使いたいので、Emacs 風の編集操作は
-# others のときだけ働く。どれにも合わないアプリでは、元のキーがそのまま届く。
+# non_emacs_app のときだけ働く。どれにも合わないアプリでは、元のキーがそのまま届く。
 [targets.emacs_like_app]
 app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.exe$"
 
-[targets.others]
+[targets.non_emacs_app]
 not = "emacs_like_app"
 
 [actions]
 # ---- カーソル移動と削除 ----
-forward_char = { others = "Right" }
-backward_char = { others = "Left" }
-next_line = { others = "Down" }
-previous_line = { others = "Up" }
-beginning_of_line = { others = "Home" }
-end_of_line = { others = "End" }
-delete_backward_char = { others = "Backspace" }
-delete_char = { others = "Delete" }
+forward_char = { non_emacs_app = "Right" }
+backward_char = { non_emacs_app = "Left" }
+next_line = { non_emacs_app = "Down" }
+previous_line = { non_emacs_app = "Up" }
+beginning_of_line = { non_emacs_app = "Home" }
+end_of_line = { non_emacs_app = "End" }
+delete_backward_char = { non_emacs_app = "Backspace" }
+delete_char = { non_emacs_app = "Delete" }
 
 # ---- 切り取り・コピー・貼り付け・元に戻す ----
 # Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
 # kill_line は行末まで選択して切り取る。行末で押すと選択が空になり、VS Code などは行全体を切り取る。
-kill_line = { others = "S-End C-x" }
-kill_region = { others = "C-x" }
-kill_ring_save = { others = "C-c" }
-yank = { others = "C-v" }
-undo = { others = "C-z" }
+kill_line = { non_emacs_app = "S-End C-x" }
+kill_region = { non_emacs_app = "C-x" }
+kill_ring_save = { non_emacs_app = "C-c" }
+yank = { non_emacs_app = "C-v" }
+undo = { non_emacs_app = "C-z" }
 
 # ---- 選択範囲を広げる移動 ----
-select_forward_char = { others = "S-Right" }
-select_backward_char = { others = "S-Left" }
-select_next_line = { others = "S-Down" }
-select_previous_line = { others = "S-Up" }
-select_beginning_of_line = { others = "S-Home" }
-select_end_of_line = { others = "S-End" }
+select_forward_char = { non_emacs_app = "S-Right" }
+select_backward_char = { non_emacs_app = "S-Left" }
+select_next_line = { non_emacs_app = "S-Down" }
+select_previous_line = { non_emacs_app = "S-Up" }
+select_beginning_of_line = { non_emacs_app = "S-Home" }
+select_end_of_line = { non_emacs_app = "S-End" }
 
 # ---- タブ・アプリの切り替え ----
 next_tab = "C-Tab"
