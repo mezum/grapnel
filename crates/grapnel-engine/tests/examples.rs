@@ -204,3 +204,24 @@ fn emacs_cx_is_not_captured_in_emacs() {
     t.down("LCtrl");
     assert_eq!(t.down("x"), pass());
 }
+
+#[test]
+fn mac_virtual_desktops() {
+    let mut t = example("mac-cmd.toml");
+    t.down("LCtrl");
+    // C-Left / C-Right switch desktops (held, so holding repeats the switch).
+    assert_eq!(t.down("Right"), eaten("+LWin +Right"));
+    assert_eq!(t.down("Right"), eaten("+Right"));
+    assert_eq!(t.up("Right"), eaten("-Right +vk:0xE8 -vk:0xE8 -LWin"));
+    assert_eq!(t.down("Left"), eaten("+LWin +Left"));
+    t.up("Left");
+    // C-Up: task view, C-Down: show desktop.
+    assert_eq!(t.down("Up"), eaten("-LCtrl +LWin +Tab -Tab +vk:0xE8 -vk:0xE8 -LWin +LCtrl"));
+    t.up("Up");
+    assert_eq!(t.down("Down"), eaten("-LCtrl +LWin +d -d +vk:0xE8 -vk:0xE8 -LWin +LCtrl"));
+    t.up("Down");
+    t.up("LCtrl");
+    // Cmd (F19) + arrows still reach apps as Ctrl + arrows (word movement).
+    t.down("F19");
+    assert_eq!(t.down("Right"), pass());
+}
