@@ -77,7 +77,9 @@ fn reports_unknown_names_with_location() {
 
 #[test]
 fn rejects_bad_keys() {
-    let rule = |k: &str| format!("[modifiers.Mu]\nkey = \"Muhenkan\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\n[[actions.x]]\ndo = []");
+    let rule = |k: &str| {
+        format!("[modifiers.Mu]\nkey = \"Muhenkan\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\n[[actions.x]]\ndo = []")
+    };
     assert!(errs(&[("m", &rule("LCtrl"))]).contains("is a modifier"));
     assert!(errs(&[("m", &rule("Muhenkan"))]).contains("user modifier key"));
     assert!(errs(&[("m", &rule(""))]).contains("empty"));
@@ -109,7 +111,9 @@ fn circular_targets() {
 
 #[test]
 fn scancodes_are_collected() {
-    let c = ok("[modifiers.K]\nkey = \"Kana\"\n[[rules]]\nkeys = \"sc:0x7B Zenkaku\"\naction = \"x\"\n[[actions.x]]\ndo = []");
+    let c = ok(
+        "[modifiers.K]\nkey = \"Kana\"\n[[rules]]\nkeys = \"sc:0x7B Zenkaku\"\naction = \"x\"\n[[actions.x]]\ndo = []",
+    );
     assert_eq!(c.scancodes(), [0x29, 0x70, 0x7B]);
     assert_eq!(c.modifiers[0].key, Key::Sc(0x70));
 }

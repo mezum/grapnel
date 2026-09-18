@@ -136,23 +136,23 @@ const REAL_NAMES: [(&str, Mods); 4] = [("C", Mods::CTRL), ("M", Mods::ALT), ("S"
 
 /// Parses one key name, including gestures (`RButton:UL`).
 pub fn parse_key(s: &str) -> Result<Key, String> {
-    if let Some((btn, dirs)) = s.split_once(':') {
-        if let Some(&(_, b)) = names::MOUSE.iter().find(|(n, _)| n.eq_ignore_ascii_case(btn)) {
-            let dirs = dirs
-                .chars()
-                .map(|c| match c.to_ascii_uppercase() {
-                    'U' => Ok(Dir::U),
-                    'D' => Ok(Dir::D),
-                    'L' => Ok(Dir::L),
-                    'R' => Ok(Dir::R),
-                    _ => Err(format!("invalid gesture direction '{c}' in '{s}'")),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            if dirs.is_empty() {
-                return Err(format!("gesture '{s}' has no direction"));
-            }
-            return Ok(Key::Gesture(b, dirs));
+    if let Some((btn, dirs)) = s.split_once(':')
+        && let Some(&(_, b)) = names::MOUSE.iter().find(|(n, _)| n.eq_ignore_ascii_case(btn))
+    {
+        let dirs = dirs
+            .chars()
+            .map(|c| match c.to_ascii_uppercase() {
+                'U' => Ok(Dir::U),
+                'D' => Ok(Dir::D),
+                'L' => Ok(Dir::L),
+                'R' => Ok(Dir::R),
+                _ => Err(format!("invalid gesture direction '{c}' in '{s}'")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if dirs.is_empty() {
+            return Err(format!("gesture '{s}' has no direction"));
         }
+        return Ok(Key::Gesture(b, dirs));
     }
     names::lookup(s).ok_or_else(|| format!("unknown key '{s}'"))
 }

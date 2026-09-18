@@ -125,20 +125,22 @@ pub(crate) fn lookup(name: &str) -> Option<Key> {
     if let Some(p) = lower.strip_prefix("pad.") {
         return PAD.iter().find(|(n, _)| n.eq_ignore_ascii_case(p)).map(|&(_, b)| Key::Pad(b));
     }
-    if let [c] = lower.as_bytes() {
-        if c.is_ascii_alphanumeric() {
-            return Some(Key::Vk(c.to_ascii_uppercase()));
-        }
+    if let [c] = lower.as_bytes()
+        && c.is_ascii_alphanumeric()
+    {
+        return Some(Key::Vk(c.to_ascii_uppercase()));
     }
-    if let Some(n) = lower.strip_prefix('f').and_then(|n| n.parse::<u8>().ok()) {
-        if (1..=24).contains(&n) && !lower.starts_with("f0") {
-            return Some(Key::Vk(0x6F + n));
-        }
+    if let Some(n) = lower.strip_prefix('f').and_then(|n| n.parse::<u8>().ok())
+        && (1..=24).contains(&n)
+        && !lower.starts_with("f0")
+    {
+        return Some(Key::Vk(0x6F + n));
     }
-    if let Some(n) = lower.strip_prefix("num").and_then(|n| n.parse::<u8>().ok()) {
-        if n <= 9 && lower.len() == 4 {
-            return Some(Key::Vk(0x60 + n));
-        }
+    if let Some(n) = lower.strip_prefix("num").and_then(|n| n.parse::<u8>().ok())
+        && n <= 9
+        && lower.len() == 4
+    {
+        return Some(Key::Vk(0x60 + n));
     }
     if let Some(&(_, b)) = MOUSE.iter().find(|(n, _)| n.eq_ignore_ascii_case(&lower)) {
         return Some(Key::Mouse(b));

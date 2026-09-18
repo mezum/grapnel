@@ -112,9 +112,11 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
             for (i, imp) in impls.iter().enumerate() {
                 let at = format!("actions.{name}[{i}]");
                 let when = c.ids(&format!("{at}.when"), "target", &target_ix, &imp.when);
-                let steps = imp.steps.iter().enumerate().filter_map(|(j, s)| {
-                    compile_step(&mut c, &format!("{at}.do[{j}]"), s, &action_ix, &mode_ix)
-                });
+                let steps = imp
+                    .steps
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(j, s)| compile_step(&mut c, &format!("{at}.do[{j}]"), s, &action_ix, &mode_ix));
                 let steps = steps.collect();
                 actions[id].impls.push(ActionImpl { when, steps });
             }
@@ -138,11 +140,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         }),
         gesture_threshold: s.gesture_threshold.unwrap_or(30).max(1),
     };
-    if errors.is_empty() {
-        Ok(Config { settings, modes, modifiers, targets, rules, actions })
-    } else {
-        Err(errors)
-    }
+    if errors.is_empty() { Ok(Config { settings, modes, modifiers, targets, rules, actions }) } else { Err(errors) }
 }
 
 fn rule_key_problem(keys: &KeySeq, mods: &[Modifier]) -> Option<String> {
@@ -195,7 +193,9 @@ fn compile_targets(raw: &[(&Path, &str, &RawTarget)], ix: &Names, errors: &mut V
     for &(file, name, t) in raw {
         let mut c = Ctx { errors, file };
         let at = format!("targets.{name}");
-        let app_field = |s: &str| if s.contains('\\') { Field::ExePath } else { Field::ExeName };
+        let app_field = |s: &str| {
+            if s.contains('\\') { Field::ExePath } else { Field::ExeName }
+        };
         let fields = [
             (t.app.as_ref().map(|s| app_field(s)), &t.app, "app"),
             (Some(Field::Title), &t.title, "title"),
@@ -228,9 +228,11 @@ fn compile_targets(raw: &[(&Path, &str, &RawTarget)], ix: &Names, errors: &mut V
 
 fn reaches(ts: &[Target], from: TargetId, goal: TargetId, seen: &mut Vec<bool>) -> bool {
     let t = &ts[from];
-    t.not.iter().chain(&t.any).chain(&t.all).any(|&n| {
-        n == goal || (!std::mem::replace(&mut seen[n], true) && reaches(ts, n, goal, seen))
-    })
+    t.not
+        .iter()
+        .chain(&t.any)
+        .chain(&t.all)
+        .any(|&n| n == goal || (!std::mem::replace(&mut seen[n], true) && reaches(ts, n, goal, seen)))
 }
 
 fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, modes: &Names) -> Option<Step> {
@@ -244,6 +246,8 @@ fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, modes: &Nam
         RawStep::Call { call, arg } => Step::Call { action: c.id(at, "action", actions, call)?, arg: arg.clone() },
         RawStep::Mode { mode } => Step::Mode(c.id(at, "mode", modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
-        RawStep::Input { input, then } => Step::Input { prompt: input.clone(), then: c.id(at, "action", actions, then)? },
+        RawStep::Input { input, then } => {
+            Step::Input { prompt: input.clone(), then: c.id(at, "action", actions, then)? }
+        }
     })
 }

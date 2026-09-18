@@ -139,11 +139,21 @@ pub enum ControlCmd {
 #[serde(untagged, deny_unknown_fields)]
 pub enum RawStep {
     Short(String),
-    Keys { keys: String },
-    Text { text: String },
-    MouseMove { mouse_move: [i32; 2] },
-    MouseMoveTo { mouse_move_to: [i32; 2] },
-    Sleep { sleep: u32 },
+    Keys {
+        keys: String,
+    },
+    Text {
+        text: String,
+    },
+    MouseMove {
+        mouse_move: [i32; 2],
+    },
+    MouseMoveTo {
+        mouse_move_to: [i32; 2],
+    },
+    Sleep {
+        sleep: u32,
+    },
     Run {
         run: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -154,9 +164,16 @@ pub enum RawStep {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         arg: Option<String>,
     },
-    Mode { mode: String },
-    Control { control: ControlCmd },
-    Input { input: String, then: String },
+    Mode {
+        mode: String,
+    },
+    Control {
+        control: ControlCmd,
+    },
+    Input {
+        input: String,
+        then: String,
+    },
 }
 
 #[cfg(test)]

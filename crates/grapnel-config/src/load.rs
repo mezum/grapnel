@@ -22,9 +22,10 @@ fn visit(path: &Path, out: &mut Vec<(PathBuf, RawConfig)>, errors: &mut Vec<Stri
     if out.iter().any(|(p, _)| std::fs::canonicalize(p).is_ok_and(|p| p == canon)) {
         return;
     }
-    let raw: RawConfig = match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|s| {
-        toml::from_str(&s).map_err(|e| e.to_string())
-    }) {
+    let raw: RawConfig = match std::fs::read_to_string(path)
+        .map_err(|e| e.to_string())
+        .and_then(|s| toml::from_str(&s).map_err(|e| e.to_string()))
+    {
         Ok(r) => r,
         Err(e) => return errors.push(format!("{}: {e}", path.display())),
     };
