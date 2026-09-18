@@ -50,14 +50,14 @@ Up = "select_previous_line"
 Home = "select_beginning_of_line"
 "C-e" = "select_end_of_line"
 End = "select_end_of_line"
-# 編集系はいつもの動作をしてからマークを解除する。
-"C-w" = "mark_kill_region"
-"M-w" = "mark_kill_ring_save"
-"C-y" = "mark_yank"
-"C-k" = "mark_kill_line"
-"C-h" = "mark_delete_backward_char"
-"C-d" = "mark_delete_char"
-"C-/" = "mark_undo"
+# 編集系はマークを解除してからいつもの動作をする (配列の文字列はアクション名なら呼び出し)。
+"C-w" = ["deactivate_mark", "kill_region"]
+"M-w" = ["deactivate_mark", "kill_ring_save"]
+"C-y" = ["deactivate_mark", "yank"]
+"C-k" = ["deactivate_mark", "kill_line"]
+"C-h" = ["deactivate_mark", "delete_backward_char"]
+"C-d" = ["deactivate_mark", "delete_char"]
+"C-/" = ["deactivate_mark", "undo"]
 
 [actions]
 forward_char = { others = "Right" }
@@ -84,10 +84,3 @@ select_next_line = { others = "S-Down" }
 select_previous_line = { others = "S-Up" }
 select_beginning_of_line = { others = "S-Home" }
 select_end_of_line = { others = "S-End" }
-mark_kill_region = [{ call = "kill_region" }, { mode = "default" }]
-mark_kill_ring_save = [{ call = "kill_ring_save" }, { mode = "default" }]
-mark_yank = [{ call = "yank" }, { mode = "default" }]
-mark_kill_line = [{ call = "kill_line" }, { mode = "default" }]
-mark_delete_backward_char = [{ call = "delete_backward_char" }, { mode = "default" }]
-mark_delete_char = [{ call = "delete_char" }, { mode = "default" }]
-mark_undo = [{ call = "undo" }, { mode = "default" }]
