@@ -152,6 +152,9 @@ impl Engine {
 
     /// Runs an action directly (input box result, pipe commands).
     pub fn invoke(&mut self, action: ActionId, arg: &str, win: &WindowInfo) -> Vec<Command> {
+        if action >= self.cfg.actions.len() {
+            return vec![Command::Error(format!("unknown action #{action}"))];
+        }
         let mut out = Vec::new();
         self.run_action(action, arg, win, 0, &mut out);
         out

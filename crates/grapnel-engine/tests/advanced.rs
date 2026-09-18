@@ -134,6 +134,13 @@ fn call_input_and_control() {
 }
 
 #[test]
+fn invoking_unknown_action_reports_error() {
+    let mut t = t("[[actions.x]]
+do = []");
+    assert!(matches!(t.e.invoke(5, "", &t.win).as_slice(), [Command::Error(_)]));
+}
+
+#[test]
 fn recursive_call_reports_error() {
     let mut t = t("[[actions.x]]\ndo = [{ call = \"x\" }]");
     let out = t.e.invoke(0, "", &t.win);
