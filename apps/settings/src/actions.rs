@@ -244,9 +244,11 @@ fn action_kind(a: &RawAction) -> String {
 
 fn set_action_kind(a: &mut RawAction, k: String) {
     *a = match (k.as_str(), std::mem::replace(a, RawAction::Short(String::new()))) {
-        ("steps", RawAction::Short(s)) => RawAction::Steps(vec![RawStep::Short(s)]),
+        ("steps", RawAction::Short(s)) => RawAction::Steps(short_to_steps(s)),
         ("steps", RawAction::Steps(v)) => RawAction::Steps(v),
-        ("by_target", RawAction::Short(s)) => RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Short(s))])),
+        ("by_target", RawAction::Short(s)) => {
+            RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Steps(short_to_steps(s)))]))
+        }
         ("by_target", RawAction::Steps(v)) => RawAction::ByTarget(IndexMap::from([("*".into(), RawSteps::Steps(v))])),
         ("by_target", by @ RawAction::ByTarget(_)) => by,
         ("short", RawAction::Short(s)) => RawAction::Short(s),

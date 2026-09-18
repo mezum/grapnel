@@ -31,8 +31,12 @@ fn set_binding_kind(b: &mut RawBinding, k: String) {
     *b = match (k.as_str(), std::mem::replace(b, RawBinding::Short(String::new()))) {
         ("short", RawBinding::Leaf(RawLeaf { action: RawAction::Short(s), .. })) => RawBinding::Short(s),
         ("short", RawBinding::Short(s)) => RawBinding::Short(s),
-        ("steps", RawBinding::Short(s)) => RawBinding::Steps(vec![RawStep::Short(s)]),
+        ("steps", RawBinding::Short(s)) => RawBinding::Steps(short_to_steps(s)),
         ("steps", RawBinding::Steps(v)) => RawBinding::Steps(v),
+        ("steps", RawBinding::Leaf(RawLeaf { action: RawAction::Steps(v), .. })) => RawBinding::Steps(v),
+        ("steps", RawBinding::Leaf(RawLeaf { action: RawAction::Short(s), .. })) => {
+            RawBinding::Steps(short_to_steps(s))
+        }
         ("leaf", RawBinding::Short(s)) => leaf(RawAction::Short(s)),
         ("leaf", RawBinding::Steps(v)) => leaf(RawAction::Steps(v)),
         ("leaf", l @ RawBinding::Leaf(_)) => l,

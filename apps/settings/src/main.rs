@@ -35,8 +35,15 @@ pub struct FileDoc {
 }
 
 #[derive(Serialize)]
+/// Files travel as JSON text: a JS object would reorder integer-like keys.
 struct Files {
-    files: Vec<FileDoc>,
+    files: String,
+}
+
+impl Files {
+    fn of(docs: &[FileDoc]) -> Files {
+        Files { files: serde_json::to_string(docs).unwrap() }
+    }
 }
 
 #[derive(Serialize)]
@@ -82,8 +89,9 @@ fn App() -> impl IntoView {
 
     let load = move || {
         spawn_local(async move {
-            match call::<_, Vec<FileDoc>, Vec<String>>("load", &Entry { entry: entry.get_untracked() }).await {
-                Ok(docs) => {
+            match call::<_, String, Vec<String>>("load", &Entry { entry: entry.get_untracked() }).await {
+                Ok(json) => {
+                    let docs: Vec<FileDoc> = serde_json::from_str(&json).unwrap();
                     store.cur.set(0);
                     store.docs.set(docs);
                     status.set("読み込みました".into());
@@ -100,14 +108,13 @@ fn App() -> impl IntoView {
     Effect::new(move |_| {
         let files = store.docs.get();
         if !files.is_empty() {
-            spawn_local(
-                async move { errors.set(call::<_, Vec<String>, ()>("validate", &Files { files }).await.unwrap()) },
-            );
+            let files = Files::of(&files);
+            spawn_local(async move { errors.set(call::<_, Vec<String>, ()>("validate", &files).await.unwrap()) });
         }
     });
     let save = move |apply: bool| {
         spawn_local(async move {
-            let files = Files { files: store.docs.get_untracked() };
+            let files = Files::of(&store.docs.get_untracked());
             if let Err(e) = call::<_, (), Vec<String>>("save", &files).await {
                 errors.set(e);
                 return status.set("保存できませんでした。エラーを確認してください".into());
