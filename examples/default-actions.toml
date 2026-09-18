@@ -9,8 +9,9 @@ app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.e
 [targets.non_emacs_app]
 not = "emacs_like_app"
 
-[targets.ms_word]
-app = "WINWORD.EXE"
+# redo が Ctrl+Y ではなく Ctrl+Shift+Z のアプリ。
+[targets.redo_with_ctrl_shift_z]
+app = "re:(?i)^(Photoshop|Illustrator|AfterFX|blender|gimp-[0-9.]+|inkscape|Figma|idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)[.]exe$"
 
 [actions]
 # ---- カーソル移動と削除 ----
@@ -31,6 +32,8 @@ kill_region = { non_emacs_app = "C-x" }
 kill_ring_save = { non_emacs_app = "C-c" }
 yank = { non_emacs_app = "C-v" }
 undo = { non_emacs_app = "C-z" }
+# redo は Windows の標準が Ctrl+Y だが、Adobe 系・Blender・JetBrains 系などは Ctrl+Shift+Z。
+redo = { redo_with_ctrl_shift_z = "C-S-z", non_emacs_app = "C-y" }
 
 # ---- 選択範囲を広げる移動 ----
 select_forward_char = { non_emacs_app = "S-Right" }
@@ -47,8 +50,6 @@ save_as = "C-S-s"
 close_document = "C-w"
 open_file = "C-o"
 quit_app = "M-F4"
-# Windows には共通の大文字変換が無い。Word は Shift+F3 (大文字/小文字の切り替え)。
-upcase_region = { ms_word = "S-F3" }
 
 # ---- タブ・アプリの切り替え ----
 next_tab = "C-Tab"
