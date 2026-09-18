@@ -115,8 +115,8 @@ fn targets_limit_rules() {
 
 #[test]
 fn action_impls_pick_first_matching() {
-    let cfg = "[targets.code]\napp = \"code.exe\"\n[[rules]]\nkeys = \"a\"\naction = \"x\"\npress = \"tap\"\n\
-               [[actions.x]]\nwhen = [\"code\"]\ndo = [\"b\"]\n[[actions.x]]\ndo = [\"c\"]";
+    let cfg = "[targets.code]\napp = \"code.exe\"\n[keymap]\na = { do = \"x\", press = \"tap\" }\n\
+               [actions]\nx = { code = \"b\", \"*\" = \"c\" }";
     let mut t = t(cfg);
     assert_eq!(t.tap("a").0, eaten("+c -c"));
     t.app("code.exe");
@@ -125,16 +125,15 @@ fn action_impls_pick_first_matching() {
 
 #[test]
 fn fallback_when_no_impl_matches() {
-    let base = "[targets.code]\napp = \"code.exe\"\n[[rules]]\nkeys = \"C-x a\"\naction = \"x\"\n";
-    let action = "[[actions.x]]\nwhen = [\"code\"]\ndo = [\"b\"]";
-    let mut t1 = t(&format!("{base}fallback = \"z\"\n{action}"));
+    let base = "[targets.code]\napp = \"code.exe\"\n[actions]\nx = { code = \"b\" }\n[keymap.\"C-x a\"]\ndo = \"x\"\n";
+    let mut t1 = t(&format!("{base}fallback = \"z\""));
     t1.tap("LCtrl");
     t1.down("LCtrl");
     t1.tap("x");
     t1.up("LCtrl");
     assert_eq!(t1.tap("a"), (eaten("+z -z"), eaten("")));
     // Default fallback replays the original input and holds the trigger.
-    let mut t2 = t(&format!("{base}{action}"));
+    let mut t2 = t(base);
     t2.down("LCtrl");
     t2.tap("x");
     t2.up("LCtrl");

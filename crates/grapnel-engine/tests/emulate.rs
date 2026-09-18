@@ -77,9 +77,8 @@ fn plain_user_modifier_leaves_held_output_alone() {
 #[test]
 fn keep_mods_holds_output_modifiers_until_the_user_modifier_is_released() {
     let cfg = format!(
-        "{CMD}\n[[rules]]\nkeys = \"Cmd-Tab\"\naction = \"sw\"\nkeep_mods = true\n\
-         [[rules]]\nkeys = \"Cmd-S-Tab\"\naction = \"swb\"\nkeep_mods = true\n\
-         [[actions.sw]]\ndo = [\"M-Tab\"]\n[[actions.swb]]\ndo = [\"M-S-Tab\"]"
+        "{CMD}\n[keymap]\n\"Cmd-Tab\" = {{ do = \"M-Tab\", keep_mods = true }}\n\
+         \"Cmd-S-Tab\" = {{ do = \"M-S-Tab\", keep_mods = true }}"
     );
     let mut t = t(&cfg);
     assert_eq!(t.down("F19"), eaten("+LCtrl"));
@@ -99,9 +98,8 @@ fn keep_mods_holds_output_modifiers_until_the_user_modifier_is_released() {
 
 #[test]
 fn keep_mods_with_a_real_modifier_replaces_it_until_released() {
-    let cfg = "[[rules]]\nkeys = \"M-Tab\"\naction = \"tab\"\nkeep_mods = true\n\
-               [[rules]]\nkeys = \"M-S-Tab\"\naction = \"tabb\"\nkeep_mods = true\n\
-               [[actions.tab]]\ndo = [\"C-Tab\"]\n[[actions.tabb]]\ndo = [\"C-S-Tab\"]";
+    let cfg = "[keymap]\n\"M-Tab\" = { do = \"C-Tab\", keep_mods = true }\n\
+               \"M-S-Tab\" = { do = \"C-S-Tab\", keep_mods = true }";
     let mut t = t(cfg);
     assert_eq!(t.down("LAlt"), pass());
     assert_eq!(t.down("Tab"), eaten("+LCtrl +vk:0xE8 -vk:0xE8 -LAlt +Tab"));

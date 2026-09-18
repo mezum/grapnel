@@ -15,7 +15,7 @@ fn tap_repeat_reruns_with_current_modifiers() {
 
 #[test]
 fn replayed_key_keeps_passing_on_repeat_and_release() {
-    let cfg = "[[rules]]\nkeys = \"x y\"\naction = \"b\"\n[[rules]]\nkeys = \"q\"\naction = \"b\"\n[[actions.b]]\ndo = [\"z\"]";
+    let cfg = "[keymap]\n\"x y\" = \"z\"\nq = \"z\"";
     let mut t = t(cfg);
     t.tap("x");
     assert_eq!(t.down("q"), eaten("+x -x +q"));
@@ -25,8 +25,7 @@ fn replayed_key_keeps_passing_on_repeat_and_release() {
 
 #[test]
 fn shared_hold_output_released_by_last_trigger() {
-    let cfg =
-        "[[rules]]\nkeys = \"a\"\naction = \"x\"\n[[rules]]\nkeys = \"b\"\naction = \"x\"\n[[actions.x]]\ndo = [\"x\"]";
+    let cfg = "[keymap]\na = \"x\"\nb = \"x\"";
     let mut t = t(cfg);
     assert_eq!(t.down("a"), eaten("+x"));
     assert_eq!(t.down("b"), eaten("+x"));
@@ -72,11 +71,11 @@ fn any_other_key_activates_pending_user_modifier() {
 
 #[test]
 fn expired_prefix_is_resolved_before_next_key() {
-    let mut t1 = t(&rule("x y", "\"z\"", "timeout_ms = 100\non_mismatch = \"discard\"", ""));
+    let mut t1 = t(&rule("x y", "\"z\"", "", "[keymap.x.options]\ntimeout_ms = 100\non_mismatch = \"discard\""));
     t1.tap("x");
     t1.now = 101;
     assert_eq!(t1.down("y"), pass());
-    let mut t2 = t(&rule("x y", "\"z\"", "timeout_ms = 100", ""));
+    let mut t2 = t(&rule("x y", "\"z\"", "", "[keymap.x.options]\ntimeout_ms = 100"));
     t2.tap("x");
     t2.now = 101;
     assert_eq!(t2.down("y"), eaten("+x -x +y"));

@@ -59,7 +59,8 @@ impl T {
     }
 }
 
-/// One rule `keys` → action `a` with steps `steps` (TOML array body), plus extra TOML.
+/// One binding `keys` → inline steps `steps` (TOML array body), with extra leaf options
+/// (`press = "tap"`, ...) and extra TOML placed before it.
 pub fn rule(keys: &str, steps: &str, extra_rule: &str, extra: &str) -> String {
-    format!("{extra}\n[[rules]]\nkeys = \"{keys}\"\naction = \"a\"\n{extra_rule}\n[[actions.a]]\ndo = [{steps}]\n")
+    format!("{extra}\n[keymap.\"{keys}\"]\ndo = [{steps}]\n{extra_rule}\n")
 }

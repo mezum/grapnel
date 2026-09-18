@@ -28,17 +28,18 @@ fn mismatch_replay_resends_prefix_and_current_key() {
 
 #[test]
 fn mismatch_discard_and_fallback() {
-    let mut t1 = t(&rule("C-x t", "\"b\"", "on_mismatch = \"discard\"", ""));
+    let mut t1 = t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\non_mismatch = \"discard\""));
     cx(&mut t1);
     assert_eq!(t1.tap("q"), (eaten(""), eaten("")));
-    let mut t2 = t(&rule("C-x t", "\"b\"", "on_mismatch = \"fallback\"\nfallback = \"Esc\"", ""));
+    let mut t2 =
+        t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\non_mismatch = \"fallback\"\nfallback = \"Esc\""));
     cx(&mut t2);
     assert_eq!(t2.tap("q"), (eaten("+Esc -Esc"), eaten("")));
 }
 
 #[test]
 fn chord_timeout() {
-    let mut t = t(&rule("C-x t", "\"b\"", "timeout_ms = 100", ""));
+    let mut t = t(&rule("C-x t", "\"b\"", "", "[keymap.\"C-x\".options]\ntimeout_ms = 100"));
     t.now = 10;
     cx(&mut t);
     assert_eq!(t.e.next_deadline(), Some(110));
@@ -74,8 +75,7 @@ fn user_modifier_tap_timeout() {
 #[test]
 fn modes_switch_and_block() {
     let cfg = "[settings]\ninitial_mode = \"normal\"\n[modes.normal]\nblock_unmapped = true\n\
-               [[rules]]\nkeys = \"i\"\naction = \"ins\"\nmodes = [\"normal\"]\n\
-               [[actions.ins]]\ndo = [{ mode = \"default\" }]";
+               [modes.normal.keymap]\ni = [{ mode = \"default\" }]";
     let mut t = t(cfg);
     assert_eq!(t.tap("z"), (eaten(""), eaten("")));
     assert_eq!(t.tap("LShift"), (pass(), pass()));
@@ -115,10 +115,10 @@ fn wheel_with_modifier() {
 
 #[test]
 fn call_input_and_control() {
-    let cfg = "[[rules]]\nkeys = \"a\"\naction = \"x\"\n\
-               [[actions.x]]\ndo = [{ call = \"y\", arg = \"1{arg}\" }, { input = \"?\", then = \"y\" }, { control = \"exit\" }]\n\
-               [[actions.y]]\ndo = [{ text = \"<{arg}>\" }, { call = \"z\" }]\n\
-               [[actions.z]]\ndo = [{ text = \"{arg}\" }]";
+    let cfg = "[keymap]\na = \"x\"\n\
+               [actions]\nx = [{ call = \"y\", arg = \"1{arg}\" }, { input = \"?\", then = \"y\" }, { control = \"exit\" }]\n\
+               y = [{ text = \"<{arg}>\" }, { call = \"z\" }]\n\
+               z = [{ text = \"{arg}\" }]";
     let mut t = t(cfg);
     let y = 1;
     assert_eq!(
@@ -135,14 +135,13 @@ fn call_input_and_control() {
 
 #[test]
 fn invoking_unknown_action_reports_error() {
-    let mut t = t("[[actions.x]]
-do = []");
+    let mut t = t("[actions]\nx = []");
     assert!(matches!(t.e.invoke(5, "", &t.win).as_slice(), [Command::Error(_)]));
 }
 
 #[test]
 fn recursive_call_reports_error() {
-    let mut t = t("[[actions.x]]\ndo = [{ call = \"x\" }]");
+    let mut t = t("[actions]\nx = [{ call = \"x\" }]");
     let out = t.e.invoke(0, "", &t.win);
     assert!(matches!(out.as_slice(), [Command::Error(_)]), "{out:?}");
 }
@@ -159,9 +158,8 @@ fn reset_releases_holds() {
 #[test]
 fn unmapped_input_leaves_a_mode_with_unmapped_to() {
     let cfg = "[modes.mark]\nunmapped_to = \"default\"\n\
-               [[rules]]\nkeys = \"C-Space\"\naction = \"mark\"\nmodes = [\"default\"]\n\
-               [[rules]]\nkeys = \"C-f\"\naction = \"sel\"\nmodes = [\"mark\"]\n\
-               [[actions.mark]]\ndo = [{ mode = \"mark\" }]\n[[actions.sel]]\ndo = [\"S-Right\"]";
+               [modes.mark.keymap]\n\"C-f\" = \"S-Right\"\n\
+               [modes.default.keymap]\n\"C-Space\" = [{ mode = \"mark\" }]";
     let mut t = t(cfg);
     t.down("LCtrl");
     assert_eq!(t.down("Space").commands, vec![Command::ModeChanged("mark".into())]);
@@ -178,9 +176,8 @@ fn unmapped_input_leaves_a_mode_with_unmapped_to() {
 }
 
 const MARK: &str = "[modes.mark]\nunmapped_to = \"default\"\nhold = \"S\"\n\
-    [[rules]]\nkeys = \"C-Space\"\naction = \"mark\"\nmodes = [\"default\"]\n\
-    [[rules]]\nkeys = \"Right\"\naction = \"sel\"\nmodes = [\"mark\"]\n\
-    [[actions.mark]]\ndo = [{ mode = \"mark\" }]\n[[actions.sel]]\ndo = [\"S-Right\"]";
+    [modes.mark.keymap]\nRight = \"S-Right\"\n\
+    [modes.default.keymap]\n\"C-Space\" = [{ mode = \"mark\" }]";
 
 #[test]
 fn mode_hold_keeps_modifiers_down_while_in_the_mode() {
