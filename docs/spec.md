@@ -132,7 +132,7 @@ do = [{ run = "cmd", args = ["/c", "start", "https://www.google.com/search?q={ar
 | `fallback` | 元の入力 | 使える実装が無いときに送るキー列。`""` なら何も送らない |
 | `on_mismatch` | `"replay"` | chord の途中で合わなかったとき: `"replay"` / `"discard"` / `"fallback"` |
 | `timeout_ms` | `0` | chord の次の入力を待つ時間。0 は無制限 |
-| `keep_mods` | `false` | 出力の修飾キーのうち入力で押していないもの (例: Alt) を、`keys` の最後の chord に含まれるユーザー修飾キーを離すまで押したままにする。その間はそのユーザー修飾キーの `as` より優先する。Alt-Tab の切り替え画面を開いたままにする用途。最後の chord にユーザー修飾キーが必要 |
+| `keep_mods` | `false` | 出力の修飾キーのうち入力で押していないもの (例: Alt) を、`keys` の最後の chord の修飾キーを離すまで押したままにする。ユーザー修飾キーならその `as` より優先し、実際の修飾キー (例: Alt-Tab → Ctrl-Tab の Alt) ならその間 OS には押していないものとして扱う。Alt-Tab や Ctrl-Tab の切り替え画面を開いたままにする用途。最後の chord に修飾キーが必要 |
 
 ### 1.7 actions.<名前>
 

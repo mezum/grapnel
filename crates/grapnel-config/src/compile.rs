@@ -103,9 +103,9 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
             if let Some(k) = keys.as_ref().and_then(|k| rule_key_problem(k, &modifiers)) {
                 c.err(&at("keys"), k);
             }
-            let has_user_mod = keys.as_ref().and_then(|k| k.0.last()).is_some_and(|c| c.mods.0 & !Mods::REAL.0 != 0);
-            if r.keep_mods && !has_user_mod {
-                c.err(&at("keep_mods"), "the last chord of keys needs a user modifier");
+            let has_mod = keys.as_ref().and_then(|k| k.0.last()).is_some_and(|c| c.mods != Mods::NONE);
+            if r.keep_mods && !has_mod {
+                c.err(&at("keep_mods"), "the last chord of keys needs a modifier");
             }
             let rule = Rule {
                 keys: keys.unwrap_or_default(),

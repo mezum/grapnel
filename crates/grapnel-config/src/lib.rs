@@ -66,7 +66,7 @@ pub struct Rule {
     pub on_mismatch: Mismatch,
     /// 0 = no timeout.
     pub timeout_ms: u32,
-    /// Output modifiers stay pressed until the user modifiers in `keys` are released.
+    /// Output modifiers stay pressed until the modifiers of the last chord in `keys` are released.
     pub keep_mods: bool,
 }
 

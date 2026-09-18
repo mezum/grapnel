@@ -199,12 +199,13 @@ fn modifier_as_emulates_real_modifiers() {
 }
 
 #[test]
-fn keep_mods_needs_a_user_modifier() {
+fn keep_mods_needs_a_modifier() {
     let rule = |k: &str| {
         format!(
             "[modifiers.Cmd]\nkey = \"F19\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\nkeep_mods = true\n[[actions.x]]\ndo = []"
         )
     };
     assert!(ok(&rule("Cmd-Tab")).rules[0].keep_mods);
-    assert!(errs(&[("m", &rule("C-Tab"))]).contains("rules[0].keep_mods"));
+    assert!(ok(&rule("M-Tab")).rules[0].keep_mods);
+    assert!(errs(&[("m", &rule("Tab"))]).contains("rules[0].keep_mods"));
 }
