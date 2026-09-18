@@ -11,6 +11,7 @@ crates/
   grapnel-pad       gilrs でパッド入力をボタンの押下/解放に変換する
   grapnel-win       Win32: フック, SendInput, 前面ウインドウ/UIA, トレイ, 入力欄, パイプ
 apps/grapnel/       常駐 exe。上記を配線する
+locales/            翻訳 (rust-i18n, 言語ごとの TOML)。常駐 exe と設定ツールのフロントエンドが埋め込む
 apps/settings/      grapnel-settings-ui: Leptos (CSR, trunk) のフロントエンド
   src-tauri/        grapnel-settings: Tauri 2 のバックエンド (設定ツールの exe)
 ```
@@ -154,7 +155,19 @@ impl Engine {
 - 値の入出力は `Place` (現在のファイル内の 1 か所を指す読み書きの組) とフィールド関数 (`text`, `opt_text`, `list`, `num`, `keys`, `check`, `select`) で束ねる。入力は `change` イベントで反映する (打鍵ごとの再描画でフォーカスを失わないため)。
 - キー欄は `grapnel-keys` でその場で構文を検証する。
 
-## 9. テスト方針
+## 9. 表示言語
+
+- rust-i18n で `locales/<言語>.toml` を埋め込み、`t!("key")` で引く。常駐 exe と設定ツールのフロントエンドがそれぞれ `i18n!("../../locales", fallback = "en")` を書く。言語の追加は TOML を 1 つ足すだけ。`ja-JP` のような地域付きの名前は `ja` に落ちる。
+- ライブラリ crate は翻訳しない。画面に出る情報は型で返す (`Command::Notice(Notice)`、`Command::Error(Fault)`) か、英語の文字列 (設定の検証エラー) で返し、exe 側で文言にする。
+- 常駐 exe:
+  - 起動時に Windows の表示言語 (`GetUserPreferredUILanguages` の先頭) を設定し、設定を読んだら `settings.language` で上書きする (再読み込みのたびにも)。
+  - 画面に出るエラーは `report!(key, 引数...)` で出す。ログには英語 (`locale = "en"`) で、トーストには現在の言語で出す。ロガーはもう画面に出さない (ライブラリ crate の `log::error!` はログだけに残る)。
+- 設定ツール:
+  - 言語は `RwSignal` に持ち、起動時は `navigator.language`。右上のセレクトで変えると `set_locale` して画面全体を描き直す (状態はシグナルなので残る)。
+  - バックエンドは英語の詳細だけを返し、見出しや状態の文言はフロントエンドで訳す。
+- テスト: 全言語の TOML が同じキーを持つこと、ソース中の `t!("…")` のキーが `en.toml` にあることを確かめる。
+
+## 10. テスト方針
 
 - keys / schema / config / engine は単体テストで TDD。engine は `Event` 列 → `Reaction` 列のシナリオテストで仕様書 3 章の各項目を検証する (`tests/basic.rs`, `tests/advanced.rs`, `tests/review.rs`)。
 - win は `send` の変換部、マウスメッセージの変換、パイプの送受信を単体テストし、残りは手動で確認する。

@@ -72,6 +72,7 @@ search = [{ run = "cmd", args = ["/c", "start", "https://www.google.com/search?q
 | `passthrough` | `[]` | ターゲット名の配列 |
 | `suspend_hotkey` | なし | 一時停止を切り替えるホットキー |
 | `gesture_threshold` | `30` | px |
+| `language` | なし | 表示言語 (`"ja"`、`"en"` など)。なければ Windows の表示言語。訳のない言語や文言は英語 |
 
 モード `default` は定義しなくても存在する。
 
