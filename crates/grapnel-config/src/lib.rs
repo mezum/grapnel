@@ -9,7 +9,7 @@ pub use grapnel_schema::{ControlCmd, Mismatch, Press, RawConfig};
 pub use load::{default_entry, load, save};
 pub use matcher::{Field, Matcher, Target, TargetId, WindowInfo, any_matches, target_matches};
 
-use grapnel_keys::{Chord, Key, KeySeq};
+use grapnel_keys::{Chord, Key, KeySeq, Mods};
 
 pub type ActionId = usize;
 pub type ModeId = usize;
@@ -49,6 +49,8 @@ pub struct Modifier {
     pub tap: KeySeq,
     /// 0 = no limit.
     pub tap_timeout_ms: u32,
+    /// Real modifiers added to keys that no rule matches while this modifier is held.
+    pub emulate: Mods,
 }
 
 #[derive(Clone, Debug)]

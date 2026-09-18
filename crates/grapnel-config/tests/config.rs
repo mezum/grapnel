@@ -189,3 +189,11 @@ app = 're:\\Emacs\\bin\\'
     assert_eq!(c.targets[0].fields[0].0, Field::ExeName);
     assert_eq!(c.targets[1].fields[0].0, Field::ExePath);
 }
+
+#[test]
+fn modifier_as_emulates_real_modifiers() {
+    let c = ok("[modifiers.Cmd]\nkey = \"F19\"\nas = \"C-S\"");
+    assert_eq!(c.modifiers[0].emulate, Mods::CTRL | Mods::SHIFT);
+    assert_eq!(ok("[modifiers.Cmd]\nkey = \"F19\"").modifiers[0].emulate, Mods::NONE);
+    assert!(errs(&[("m", "[modifiers.Cmd]\nkey = \"F19\"\nas = \"C-X\"")]).contains("modifiers.Cmd.as"));
+}

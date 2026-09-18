@@ -183,8 +183,19 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Strin
             c.err(&format!("{at}.key"), "cannot be Ctrl/Alt/Shift/Win, a wheel or a gesture");
         }
         let tap = c.output(&format!("{at}.tap"), m.tap.as_deref().unwrap_or(&m.key));
+        let emulate = m.emulate.as_deref().map_or(Ok(Mods::NONE), |s| {
+            s.split('-').try_fold(Mods::NONE, |acc, part| match part {
+                "C" => Ok(acc | Mods::CTRL),
+                "M" => Ok(acc | Mods::ALT),
+                "S" => Ok(acc | Mods::SHIFT),
+                "W" => Ok(acc | Mods::WIN),
+                _ => Err(format!("'{s}' must be C/M/S/W joined with '-'")),
+            })
+        });
+        let emulate = c.ok(&format!("{at}.as"), emulate).unwrap_or_default();
         out.push(Modifier {
             name: name.to_string(),
+            emulate,
             key: key.unwrap_or(Key::Vk(0)),
             tap: tap.unwrap_or_default(),
             tap_timeout_ms: m.tap_timeout_ms.unwrap_or(0),

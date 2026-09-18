@@ -54,6 +54,9 @@ pub struct RawModifier {
     pub tap: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tap_timeout_ms: Option<u32>,
+    /// Real modifiers (`"C"`, `"C-S"`, ...) sent with keys that no rule matches.
+    #[serde(default, rename = "as", skip_serializing_if = "Option::is_none")]
+    pub emulate: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
