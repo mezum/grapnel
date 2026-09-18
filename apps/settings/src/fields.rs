@@ -1,7 +1,7 @@
 //! A `Place` points at one value inside the current file; field helpers bind inputs to it.
 
 use crate::Store;
-use grapnel_schema::RawConfig;
+use grapnel_schema::{IndexMap, RawConfig};
 use leptos::prelude::*;
 use std::sync::Arc;
 
@@ -41,6 +41,50 @@ impl<V: 'static> Place<V> {
                 f(v)
             }
         });
+    }
+
+    /// A place for a value inside this one.
+    pub fn map<W: 'static>(
+        &self,
+        f: impl for<'a> Fn(&'a V) -> Option<&'a W> + Send + Sync + 'static,
+        g: impl for<'a> Fn(&'a mut V) -> Option<&'a mut W> + Send + Sync + 'static,
+    ) -> Place<W> {
+        let (get, get_mut) = (self.get.clone(), self.get_mut.clone());
+        Place::new(self.store, move |c| get(c).and_then(&f), move |c| get_mut(c).and_then(&g))
+    }
+}
+
+/// Renames a key in place (order kept). Fails for an empty or taken name.
+pub fn rename_key<V>(m: &mut IndexMap<String, V>, old: &str, new: &str) -> bool {
+    if new.is_empty() || m.contains_key(new) {
+        return false;
+    }
+    let Some(i) = m.get_index_of(old) else { return false };
+    let (_, v) = m.shift_remove_index(i).unwrap();
+    let (j, _) = m.insert_full(new.to_string(), v);
+    m.move_index(j, i);
+    true
+}
+
+/// A name input that commits on change and restores the old name when `rename` refuses, plus a
+/// delete button.
+pub fn name_row(
+    name: String,
+    rename: impl Fn(&str, &str) -> bool + 'static,
+    delete: impl Fn() + 'static,
+) -> impl IntoView {
+    let old = name.clone();
+    let on_change = move |ev: leptos::ev::Event| {
+        let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
+        if !rename(&old, &input.value()) {
+            input.set_value(&old);
+        }
+    };
+    view! {
+        <div class="name">
+            <input prop:value=name on:change=on_change />
+            <button class="del" on:click=move |_| delete()>"削除"</button>
+        </div>
     }
 }
 
@@ -109,6 +153,21 @@ pub fn num<V>(
 }
 
 type Check = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
+/// Keys to send, or the name of an action defined in any loaded file.
+pub fn keys_or_action<V>(
+    label: &'static str,
+    p: &Place<V>,
+    get: fn(&V) -> String,
+    set: fn(&mut V, String),
+) -> impl IntoView + use<V> {
+    let store = p.store;
+    let check: Check = Arc::new(move |s: &str| {
+        let named = store.docs.with(|d| d.iter().any(|f| f.raw.actions.contains_key(s)));
+        (!named && grapnel_keys::parse_seq(s, &[]).is_err()).then(|| format!("unknown action or key '{s}'"))
+    });
+    input(label, p, get, set, |s| s, |s| s, Some(check))
+}
 
 /// Live key-sequence syntax check. `user_mods` allows user modifiers (input keys only).
 fn key_check(store: Store, user_mods: bool) -> Option<Check> {
