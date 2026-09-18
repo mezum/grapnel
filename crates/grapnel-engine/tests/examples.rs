@@ -150,3 +150,46 @@ fn mac_cmd_modifier() {
     t.up("LShift");
     assert_eq!(t.up("LAlt"), eaten("-LCtrl"));
 }
+
+/// Presses C-x (Ctrl held), then `key` with or without Ctrl.
+fn after_cx(t: &mut T, key: &str, ctrl: bool) -> grapnel_engine::Reaction {
+    t.down("LCtrl");
+    assert_eq!(t.down("x"), eaten(""));
+    t.up("x");
+    if !ctrl {
+        t.up("LCtrl");
+    }
+    let r = t.down(key);
+    t.up(key);
+    if ctrl {
+        t.up("LCtrl");
+    }
+    r
+}
+
+#[test]
+fn emacs_cx_commands() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    assert_eq!(after_cx(&mut t, "h", false), eaten("+LCtrl +a"));
+    assert_eq!(after_cx(&mut t, "s", true), eaten("+s"));
+    assert_eq!(after_cx(&mut t, "w", true), eaten("+LShift +s"));
+    assert_eq!(after_cx(&mut t, "k", false), eaten("+LCtrl +w"));
+    assert_eq!(after_cx(&mut t, "f", true), eaten("+o"));
+    assert_eq!(after_cx(&mut t, "c", true), eaten("-LCtrl +LAlt +F4"));
+    // Upcase only exists in Word; elsewhere nothing is sent.
+    assert_eq!(after_cx(&mut t, "u", true), eaten(""));
+    t.app("WINWORD.EXE");
+    assert_eq!(after_cx(&mut t, "u", true), eaten("-LCtrl +LShift +F3 -F3 -LShift +LCtrl"));
+    // An unknown key after C-x is dropped instead of sending Ctrl+X (cut).
+    t.app("notepad.exe");
+    assert_eq!(after_cx(&mut t, "q", false), eaten(""));
+}
+
+#[test]
+fn emacs_cx_is_not_captured_in_emacs() {
+    let mut t = example("emacs.toml");
+    t.app("emacs.exe");
+    t.down("LCtrl");
+    assert_eq!(t.down("x"), pass());
+}
