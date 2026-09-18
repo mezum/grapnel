@@ -1,14 +1,8 @@
 # Emacs 風のカーソル移動・削除・切り取りと貼り付け・マーク。
 # 使い方: grapnel.exe --config examples\emacs.toml
 # または %APPDATA%\grapnel\config.toml から include = ["...\\emacs.toml"] で読み込む。
-
-# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたい。
-# 下のアクションはどれも others のときだけ働くので、それ以外では元のキーがそのまま届く。
-[targets.emacs_like_app]
-app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.exe$"
-
-[targets.others]
-not = "emacs_like_app"
+# アクションの中身は default-actions.toml にある。
+include = ["default-actions.toml"]
 
 # 押している間は出力も押したまま (hold) なので、C-f を押し続ければ Right がキーリピートされる。
 [keymap]
@@ -20,7 +14,6 @@ not = "emacs_like_app"
 "C-e" = "end_of_line"
 "C-h" = "delete_backward_char"
 "C-d" = "delete_char"
-# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
 "C-k" = "kill_line"
 "C-w" = "kill_region"
 "M-w" = "kill_ring_save"
@@ -59,28 +52,7 @@ End = "select_end_of_line"
 "C-d" = ["deactivate_mark", "delete_char"]
 "C-/" = ["deactivate_mark", "undo"]
 
+# mark モードを使うアクションは、モードを定義しているこのファイルに置く。
 [actions]
-forward_char = { others = "Right" }
-backward_char = { others = "Left" }
-next_line = { others = "Down" }
-previous_line = { others = "Up" }
-beginning_of_line = { others = "Home" }
-end_of_line = { others = "End" }
-delete_backward_char = { others = "Backspace" }
-delete_char = { others = "Delete" }
-# 行末まで選択して切り取る。
-# 注意: 行末で押すと選択が空になり、VS Code などは Ctrl+X で行全体を切り取る。
-kill_line = { others = "S-End C-x" }
-kill_region = { others = "C-x" }
-kill_ring_save = { others = "C-c" }
-yank = { others = "C-v" }
-undo = { others = "C-z" }
-
 set_mark = { others = [{ mode = "mark" }] }
 deactivate_mark = [{ mode = "default" }]
-select_forward_char = { others = "S-Right" }
-select_backward_char = { others = "S-Left" }
-select_next_line = { others = "S-Down" }
-select_previous_line = { others = "S-Up" }
-select_beginning_of_line = { others = "S-Home" }
-select_end_of_line = { others = "S-End" }

@@ -1,5 +1,7 @@
 # F19 を macOS の Cmd キーのように使う。
 # 使い方: %APPDATA%\grapnel\config.toml に include = ["...\\mac-cmd.toml"] を書く。
+# アクションの中身は default-actions.toml にある。
+include = ["default-actions.toml"]
 
 # 押している間は Ctrl も押したままにする (as = "C")。単独で押しても何も送らない (tap = "")。
 # 下のキーマップに無い組み合わせは、そのまま Ctrl との組み合わせになる:
@@ -12,21 +14,18 @@ as = "C"
 
 [keymap]
 # タブ移動 (JIS 配列の [ ] キー。Shift を押しているので刻印上は { })。
-"Cmd-S-]" = "C-Tab"
-"Cmd-S-[" = "C-S-Tab"
+"Cmd-S-]" = "next_tab"
+"Cmd-S-[" = "previous_tab"
 
-# アプリの切り替え (Alt-Tab / Alt-Shift-Tab)。
-# keep_mods により、F19 を離すまで Alt を押したままにするので、切り替え画面が開いたままになる:
-# F19 を押したまま Tab を何度か押して選び、F19 を離して確定する (macOS と同じ)。
-"Cmd-Tab" = { do = "M-Tab", keep_mods = true }
-"Cmd-S-Tab" = { do = "M-S-Tab", keep_mods = true }
+# アプリの切り替え。keep_mods により、F19 を離すまで Alt を押したままにするので、
+# 切り替え画面が開いたままになる: F19 を押したまま Tab を何度か押して選び、F19 を離して確定する。
+"Cmd-Tab" = { do = "switch_app", keep_mods = true }
+"Cmd-S-Tab" = { do = "switch_app_back", keep_mods = true }
 
-# 物理 Alt-Tab / Alt-Shift-Tab はタブ切り替え (Ctrl-Tab / Ctrl-Shift-Tab) にする。
-# keep_mods により、Alt を離すまで Alt の代わりに Ctrl を押したままにするので、
-# ブラウザや VS Code の Ctrl-Tab の切り替え一覧も開いたままになる。
-"M-Tab" = { do = "C-Tab", keep_mods = true }
-"M-S-Tab" = { do = "C-S-Tab", keep_mods = true }
+# 物理 Alt-Tab / Alt-Shift-Tab はタブ切り替えにする。keep_mods により、Alt を離すまで
+# Alt の代わりに Ctrl を押したままにするので、ブラウザや VS Code の Ctrl-Tab の一覧も開いたままになる。
+"M-Tab" = { do = "next_tab", keep_mods = true }
+"M-S-Tab" = { do = "previous_tab", keep_mods = true }
 
-# スクリーンショット / 画面録画 (Snipping Tool のキャプチャバーを開く)。
-# キャプチャバーで静止画と録画を切り替えられる。最初から録画にしたい場合は "W-S-r" にする。
-"Cmd-S-5" = { do = "W-S-s", press = "tap" }
+# スクリーンショット / 画面録画。
+"Cmd-S-5" = { do = "screenshot", press = "tap" }

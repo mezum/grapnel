@@ -1,0 +1,49 @@
+# 共通のアクション。emacs.toml や mac-cmd.toml から include して名前で使う。
+# アプリごとに出力を変えたいときは、ここのアクションにターゲットごとの出力を足す。
+
+# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたいので、Emacs 風の編集操作は
+# others のときだけ働く。どれにも合わないアプリでは、元のキーがそのまま届く。
+[targets.emacs_like_app]
+app = "re:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\\.exe$"
+
+[targets.others]
+not = "emacs_like_app"
+
+[actions]
+# ---- カーソル移動と削除 ----
+forward_char = { others = "Right" }
+backward_char = { others = "Left" }
+next_line = { others = "Down" }
+previous_line = { others = "Up" }
+beginning_of_line = { others = "Home" }
+end_of_line = { others = "End" }
+delete_backward_char = { others = "Backspace" }
+delete_char = { others = "Delete" }
+
+# ---- 切り取り・コピー・貼り付け・元に戻す ----
+# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
+# kill_line は行末まで選択して切り取る。行末で押すと選択が空になり、VS Code などは行全体を切り取る。
+kill_line = { others = "S-End C-x" }
+kill_region = { others = "C-x" }
+kill_ring_save = { others = "C-c" }
+yank = { others = "C-v" }
+undo = { others = "C-z" }
+
+# ---- 選択範囲を広げる移動 ----
+select_forward_char = { others = "S-Right" }
+select_backward_char = { others = "S-Left" }
+select_next_line = { others = "S-Down" }
+select_previous_line = { others = "S-Up" }
+select_beginning_of_line = { others = "S-Home" }
+select_end_of_line = { others = "S-End" }
+
+# ---- タブ・アプリの切り替え ----
+next_tab = "C-Tab"
+previous_tab = "C-S-Tab"
+switch_app = "M-Tab"
+switch_app_back = "M-S-Tab"
+
+# ---- 画面キャプチャ ----
+# Snipping Tool のキャプチャバーを開く。バーで静止画と録画を切り替えられる。
+# 最初から録画にしたい場合は "W-S-r" にする。
+screenshot = "W-S-s"
