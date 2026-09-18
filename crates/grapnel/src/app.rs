@@ -54,6 +54,8 @@ pub struct App {
     start: Instant,
     /// Window the open input box was started from; its follow-up action runs against this.
     prompt_win: WindowInfo,
+    /// Action to run with the input box text; `None` runs the action the text names.
+    prompt_then: Option<usize>,
 }
 
 impl App {
@@ -71,6 +73,7 @@ impl App {
             exec: Executor::new(),
             start: Instant::now(),
             prompt_win: WindowInfo::default(),
+            prompt_then: None,
         };
         app.configure();
         app.window_changed(window::CHANGED_FOREGROUND);
@@ -255,15 +258,19 @@ impl App {
     }
 
     /// Called before the input box opens: release held output and remember where we came from.
-    pub fn before_prompt(&mut self) {
+    pub fn before_prompt(&mut self, then: Option<usize>) {
         let cmds = self.engine.reset();
         self.exec.run(cmds);
         self.prompt_win = self.win.clone();
+        self.prompt_then = then;
     }
 
     /// Input box confirmed: run its follow-up action with the text.
-    pub fn input_done(&mut self, then: usize, text: &str) {
-        let cmds = self.engine.invoke(then, text, &self.prompt_win);
+    pub fn input_done(&mut self, text: &str) {
+        let cmds = match self.prompt_then {
+            Some(then) => self.engine.invoke(then, text, &self.prompt_win),
+            None => self.engine.invoke_named(text.trim(), "", &self.prompt_win),
+        };
         self.exec.run(cmds);
     }
 

@@ -7,7 +7,7 @@ mod exec;
 mod logger;
 
 use app::{App, PAD_ENABLED};
-use grapnel_config::Config;
+use grapnel_config::{Config, InputPosition};
 use grapnel_engine::{Command, Event};
 use grapnel_keys::Key;
 use grapnel_win::{hook, inputbox, pipe, tray, tray::Tray, window};
@@ -114,9 +114,9 @@ fn handle(msg: Msg) {
         },
         Msg::Pad(ev) => drop(with_app(|a| a.on_pad(ev))),
         // Opening a window can dispatch messages, so do it without holding the app borrow.
-        Msg::Deferred(Command::InputBox { prompt, then }) => {
-            with_app(App::before_prompt);
-            if let Err(e) = inputbox::open(&prompt, then) {
+        Msg::Deferred(Command::InputBox { prompt, then, position }) => {
+            with_app(|a| a.before_prompt(then));
+            if let Err(e) = inputbox::open(&prompt, position == InputPosition::Bottom) {
                 log::error!("入力欄を表示できません: {e}");
             }
         }
@@ -228,9 +228,9 @@ fn main() {
     log::info!("started");
     let mut msg = MSG::default();
     while unsafe { GetMessageW(&mut msg, None, 0, 0) }.as_bool() {
-        if let Some((then, text)) = inputbox::pretranslate(&msg) {
+        if let Some(text) = inputbox::pretranslate(&msg) {
             if let Some(text) = text {
-                with_app(|a| a.input_done(then, &text));
+                with_app(|a| a.input_done(&text));
             }
             continue;
         }
