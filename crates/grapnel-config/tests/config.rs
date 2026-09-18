@@ -158,3 +158,17 @@ fn save_round_trips() {
     save(&d.join("new/config.toml"), &raw).unwrap();
     assert_eq!(load(&d.join("new/config.toml")).unwrap()[0].1, raw);
 }
+
+#[test]
+fn too_many_modifiers_is_an_error_not_a_panic() {
+    let mut s: String = (0..29).map(|i| format!("[modifiers.U{i:02}]\nkey = \"F{}\"\n", i % 24 + 1)).collect();
+    s += "[[rules]]\nkeys = \"U28-a\"\naction = \"x\"\n[[actions.x]]\ndo = []";
+    assert!(errs(&[("m", &s)]).contains("too many modifiers"));
+}
+
+#[test]
+fn scancode_modifiers_are_rejected() {
+    let e = errs(&[("m", "[[rules]]\nkeys = \"sc:0xE01D\"\naction = \"x\"\n[[actions.x]]\ndo = []")]);
+    assert!(e.contains("is a modifier"), "{e}");
+    assert!(errs(&[("m", "[modifiers.X]\nkey = \"sc:0x2A\"")]).contains("cannot be"));
+}

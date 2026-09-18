@@ -83,6 +83,11 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
     let action_ix = index(&actions, |a| &a.name);
     let user: Vec<&str> = raw_mods.iter().map(|m| m.1).collect();
 
+    if raw_mods.len() > Mods::MAX_USER {
+        // Modifier bits would overflow while parsing keys; stop here.
+        errors.push(format!("too many modifiers ({} > {})", raw_mods.len(), Mods::MAX_USER));
+        return Err(errors);
+    }
     let modifiers = compile_modifiers(&raw_mods, &mut errors);
     let targets = compile_targets(&raw_targets, &target_ix, &mut errors);
 
@@ -160,9 +165,6 @@ fn rule_key_problem(keys: &KeySeq, mods: &[Modifier]) -> Option<String> {
 }
 
 fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<String>) -> Vec<Modifier> {
-    if raw.len() > Mods::MAX_USER {
-        errors.push(format!("too many modifiers (max {})", Mods::MAX_USER));
-    }
     let mut out = Vec::new();
     for &(file, name, m) in raw {
         let mut c = Ctx { errors, file };

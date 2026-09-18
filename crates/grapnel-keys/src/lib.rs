@@ -82,10 +82,10 @@ impl Key {
     /// Which of C/M/S/W this key is, if it is a real modifier key.
     pub fn real_mod(&self) -> Option<Mods> {
         match self {
-            Key::Vk(0xA2 | 0xA3 | 0x11) => Some(Mods::CTRL),
-            Key::Vk(0xA4 | 0xA5 | 0x12) => Some(Mods::ALT),
-            Key::Vk(0xA0 | 0xA1 | 0x10) => Some(Mods::SHIFT),
-            Key::Vk(0x5B | 0x5C) => Some(Mods::WIN),
+            Key::Vk(0xA2 | 0xA3 | 0x11) | Key::Sc(0x1D | 0xE01D) => Some(Mods::CTRL),
+            Key::Vk(0xA4 | 0xA5 | 0x12) | Key::Sc(0x38 | 0xE038) => Some(Mods::ALT),
+            Key::Vk(0xA0 | 0xA1 | 0x10) | Key::Sc(0x2A | 0x36) => Some(Mods::SHIFT),
+            Key::Vk(0x5B | 0x5C) | Key::Sc(0xE05B | 0xE05C) => Some(Mods::WIN),
             _ => None,
         }
     }
