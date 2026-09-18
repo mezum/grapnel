@@ -177,13 +177,24 @@ fn emacs_cx_commands() {
     assert_eq!(after_cx(&mut t, "k", false), eaten("+LCtrl +w"));
     assert_eq!(after_cx(&mut t, "f", true), eaten("+o"));
     assert_eq!(after_cx(&mut t, "c", true), eaten("-LCtrl +LAlt +F4"));
-    // Upcase only exists in Word; elsewhere nothing is sent.
+    assert_eq!(after_cx(&mut t, "u", false), eaten("+LCtrl +z"));
+    // C-x C-u is not bound, so like any unknown key after C-x it is dropped (not Ctrl+X = cut).
     assert_eq!(after_cx(&mut t, "u", true), eaten(""));
-    t.app("WINWORD.EXE");
-    assert_eq!(after_cx(&mut t, "u", true), eaten("-LCtrl +LShift +F3 -F3 -LShift +LCtrl"));
-    // An unknown key after C-x is dropped instead of sending Ctrl+X (cut).
-    t.app("notepad.exe");
     assert_eq!(after_cx(&mut t, "q", false), eaten(""));
+}
+
+#[test]
+fn emacs_redo_depends_on_the_app() {
+    let mut t = example("emacs.toml");
+    t.down("LCtrl");
+    t.down("LShift");
+    for (app, out) in [("notepad.exe", "-LShift +y"), ("WINWORD.EXE", "-LShift +y"), ("blender.exe", "+z"), ("Photoshop.exe", "+z")] {
+        t.app(app);
+        assert_eq!(t.down("/"), eaten(out), "{app}");
+        t.up("/");
+    }
+    t.app("emacs.exe");
+    assert_eq!(t.down("/"), pass());
 }
 
 #[test]
