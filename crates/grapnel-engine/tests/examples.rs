@@ -58,4 +58,11 @@ fn mac_cmd_modifier() {
     assert_eq!(t.up("5"), eaten(""));
     t.up("LShift");
     assert_eq!(t.up("F19"), eaten("-LCtrl"));
+    // App switching keeps Alt down until Cmd is released.
+    t.down("F19");
+    assert_eq!(t.down("Tab"), eaten("-LCtrl +LAlt +Tab"));
+    t.up("Tab");
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    t.up("Tab");
+    assert_eq!(t.up("F19"), eaten("+vk:0xE8 -vk:0xE8 -LAlt"));
 }

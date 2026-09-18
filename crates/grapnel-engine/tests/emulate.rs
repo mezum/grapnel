@@ -73,3 +73,26 @@ fn plain_user_modifier_leaves_held_output_alone() {
     assert_eq!(t.up("F19"), eaten(""));
     assert_eq!(t.down("a"), eaten("+b"));
 }
+
+#[test]
+fn keep_mods_holds_output_modifiers_until_the_user_modifier_is_released() {
+    let cfg = format!(
+        "{CMD}\n[[rules]]\nkeys = \"Cmd-Tab\"\naction = \"sw\"\nkeep_mods = true\n\
+         [[rules]]\nkeys = \"Cmd-S-Tab\"\naction = \"swb\"\nkeep_mods = true\n\
+         [[actions.sw]]\ndo = [\"M-Tab\"]\n[[actions.swb]]\ndo = [\"M-S-Tab\"]"
+    );
+    let mut t = t(&cfg);
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
+    assert_eq!(t.down("Tab"), eaten("-LCtrl +LAlt +Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    t.down("LShift");
+    assert_eq!(t.down("Tab"), eaten("+Tab"));
+    assert_eq!(t.up("Tab"), eaten("-Tab"));
+    assert_eq!(t.up("LShift"), pass());
+    assert_eq!(t.down("F19"), eaten("+LAlt"));
+    assert_eq!(t.up("F19"), eaten("+vk:0xE8 -vk:0xE8 -LAlt"));
+    // Next time Cmd is Ctrl again.
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
+}

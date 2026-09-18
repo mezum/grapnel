@@ -91,6 +91,8 @@ pub struct Engine {
     down: HashSet<Key>,
     os_mods: Vec<Key>,
     user_mods: Vec<UserMod>,
+    /// Per user modifier: output modifiers kept pressed by a `keep_mods` rule (replaces `as`).
+    kept: Vec<Mods>,
     pending: Option<Pending>,
     active: HashMap<Key, Active>,
     swallowed: HashSet<Key>,
@@ -112,6 +114,7 @@ impl Engine {
         Engine {
             mode: cfg.settings.initial_mode,
             user_mods: vec![UserMod::Idle; cfg.modifiers.len()],
+            kept: vec![Mods::NONE; cfg.modifiers.len()],
             down: HashSet::new(),
             os_mods: Vec::new(),
             pending: None,
@@ -169,6 +172,7 @@ impl Engine {
         }
         self.down.retain(|k| k.real_mod().is_some());
         self.user_mods.fill(UserMod::Idle);
+        self.kept.fill(Mods::NONE);
         self.restore(&mut out);
         let mods = std::mem::take(&mut self.down);
         *self = Engine { mode: self.mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };

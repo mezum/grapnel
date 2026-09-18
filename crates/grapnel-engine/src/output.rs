@@ -46,6 +46,9 @@ impl Engine {
                 self.tap_chords(before, &mut out);
                 self.press_mods(last.mods, &mut out);
                 out.push(key(&last.key, true));
+                if rule.keep_mods {
+                    self.keep(seq, last.mods);
+                }
                 self.active.insert(trigger, Active::Hold(last.clone()));
             }
             None => {
@@ -61,6 +64,17 @@ impl Engine {
             }
         }
         out
+    }
+
+    /// Makes the user modifiers of the triggering chord keep the output modifiers pressed until they
+    /// are released. Modifiers the user physically pressed in that chord stay under their control.
+    fn keep(&mut self, seq: &[Chord], mods: Mods) {
+        let Some(trigger) = seq.last() else { return };
+        let user = trigger.mods.0 >> 4;
+        let kept = Mods(mods.real().0 & !trigger.mods.real().0);
+        for i in (0..self.kept.len()).filter(|i| user & (1 << i) != 0) {
+            self.kept[i] = kept;
+        }
     }
 
     /// Output for a key repeat of a held trigger: like a keyboard, only the last key repeats.

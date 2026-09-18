@@ -7,10 +7,20 @@ impl Engine {
         self.cfg.modifiers.iter().position(|m| m.key == *key)
     }
 
-    /// Real modifiers emulated (`as`) by user modifiers that are held down.
+    /// Real modifiers user modifier `i` keeps pressed while held: kept output modifiers, else `as`.
+    fn user_held(&self, i: usize) -> Mods {
+        if self.user_mods[i] == UserMod::Idle {
+            Mods::NONE
+        } else if self.kept[i] != Mods::NONE {
+            self.kept[i]
+        } else {
+            self.cfg.modifiers[i].emulate
+        }
+    }
+
+    /// Real modifiers kept pressed by all held user modifiers.
     pub(crate) fn emulated_mods(&self) -> Mods {
-        let held = self.user_mods.iter().zip(&self.cfg.modifiers).filter(|(s, _)| **s != UserMod::Idle);
-        held.fold(Mods::NONE, |a, (_, m)| a | m.emulate)
+        (0..self.user_mods.len()).fold(Mods::NONE, |a, i| a | self.user_held(i))
     }
 
     /// Physical real modifiers plus active user modifiers.
@@ -39,9 +49,11 @@ impl Engine {
         }
         if let Some(i) = this_mod {
             let mut out = vec![];
-            let emulate = self.cfg.modifiers[i].emulate;
             if !repeat {
                 self.user_mods[i] = UserMod::Pending(now);
+            }
+            let emulate = self.user_held(i);
+            if !repeat {
                 if emulate != Mods::NONE {
                     self.restore(&mut out); // presses its `as` modifiers
                 }
@@ -92,9 +104,11 @@ impl Engine {
                 }
                 _ => KeySeq::default(),
             };
+            let held = self.user_held(i);
             self.user_mods[i] = UserMod::Idle;
+            self.kept[i] = Mods::NONE;
             let mut out = vec![];
-            if !tap.0.is_empty() || m.emulate != Mods::NONE {
+            if !tap.0.is_empty() || held != Mods::NONE {
                 self.tap_seq(&tap.0, &mut out); // also releases its `as` modifiers
             }
             return consumed(out);
