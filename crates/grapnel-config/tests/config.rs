@@ -197,3 +197,14 @@ fn modifier_as_emulates_real_modifiers() {
     assert_eq!(ok("[modifiers.Cmd]\nkey = \"F19\"").modifiers[0].emulate, Mods::NONE);
     assert!(errs(&[("m", "[modifiers.Cmd]\nkey = \"F19\"\nas = \"C-X\"")]).contains("modifiers.Cmd.as"));
 }
+
+#[test]
+fn keep_mods_needs_a_user_modifier() {
+    let rule = |k: &str| {
+        format!(
+            "[modifiers.Cmd]\nkey = \"F19\"\n[[rules]]\nkeys = \"{k}\"\naction = \"x\"\nkeep_mods = true\n[[actions.x]]\ndo = []"
+        )
+    };
+    assert!(ok(&rule("Cmd-Tab")).rules[0].keep_mods);
+    assert!(errs(&[("m", &rule("C-Tab"))]).contains("rules[0].keep_mods"));
+}

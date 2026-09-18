@@ -118,6 +118,9 @@ pub struct RawRule {
     pub on_mismatch: Option<Mismatch>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u32>,
+    /// Keep the output's modifiers pressed until the rule's user modifiers are released.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keep_mods: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

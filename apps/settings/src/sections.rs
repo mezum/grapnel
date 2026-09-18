@@ -170,6 +170,7 @@ fn rule_row(store: Store, i: usize) -> impl IntoView {
                     "replay" => Some(Mismatch::Replay), "discard" => Some(Mismatch::Discard), "fallback" => Some(Mismatch::Fallback), _ => None,
                 })}
             {num("timeout_ms", &p, |r| r.timeout_ms, |r, x| r.timeout_ms = x)}
+            {check("keep_mods (修飾キーを離すまで出力の修飾キーを保持)", &p, |r| r.keep_mods, |r, x| r.keep_mods = x)}
         </div>
     }
 }
