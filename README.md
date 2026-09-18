@@ -42,12 +42,9 @@ grapnel.exe exit                              # 終了
 [modifiers.Mu]
 key = "Muhenkan"          # 無変換: 単独なら無変換、押しながらなら修飾キー
 
-[[rules]]
-keys = "Mu-h"
-action = "left"
-
-[[actions.left]]
-do = ["Left"]
+[keymap]
+"Mu-h" = "Left"           # 無変換+h で ←
+"C-x C-s" = "C-s"         # 続けて押すキー列 (C-x を押してから C-s)
 ```
 
 書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を、F19 を macOS の Cmd キーのように使う例は [examples/mac-cmd.toml](examples/mac-cmd.toml) を参照してください。
