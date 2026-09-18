@@ -3,7 +3,7 @@
 use crate::exec::Executor;
 use grapnel_config::{Config, ControlCmd, Field, WindowInfo, any_matches};
 use grapnel_engine::{Command, Engine, Event};
-use grapnel_keys::Key;
+use grapnel_keys::{Key, Mods};
 use grapnel_win::{hook, inputbox, uia::Uia, window};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -17,6 +17,24 @@ pub static PAD_ENABLED: AtomicBool = AtomicBool::new(false);
 const TIMER_ID: usize = 1;
 const HOTKEY_ID: i32 = 1;
 const MODIFIER_VKS: [u8; 8] = [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C];
+
+fn is_down(vk: u8) -> bool {
+    unsafe { GetAsyncKeyState(vk as i32) as u16 & 0x8000 != 0 }
+}
+
+/// Modifier keys the OS currently sees as held.
+fn held_modifiers() -> Vec<Key> {
+    MODIFIER_VKS.iter().filter(|&&vk| is_down(vk)).map(|&vk| Key::Vk(vk)).collect()
+}
+
+/// C/M/S/W currently held, via the generic VK codes.
+fn held_mods() -> Mods {
+    [(0x11, Mods::CTRL), (0x12, Mods::ALT), (0x10, Mods::SHIFT)]
+        .into_iter()
+        .chain([(0x5B, Mods::WIN), (0x5C, Mods::WIN)])
+        .filter(|&(vk, _)| is_down(vk))
+        .fold(Mods::NONE, |a, (_, m)| a | m)
+}
 
 pub fn load(path: &Path) -> Result<Config, Vec<String>> {
     grapnel_config::load(path).and_then(|files| grapnel_config::compile(&files))
@@ -34,6 +52,8 @@ pub struct App {
     uia: Option<Uia>,
     exec: Executor,
     start: Instant,
+    /// Window the open input box was started from; its follow-up action runs against this.
+    prompt_win: WindowInfo,
 }
 
 impl App {
@@ -48,8 +68,9 @@ impl App {
             suspended: false,
             passthrough: false,
             uia: None,
-            exec: Executor::new(hwnd),
+            exec: Executor::new(),
             start: Instant::now(),
+            prompt_win: WindowInfo::default(),
         };
         app.configure();
         app.window_changed(window::CHANGED_FOREGROUND);
@@ -106,7 +127,19 @@ impl App {
 
     /// Hook callback. Returns true to swallow the event.
     pub fn on_input(&mut self, ev: Event) -> bool {
-        if inputbox::is_foreground() {
+        let key = match &ev {
+            Event::Down(k) | Event::Up(k) => Some(k),
+            Event::MouseMove { .. } => None,
+        };
+        // Typing into our own prompt is not remapped, but modifier state is still tracked.
+        if inputbox::is_foreground() && key.is_none_or(|k| k.real_mod().is_none()) {
+            return false;
+        }
+        // Leave the suspend hotkey to RegisterHotKey even if a rule or mode would swallow it.
+        if let (Event::Down(k), Some(h)) = (&ev, &self.cfg.settings.suspend_hotkey)
+            && *k == h.key
+            && held_mods() == h.mods
+        {
             return false;
         }
         let now = self.now();
@@ -141,12 +174,12 @@ impl App {
     pub fn window_changed(&mut self, kind: usize) {
         let uia = (self.win.uia_id.clone(), self.win.uia_name.clone(), self.win.uia_type.clone());
         self.win = window::foreground_info();
-        if kind == window::CHANGED_TITLE {
-            (self.win.uia_id, self.win.uia_name, self.win.uia_type) = uia;
-        } else if let Some(u) = &self.uia {
-            u.refresh();
+        (self.win.uia_id, self.win.uia_name, self.win.uia_type) = uia;
+        match &self.uia {
+            // Passthrough is re-evaluated when the fresh UIA result arrives.
+            Some(u) if kind != window::CHANGED_TITLE => u.refresh(),
+            _ => self.update_hooks(),
         }
-        self.update_hooks();
     }
 
     pub fn uia_changed(&mut self) {
@@ -167,14 +200,10 @@ impl App {
                 Ok(h) => self.hooks = Some(h),
                 Err(e) => log::error!("フックを設定できません: {e}"),
             }
-            let held: Vec<Key> = MODIFIER_VKS
-                .iter()
-                .filter(|&&vk| unsafe { GetAsyncKeyState(vk as i32) } as u16 & 0x8000 != 0)
-                .map(|&vk| Key::Vk(vk))
-                .collect();
-            self.engine.sync_modifiers(&held);
+            self.engine.sync_modifiers(&held_modifiers());
             log::debug!("hooks installed");
         } else if !want && self.hooks.is_some() {
+            self.exec.cancel();
             let cmds = self.engine.reset();
             self.exec.run(cmds);
             self.hooks = None;
@@ -189,44 +218,58 @@ impl App {
         self.update_hooks();
     }
 
+    /// Loads the config on a worker thread (file I/O must not stall the hook thread).
     pub fn reload(&mut self) {
-        match load(&self.config_path) {
+        let path = self.config_path.clone();
+        std::thread::spawn(move || crate::post(crate::Msg::Reloaded(load(&path))));
+    }
+
+    pub fn apply_reload(&mut self, result: Result<Config, Vec<String>>) {
+        match result {
             Ok(cfg) => {
+                self.exec.cancel();
                 let cmds = self.engine.reset();
                 self.exec.run(cmds);
                 self.cfg = Arc::new(cfg);
                 self.engine = Engine::new(self.cfg.clone());
+                self.engine.sync_modifiers(&held_modifiers());
                 self.configure();
                 self.update_hooks();
+                log::info!("config reloaded");
                 crate::balloon("設定を読み込みました", &self.config_path.display().to_string(), false);
             }
             Err(errors) => {
                 errors.iter().for_each(|e| log::warn!("{e}"));
-                let more = if errors.len() > 1 { format!("\n(他 {} 件)", errors.len() - 1) } else { String::new() };
+                let more = if errors.len() > 1 {
+                    format!(
+                        "
+(他 {} 件)",
+                        errors.len() - 1
+                    )
+                } else {
+                    String::new()
+                };
                 crate::balloon("設定の読み込みに失敗しました", &format!("{}{more}", errors[0]), true);
             }
         }
     }
 
+    /// Called before the input box opens: release held output and remember where we came from.
+    pub fn before_prompt(&mut self) {
+        let cmds = self.engine.reset();
+        self.exec.run(cmds);
+        self.prompt_win = self.win.clone();
+    }
+
     /// Input box confirmed: run its follow-up action with the text.
     pub fn input_done(&mut self, then: usize, text: &str) {
-        let cmds = self.engine.invoke(then, text, &self.win);
+        let cmds = self.engine.invoke(then, text, &self.prompt_win);
         self.exec.run(cmds);
     }
 
     /// Non-input commands, on the main thread outside the hook.
     pub fn deferred(&mut self, c: Command) {
         match c {
-            Command::Run { program, args } => {
-                if let Err(e) = std::process::Command::new(&program).args(&args).spawn() {
-                    log::error!("{program} を起動できません: {e}");
-                }
-            }
-            Command::InputBox { prompt, then } => {
-                if let Err(e) = inputbox::open(&prompt, then) {
-                    log::error!("入力欄を表示できません: {e}");
-                }
-            }
             Command::ModeChanged(_) => crate::set_tray_state(&self.tooltip(), self.suspended),
             Command::Control(ControlCmd::Suspend) => self.toggle_suspend(),
             Command::Control(ControlCmd::Reload) => self.reload(),
@@ -237,6 +280,7 @@ impl App {
     }
 
     pub fn shutdown(&mut self) {
+        self.exec.cancel();
         let cmds = self.engine.reset();
         grapnel_win::send::send(&cmds);
         self.hooks = None;
