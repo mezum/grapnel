@@ -10,7 +10,8 @@ const CMD: &str = "[modifiers.Cmd]\nkey = \"F19\"\ntap = \"\"\nas = \"C\"";
 fn emulated_modifier_is_held_with_the_user_modifier() {
     let mut t = t(&rule("Cmd-S-]", "\"C-Tab\"", "", CMD));
     assert_eq!(t.down("F19"), eaten("+LCtrl"));
-    assert_eq!(t.down("F19"), eaten(""));
+    // Held F19 repeats like a held Ctrl.
+    assert_eq!(t.down("F19"), eaten("+LCtrl"));
     assert_eq!(t.down("c"), pass());
     assert_eq!(t.down("c"), pass());
     assert_eq!(t.up("c"), pass());
@@ -67,6 +68,7 @@ fn releasing_the_physical_modifier_keeps_the_emulated_one() {
 fn plain_user_modifier_leaves_held_output_alone() {
     let mut t = t(&rule("a", "\"C-b\"", "", "[modifiers.Mu]\nkey = \"F19\"\ntap = \"\""));
     assert_eq!(t.down("a"), eaten("+LCtrl +b"));
+    assert_eq!(t.down("F19"), eaten(""));
     assert_eq!(t.down("F19"), eaten(""));
     assert_eq!(t.up("F19"), eaten(""));
     assert_eq!(t.down("a"), eaten("+b"));

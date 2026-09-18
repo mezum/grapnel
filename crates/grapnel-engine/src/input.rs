@@ -39,11 +39,16 @@ impl Engine {
         }
         if let Some(i) = this_mod {
             let mut out = vec![];
+            let emulate = self.cfg.modifiers[i].emulate;
             if !repeat {
                 self.user_mods[i] = UserMod::Pending(now);
-                if self.cfg.modifiers[i].emulate != Mods::NONE {
+                if emulate != Mods::NONE {
                     self.restore(&mut out); // presses its `as` modifiers
                 }
+            } else {
+                // Its `as` modifiers were the last keys pressed, so they are what repeats.
+                let held = self.os_mods.iter().filter(|k| k.real_mod().is_some_and(|m| emulate.contains(m)));
+                out.extend(held.map(|k| Command::Key { key: k.clone(), down: true }));
             }
             return consumed(out);
         }
