@@ -56,7 +56,9 @@ fn plan_key(key: &Key, down: bool, scan_of: &dyn Fn(u8) -> u16, out: &mut Vec<Ra
     let ext = |sc: u16| if sc & 0xFF00 == 0xE000 { KEYEVENTF_EXTENDEDKEY } else { KEYBD_EVENT_FLAGS(0) };
     match key {
         Key::Vk(vk) => {
-            let sc = scan_of(*vk);
+            // MapVirtualKeyW returns the numpad scan code (no 0xE0) for navigation keys, which
+            // would make apps see numpad arrows/Home/Delete; force the extended variant.
+            let sc = scan_of(*vk) | if always_extended(*vk) { 0xE000 } else { 0 };
             out.push(Raw::Key { vk: *vk as u16, scan: sc & 0xFF, flags: up | ext(sc) });
         }
         Key::Sc(sc) => out.push(Raw::Key { vk: 0, scan: sc & 0xFF, flags: up | ext(*sc) | KEYEVENTF_SCANCODE }),
@@ -78,6 +80,12 @@ fn plan_key(key: &Key, down: bool, scan_of: &dyn Fn(u8) -> u16, out: &mut Vec<Ra
         }),
         Key::Wheel(_) | Key::Gesture(..) | Key::Pad(_) => {}
     }
+}
+
+/// Keys that only exist as extended keys: Insert/Delete/Home/End/PageUp/PageDown, arrows, right
+/// Ctrl/Alt, Win, Apps, numpad `/`, NumLock and PrintScreen.
+fn always_extended(vk: u8) -> bool {
+    matches!(vk, 0x21..=0x28 | 0x2C | 0x2D | 0x2E | 0x5B..=0x5D | 0x6F | 0x90 | 0xA3 | 0xA5)
 }
 
 fn os_scan(vk: u8) -> u16 {
@@ -141,6 +149,35 @@ mod tests {
 
     fn key(k: &str, down: bool) -> Command {
         Command::Key { key: grapnel_keys::parse_key(k).unwrap(), down }
+    }
+
+    /// What MapVirtualKeyW really returns for navigation keys: the numpad scan code, no 0xE0.
+    fn os_like_scan(vk: u8) -> u16 {
+        match vk {
+            0x25 => 0x4B, // Left
+            0x26 => 0x48, // Up
+            0x24 => 0x47, // Home
+            0x2E => 0x53, // Delete
+            _ => 0x1E,
+        }
+    }
+
+    #[test]
+    fn navigation_keys_are_sent_as_extended_not_numpad() {
+        for (name, sc) in [("Left", 0x4B), ("Up", 0x48), ("Home", 0x47), ("Delete", 0x53)] {
+            let raw = plan(&[key(name, true)], &os_like_scan);
+            assert_eq!(raw, [Raw::Key { vk: parse(name), scan: sc, flags: KEYEVENTF_EXTENDEDKEY }], "{name}");
+        }
+        // Numpad keys stay non-extended.
+        let raw = plan(&[key("Num4", true)], &|_| 0x4B);
+        assert_eq!(raw, [Raw::Key { vk: 0x64, scan: 0x4B, flags: KEYBD_EVENT_FLAGS(0) }]);
+    }
+
+    fn parse(name: &str) -> u16 {
+        match grapnel_keys::parse_key(name).unwrap() {
+            grapnel_keys::Key::Vk(v) => v as u16,
+            _ => unreachable!(),
+        }
     }
 
     #[test]
