@@ -12,9 +12,9 @@ use grapnel_engine::{Command, Event};
 use grapnel_keys::Key;
 use grapnel_win::{hook, inputbox, pipe, toast, tray, tray::Tray, window};
 use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::OnceLock;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -24,7 +24,7 @@ use windows::core::w;
 pub const WM_TRAY: u32 = WM_APP + 1;
 pub const WM_WINDOW: u32 = WM_APP + 2;
 pub const WM_UIA: u32 = WM_APP + 3;
-/// Wake-up for [`QUEUE`]. Payloads never travel in message parameters.
+/// Wake-up for the [`post`] channel. Payloads never travel in message parameters.
 pub const WM_QUEUE: u32 = WM_APP + 4;
 
 const MENU_SUSPEND: u32 = 1;
@@ -43,16 +43,12 @@ pub enum Msg {
     Reloaded(Result<Config, Vec<String>>),
 }
 
-static QUEUE: Mutex<VecDeque<Msg>> = Mutex::new(VecDeque::new());
-
-/// Pops one queued message; the lock is released before returning.
-fn next_queued() -> Option<Msg> {
-    QUEUE.lock().unwrap().pop_front()
-}
+static TX: OnceLock<Sender<Msg>> = OnceLock::new();
 
 /// Queues `msg` for the main thread (from any thread).
 pub fn post(msg: Msg) {
-    QUEUE.lock().unwrap().push_back(msg);
+    let Some(tx) = TX.get() else { return };
+    let _ = tx.send(msg);
     let hwnd = HWND(MAIN.load(Ordering::Relaxed) as _);
     let _ = unsafe { PostMessageW(Some(hwnd), WM_QUEUE, WPARAM(0), LPARAM(0)) };
 }
@@ -61,6 +57,12 @@ thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
     static TRAY: RefCell<Option<Tray>> = const { RefCell::new(None) };
     static TASKBAR_CREATED: Cell<u32> = const { Cell::new(0) };
+    static RX: RefCell<Option<Receiver<Msg>>> = const { RefCell::new(None) };
+}
+
+/// Next posted message; the borrow ends before it is handled, since handlers may post again.
+fn next_posted() -> Option<Msg> {
+    RX.with(|r| r.borrow().as_ref()?.try_recv().ok())
 }
 
 /// Runs `f` on the app unless it is already borrowed (re-entrant message).
@@ -108,6 +110,12 @@ fn tray_menu() {
     }
 }
 
+fn show_toast(text: &str, corner: toast::Corner, ms: u32) {
+    if let Err(e) = toast::show(text, corner, ms) {
+        log::warn!("cannot show a toast: {e}"); // not error: that would post another toast
+    }
+}
+
 /// Handles one queued message on the main thread.
 fn handle(msg: Msg) {
     match msg {
@@ -127,12 +135,10 @@ fn handle(msg: Msg) {
         }
         Msg::Deferred(Command::Notice(text)) => {
             log::info!("{text}");
-            if let Err(e) = toast::show(&text, 2500) {
-                log::warn!("cannot show notice: {e}");
-            }
+            show_toast(&text, toast::Corner::BottomLeft, 2500);
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
-        Msg::LogError(text) => balloon("grapnel のエラー", &text, true),
+        Msg::LogError(text) => show_toast(&text, toast::Corner::BottomRight, 5000),
         Msg::Reloaded(result) => {
             inputbox::close(); // its action id belongs to the old config
             with_app(|a| a.apply_reload(result));
@@ -151,9 +157,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         WM_WINDOW => drop(with_app(|a| a.window_changed(wp.0))),
         WM_UIA => drop(with_app(App::uia_changed)),
         WM_QUEUE => {
-            // Take one message and drop the lock before handling it: handlers may post (e.g. an
-            // error log posts a balloon), and holding the lock across them would deadlock.
-            while let Some(m) = next_queued() {
+            while let Some(m) = next_posted() {
                 handle(m);
             }
         }
@@ -219,6 +223,9 @@ fn main() {
         pipe::send(cmd).unwrap_or_else(|e| fatal(&format!("grapnel が起動していません: {e}")));
         return;
     }
+    let (tx, rx) = mpsc::channel();
+    let _ = TX.set(tx);
+    RX.with(|r| *r.borrow_mut() = Some(rx));
     logger::init(|text| post(Msg::LogError(text)));
     let path = config_path(&args);
     let cfg = app::load(&path).unwrap_or_else(|errors| fatal(&errors.join("\n")));

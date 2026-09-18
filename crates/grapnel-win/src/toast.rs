@@ -1,4 +1,4 @@
-//! A short message in the bottom-left corner of the foreground monitor (like Emacs' echo area).
+//! A short message in a bottom corner of the foreground monitor (like Emacs' echo area).
 //! It never takes focus, lets clicks through and hides itself after a while.
 
 use crate::{wide, window};
@@ -14,9 +14,29 @@ const PAD: i32 = 8;
 const MARGIN: i32 = 12;
 const HIDE_TIMER: usize = 1;
 
+pub enum Corner {
+    BottomLeft,
+    BottomRight,
+}
+
 thread_local! {
     static HWND_: Cell<isize> = const { Cell::new(0) };
+    static FONT: Cell<isize> = const { Cell::new(0) };
     static TEXT: RefCell<Vec<u16>> = const { RefCell::new(Vec::new()) };
+}
+
+/// The system message font, 1.5 times larger; created once and kept for the process.
+fn font() -> HGDIOBJ {
+    let mut font = FONT.with(Cell::get);
+    if font == 0 {
+        let mut m = NONCLIENTMETRICSW { cbSize: size_of::<NONCLIENTMETRICSW>() as u32, ..Default::default() };
+        let p = Some(&mut m as *mut _ as *mut _);
+        let _ = unsafe { SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, m.cbSize, p, Default::default()) };
+        m.lfMessageFont.lfHeight = m.lfMessageFont.lfHeight * 3 / 2;
+        font = unsafe { CreateFontIndirectW(&m.lfMessageFont) }.0 as isize;
+        FONT.with(|f| f.set(font));
+    }
+    HGDIOBJ(font as _)
 }
 
 fn text_rect(hdc: HDC, text: &mut [u16]) -> RECT {
@@ -36,7 +56,7 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> 
                 let brush = CreateSolidBrush(COLORREF(0x00302C28)); // BGR
                 FillRect(hdc, &rc, brush);
                 let _ = DeleteObject(brush.into());
-                SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
+                SelectObject(hdc, font());
                 SetBkMode(hdc, TRANSPARENT);
                 SetTextColor(hdc, COLORREF(0x00F0F0F0));
                 rc.left += PAD;
@@ -71,20 +91,24 @@ fn window() -> windows::core::Result<HWND> {
     }
 }
 
-/// Shows `text` for `ms` milliseconds, replacing any message still shown.
-pub fn show(text: &str, ms: u32) -> windows::core::Result<()> {
+/// Shows `text` in `corner` for `ms` milliseconds, replacing any message still shown.
+pub fn show(text: &str, corner: Corner, ms: u32) -> windows::core::Result<()> {
     let hwnd = window()?;
     let mut buf = wide(text);
     buf.pop(); // DrawTextW takes the length from the slice
     unsafe {
         let hdc = GetDC(Some(hwnd));
-        SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
+        SelectObject(hdc, font());
         let rc = text_rect(hdc, &mut buf);
         ReleaseDC(Some(hwnd), hdc);
         TEXT.with(|t| *t.borrow_mut() = buf);
         let (w, h) = (rc.right - rc.left + 2 * PAD, rc.bottom - rc.top + PAD);
         let area = window::foreground_work_area();
-        let (x, y) = (area.left + MARGIN, area.bottom - h - MARGIN);
+        let x = match corner {
+            Corner::BottomLeft => area.left + MARGIN,
+            Corner::BottomRight => area.right - w - MARGIN,
+        };
+        let y = area.bottom - h - MARGIN;
         let flags = SWP_NOACTIVATE | SWP_SHOWWINDOW;
         SetWindowPos(hwnd, Some(HWND_TOPMOST), x, y, w, h, flags)?;
         let _ = InvalidateRect(Some(hwnd), None, true);

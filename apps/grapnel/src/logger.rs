@@ -1,5 +1,5 @@
 //! Debug builds log to stdout. Release builds append to `%LOCALAPPDATA%\grapnel\grapnel.log`
-//! and show errors as tray balloons.
+//! and show errors on screen.
 
 use log::{Level, LevelFilter, Metadata, Record};
 use std::io::Write;
