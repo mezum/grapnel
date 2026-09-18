@@ -58,11 +58,14 @@ fn expand(pattern: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(paths)
 }
 
-/// Writes one file. Comments in the original file are not preserved.
+/// Writes one file by replacing it atomically, so a failed write never truncates the original.
+/// Comments in the original file are not preserved.
 pub fn save(path: &Path, raw: &RawConfig) -> std::io::Result<()> {
     let text = toml::to_string_pretty(raw).map_err(std::io::Error::other)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(path, text)
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))
 }

@@ -172,3 +172,8 @@ fn scancode_modifiers_are_rejected() {
     assert!(e.contains("is a modifier"), "{e}");
     assert!(errs(&[("m", "[modifiers.X]\nkey = \"sc:0x2A\"")]).contains("cannot be"));
 }
+
+#[test]
+fn compiling_nothing_is_an_error() {
+    assert!(compile(&[]).is_err());
+}

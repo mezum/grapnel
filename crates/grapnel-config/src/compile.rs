@@ -46,6 +46,9 @@ fn index<T>(items: &[T], name: impl Fn(&T) -> &str) -> Names {
 }
 
 pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
+    if files.is_empty() {
+        return Err(vec!["no configuration files".into()]);
+    }
     let mut errors = Vec::new();
     let mut modes = vec![Mode { name: DEFAULT_MODE.into(), block_unmapped: false }];
     let mut raw_mods: Vec<(&Path, &str, &RawModifier)> = Vec::new();
