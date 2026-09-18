@@ -7,11 +7,14 @@ mod exec;
 mod logger;
 
 use app::{App, PAD_ENABLED};
+use grapnel_config::Config;
 use grapnel_engine::{Command, Event};
 use grapnel_keys::Key;
-use grapnel_win::{hook, inputbox, pipe, tray::Tray, window};
+use grapnel_win::{hook, inputbox, pipe, tray, tray::Tray, window};
 use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -21,10 +24,8 @@ use windows::core::w;
 pub const WM_TRAY: u32 = WM_APP + 1;
 pub const WM_WINDOW: u32 = WM_APP + 2;
 pub const WM_UIA: u32 = WM_APP + 3;
-pub const WM_PIPE: u32 = WM_APP + 4;
-pub const WM_EVENT: u32 = WM_APP + 5;
-pub const WM_DEFERRED: u32 = WM_APP + 6;
-pub const WM_LOG_ERROR: u32 = WM_APP + 7;
+/// Wake-up for [`QUEUE`]. Payloads never travel in message parameters.
+pub const WM_QUEUE: u32 = WM_APP + 4;
 
 const MENU_SUSPEND: u32 = 1;
 const MENU_RELOAD: u32 = 2;
@@ -32,6 +33,24 @@ const MENU_SETTINGS: u32 = 3;
 const MENU_EXIT: u32 = 4;
 
 static MAIN: AtomicIsize = AtomicIsize::new(0);
+
+/// Work handed to the main thread from hooks, workers and other threads.
+pub enum Msg {
+    Pipe(String),
+    Pad(Event),
+    Deferred(Command),
+    LogError(String),
+    Reloaded(Result<Config, Vec<String>>),
+}
+
+static QUEUE: Mutex<VecDeque<Msg>> = Mutex::new(VecDeque::new());
+
+/// Queues `msg` for the main thread (from any thread).
+pub fn post(msg: Msg) {
+    QUEUE.lock().unwrap().push_back(msg);
+    let hwnd = HWND(MAIN.load(Ordering::Relaxed) as _);
+    let _ = unsafe { PostMessageW(Some(hwnd), WM_QUEUE, WPARAM(0), LPARAM(0)) };
+}
 
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
@@ -44,19 +63,6 @@ fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
     APP.with(|a| a.try_borrow_mut().ok()?.as_mut().map(f))
 }
 
-/// Posts an owned value to the main window from any thread.
-fn post_boxed<T>(msg: u32, value: T) {
-    let ptr = Box::into_raw(Box::new(value)) as isize;
-    let hwnd = HWND(MAIN.load(Ordering::Relaxed) as _);
-    if unsafe { PostMessageW(Some(hwnd), msg, WPARAM(0), LPARAM(ptr)) }.is_err() {
-        drop(unsafe { Box::from_raw(ptr as *mut T) });
-    }
-}
-
-fn unbox<T>(lp: LPARAM) -> T {
-    *unsafe { Box::from_raw(lp.0 as *mut T) }
-}
-
 pub fn set_tray_state(tip: &str, paused: bool) {
     TRAY.with(|t| t.borrow().as_ref().map(|t| t.set_state(tip, paused)));
 }
@@ -66,6 +72,7 @@ pub fn balloon(title: &str, text: &str, error: bool) {
 }
 
 fn add_tray(hwnd: HWND) {
+    TRAY.with(|t| t.borrow_mut().take()); // drop (NIM_DELETE) the old icon before adding the new one
     let tray = Tray::add(hwnd, WM_TRAY, "grapnel").map_err(|e| log::error!("トレイアイコンを追加できません: {e}"));
     TRAY.with(|t| *t.borrow_mut() = tray.ok());
 }
@@ -86,7 +93,8 @@ fn tray_menu() {
         (MENU_SETTINGS, "設定ツールを開く", false),
         (MENU_EXIT, "終了", false),
     ];
-    match TRAY.with(|t| t.borrow().as_ref().and_then(|t| t.menu(&items))) {
+    let hwnd = HWND(MAIN.load(Ordering::Relaxed) as _);
+    match tray::menu(hwnd, &items) {
         Some(MENU_SUSPEND) => drop(with_app(App::toggle_suspend)),
         Some(MENU_RELOAD) => drop(with_app(App::reload)),
         Some(MENU_SETTINGS) => open_settings(),
@@ -95,9 +103,35 @@ fn tray_menu() {
     }
 }
 
+/// Handles one queued message on the main thread.
+fn handle(msg: Msg) {
+    match msg {
+        Msg::Pipe(line) => match line.as_str() {
+            "reload" => drop(with_app(App::reload)),
+            "suspend" => drop(with_app(App::toggle_suspend)),
+            "exit" => unsafe { PostQuitMessage(0) },
+            other => log::warn!("unknown pipe command '{other}'"),
+        },
+        Msg::Pad(ev) => drop(with_app(|a| a.on_pad(ev))),
+        // Opening a window can dispatch messages, so do it without holding the app borrow.
+        Msg::Deferred(Command::InputBox { prompt, then }) => {
+            with_app(App::before_prompt);
+            if let Err(e) = inputbox::open(&prompt, then) {
+                log::error!("入力欄を表示できません: {e}");
+            }
+        }
+        Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
+        Msg::LogError(text) => balloon("grapnel のエラー", &text, true),
+        Msg::Reloaded(result) => {
+            inputbox::close(); // its action id belongs to the old config
+            with_app(|a| a.apply_reload(result));
+        }
+    }
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     let busy = APP.with(|a| a.try_borrow_mut().is_err());
-    if busy && (WM_APP..=WM_LOG_ERROR).contains(&msg) && msg != WM_TRAY {
+    if busy && msg != WM_TRAY && (WM_APP..=WM_QUEUE).contains(&msg) {
         let _ = unsafe { PostMessageW(Some(hwnd), msg, wp, lp) }; // retry once the app is free
         return LRESULT(0);
     }
@@ -105,21 +139,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         WM_TRAY if matches!(lp.0 as u32, WM_LBUTTONUP | WM_RBUTTONUP) => tray_menu(),
         WM_WINDOW => drop(with_app(|a| a.window_changed(wp.0))),
         WM_UIA => drop(with_app(App::uia_changed)),
-        WM_PIPE => match unbox::<String>(lp).as_str() {
-            "reload" => drop(with_app(App::reload)),
-            "suspend" => drop(with_app(App::toggle_suspend)),
-            "exit" => unsafe { PostQuitMessage(0) },
-            other => log::warn!("unknown pipe command '{other}'"),
-        },
-        WM_EVENT => {
-            let ev = unbox::<Event>(lp);
-            with_app(|a| a.on_pad(ev));
+        WM_QUEUE => {
+            while let Some(m) = QUEUE.lock().unwrap().pop_front() {
+                handle(m);
+            }
         }
-        WM_DEFERRED => {
-            let c = unbox::<Command>(lp);
-            with_app(|a| a.deferred(c));
-        }
-        WM_LOG_ERROR => balloon("grapnel のエラー", &unbox::<String>(lp), true),
         WM_HOTKEY => drop(with_app(App::toggle_suspend)),
         WM_TIMER => drop(with_app(App::on_timer)),
         m if m == TASKBAR_CREATED.with(Cell::get) => add_tray(hwnd),
@@ -182,12 +206,12 @@ fn main() {
         pipe::send(cmd).unwrap_or_else(|e| fatal(&format!("grapnel が起動していません: {e}")));
         return;
     }
-    logger::init(|text| post_boxed(WM_LOG_ERROR, text));
+    logger::init(|text| post(Msg::LogError(text)));
     let path = config_path(&args);
     let cfg = app::load(&path).unwrap_or_else(|errors| fatal(&errors.join("\n")));
     let hwnd = create_window().unwrap_or_else(|e| fatal(&format!("ウインドウを作成できません: {e}")));
     MAIN.store(hwnd.0 as isize, Ordering::Relaxed);
-    if let Err(e) = pipe::serve(|line| post_boxed(WM_PIPE, line)) {
+    if let Err(e) = pipe::serve(|line| post(Msg::Pipe(line))) {
         fatal(&format!("grapnel は既に起動しています ({e})"));
     }
     add_tray(hwnd);
@@ -198,7 +222,7 @@ fn main() {
     hook::set_handler(|ev| with_app(|a| a.on_input(ev)).unwrap_or(false));
     grapnel_pad::spawn(|b, down| {
         if PAD_ENABLED.load(Ordering::Relaxed) {
-            post_boxed(WM_EVENT, if down { Event::Down(Key::Pad(b)) } else { Event::Up(Key::Pad(b)) });
+            post(Msg::Pad(if down { Event::Down(Key::Pad(b)) } else { Event::Up(Key::Pad(b)) }));
         }
     });
     log::info!("started");
