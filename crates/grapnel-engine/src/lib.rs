@@ -178,9 +178,13 @@ impl Engine {
         self.user_mods.fill(UserMod::Idle);
         self.kept.fill(Mods::NONE);
         self.real_kept = None;
+        // A mode that holds modifiers must not leave them pressed while unhooked.
+        let mode =
+            if self.cfg.modes[self.mode].hold == Mods::NONE { self.mode } else { self.cfg.settings.initial_mode };
+        self.mode = mode;
         self.restore(&mut out);
         let mods = std::mem::take(&mut self.down);
-        *self = Engine { mode: self.mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };
+        *self = Engine { mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };
         self.down = mods;
         out
     }

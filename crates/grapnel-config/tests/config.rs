@@ -219,3 +219,9 @@ fn modes_unmapped_to() {
         errs(&[("m", "[modes.mark]\nunmapped_to = \"nope\"")]).contains("modes.mark.unmapped_to: unknown mode 'nope'")
     );
 }
+
+#[test]
+fn modes_hold() {
+    assert_eq!(ok("[modes.mark]\nhold = \"S\"").modes[1].hold, Mods::SHIFT);
+    assert!(errs(&[("m", "[modes.mark]\nhold = \"Q\"")]).contains("modes.mark.hold"));
+}

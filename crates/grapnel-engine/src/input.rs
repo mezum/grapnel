@@ -18,9 +18,9 @@ impl Engine {
         }
     }
 
-    /// Real modifiers kept pressed by all held user modifiers.
+    /// Real modifiers kept pressed by all held user modifiers and by the current mode (`hold`).
     pub(crate) fn emulated_mods(&self) -> Mods {
-        (0..self.user_mods.len()).fold(Mods::NONE, |a, i| a | self.user_held(i))
+        (0..self.user_mods.len()).fold(self.cfg.modes[self.mode].hold, |a, i| a | self.user_held(i))
     }
 
     /// Physical real modifiers plus active user modifiers.
@@ -246,8 +246,16 @@ impl Engine {
         let block = mode.block_unmapped && matches!(key, Key::Vk(_) | Key::Sc(_));
         let mut commands = vec![];
         if let Some(to) = mode.unmapped_to {
+            let held = mode.hold;
             self.mode = to;
             commands.push(Command::ModeChanged(self.cfg.modes[to].name.clone()));
+            if held != self.cfg.modes[to].hold && !block {
+                // Release the mode's held modifiers first, then send the key itself (passing it
+                // through would let it reach the OS before the injected release).
+                self.restore(&mut commands);
+                self.inject_pass(key, &mut commands);
+                return consumed(commands);
+            }
         }
         if block {
             self.swallowed.insert(key);

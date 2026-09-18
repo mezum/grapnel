@@ -50,7 +50,9 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         return Err(vec!["no configuration files".into()]);
     }
     let mut errors = Vec::new();
-    let mut modes = vec![Mode { name: DEFAULT_MODE.into(), block_unmapped: false, unmapped_to: None }];
+    let mode =
+        |name: &str, block_unmapped| Mode { name: name.into(), block_unmapped, unmapped_to: None, hold: Mods::NONE };
+    let mut modes = vec![mode(DEFAULT_MODE, false)];
     let mut raw_mods: Vec<(&Path, &str, &RawModifier)> = Vec::new();
     let mut raw_targets: Vec<(&Path, &str, &RawTarget)> = Vec::new();
     let mut actions: Vec<Action> = Vec::new();
@@ -70,7 +72,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
         for (name, m) in &raw.modes {
             match modes.iter_mut().find(|x| x.name == *name) {
                 Some(x) => x.block_unmapped = m.block_unmapped,
-                None => modes.push(Mode { name: name.clone(), block_unmapped: m.block_unmapped, unmapped_to: None }),
+                None => modes.push(mode(name, m.block_unmapped)),
             }
         }
         raw_mods.extend(raw.modifiers.iter().map(|(n, m)| (path.as_path(), n.as_str(), m)));
@@ -98,9 +100,11 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
     for (path, raw) in files {
         let mut c = Ctx { errors: &mut errors, file: path };
         for (name, m) in &raw.modes {
+            let target = &mut modes[mode_ix[name]];
             if let Some(to) = &m.unmapped_to {
-                modes[mode_ix[name]].unmapped_to = c.id(&format!("modes.{name}.unmapped_to"), "mode", &mode_ix, to);
+                target.unmapped_to = c.id(&format!("modes.{name}.unmapped_to"), "mode", &mode_ix, to);
             }
+            target.hold = c.ok(&format!("modes.{name}.hold"), parse_real_mods(m.hold.as_deref())).unwrap_or_default();
         }
         for (i, r) in raw.rules.iter().enumerate() {
             let at = |f: &str| format!("rules[{i}].{f}");
@@ -161,6 +165,18 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<String>> {
     if errors.is_empty() { Ok(Config { settings, modes, modifiers, targets, rules, actions }) } else { Err(errors) }
 }
 
+/// `"C-S"` → Ctrl|Shift. `None` is no modifiers.
+fn parse_real_mods(s: Option<&str>) -> Result<Mods, String> {
+    let Some(s) = s else { return Ok(Mods::NONE) };
+    s.split('-').try_fold(Mods::NONE, |acc, part| match part {
+        "C" => Ok(acc | Mods::CTRL),
+        "M" => Ok(acc | Mods::ALT),
+        "S" => Ok(acc | Mods::SHIFT),
+        "W" => Ok(acc | Mods::WIN),
+        _ => Err(format!("'{s}' must be C/M/S/W joined with '-'")),
+    })
+}
+
 fn rule_key_problem(keys: &KeySeq, mods: &[Modifier]) -> Option<String> {
     if keys.0.is_empty() {
         return Some("empty key sequence".into());
@@ -193,16 +209,7 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Strin
             c.err(&format!("{at}.key"), "cannot be Ctrl/Alt/Shift/Win, a wheel or a gesture");
         }
         let tap = c.output(&format!("{at}.tap"), m.tap.as_deref().unwrap_or(&m.key));
-        let emulate = m.emulate.as_deref().map_or(Ok(Mods::NONE), |s| {
-            s.split('-').try_fold(Mods::NONE, |acc, part| match part {
-                "C" => Ok(acc | Mods::CTRL),
-                "M" => Ok(acc | Mods::ALT),
-                "S" => Ok(acc | Mods::SHIFT),
-                "W" => Ok(acc | Mods::WIN),
-                _ => Err(format!("'{s}' must be C/M/S/W joined with '-'")),
-            })
-        });
-        let emulate = c.ok(&format!("{at}.as"), emulate).unwrap_or_default();
+        let emulate = c.ok(&format!("{at}.as"), parse_real_mods(m.emulate.as_deref())).unwrap_or_default();
         out.push(Modifier {
             name: name.to_string(),
             emulate,

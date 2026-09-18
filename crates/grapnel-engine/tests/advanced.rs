@@ -176,3 +176,37 @@ fn unmapped_input_leaves_a_mode_with_unmapped_to() {
     assert_eq!(t.e.mode_name(), "default");
     assert_eq!(t.up("z"), pass());
 }
+
+const MARK: &str = "[modes.mark]\nunmapped_to = \"default\"\nhold = \"S\"\n\
+    [[rules]]\nkeys = \"C-Space\"\naction = \"mark\"\nmodes = [\"default\"]\n\
+    [[rules]]\nkeys = \"Right\"\naction = \"sel\"\nmodes = [\"mark\"]\n\
+    [[actions.mark]]\ndo = [{ mode = \"mark\" }]\n[[actions.sel]]\ndo = [\"S-Right\"]";
+
+#[test]
+fn mode_hold_keeps_modifiers_down_while_in_the_mode() {
+    let mut t = t(MARK);
+    t.down("LCtrl");
+    assert_eq!(t.down("Space").commands, [vec![Command::ModeChanged("mark".into())], keys("+LShift")].concat());
+    t.up("Space");
+    assert_eq!(t.up("LCtrl"), pass());
+    assert_eq!(t.down("Right"), eaten("+Right"));
+    assert_eq!(t.up("Right"), eaten("-Right"));
+    // A physical Shift release does not end the held Shift.
+    assert_eq!(t.down("LShift"), pass());
+    assert_eq!(t.up("LShift"), Reaction { consume: false, commands: keys("+LShift") });
+    // Leaving the mode releases Shift before the key that caused it.
+    let mut expected = vec![Command::ModeChanged("default".into())];
+    expected.extend(keys("-LShift +x"));
+    assert_eq!(t.down("x"), Reaction { consume: true, commands: expected });
+    assert_eq!(t.up("x"), eaten("-x"));
+}
+
+#[test]
+fn reset_leaves_a_holding_mode() {
+    let mut t = t(MARK);
+    t.down("LCtrl");
+    t.tap("Space");
+    t.up("LCtrl");
+    assert_eq!(t.e.reset(), keys("-LShift"));
+    assert_eq!(t.e.mode_name(), "default");
+}

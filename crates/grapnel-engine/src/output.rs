@@ -162,6 +162,7 @@ impl Engine {
                 Step::Mode(m) => {
                     self.mode = *m;
                     out.push(Command::ModeChanged(self.cfg.modes[*m].name.clone()));
+                    self.restore(out); // press/release the modes' `hold` modifiers
                 }
                 Step::Control(c) => out.push(Command::Control(*c)),
                 Step::Input { prompt, then } => out.push(Command::InputBox { prompt: prompt.clone(), then: *then }),

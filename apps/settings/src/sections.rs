@@ -99,6 +99,7 @@ pub fn modes() -> impl IntoView {
             view! {
                 {check("定義外のキーを握りつぶす", &p, |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
                 {opt_text("unmapped_to (定義外の入力で移るモード)", &p, |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
+                {opt_text("hold (モード中に押したままにする修飾キー 例: S)", &p, |m| m.hold.clone(), |m, x| m.hold = x)}
             }
         },
     )

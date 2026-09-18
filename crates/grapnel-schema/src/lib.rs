@@ -47,6 +47,9 @@ pub struct RawMode {
     /// Mode to switch to when an input matches no rule in this mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unmapped_to: Option<String>,
+    /// Real modifiers (`"S"`, `"C-S"`, ...) kept pressed while in this mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hold: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

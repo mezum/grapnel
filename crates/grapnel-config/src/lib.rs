@@ -42,6 +42,8 @@ pub struct Mode {
     pub block_unmapped: bool,
     /// Switch to this mode when an input matches no rule.
     pub unmapped_to: Option<ModeId>,
+    /// Real modifiers kept pressed while in this mode.
+    pub hold: Mods,
 }
 
 #[derive(Clone, Debug)]
