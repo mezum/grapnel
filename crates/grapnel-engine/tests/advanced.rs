@@ -23,7 +23,7 @@ fn mismatch_replay_resends_prefix_and_current_key() {
     let mut t = t(&rule("C-x t", "\"b\"", "", ""));
     cx(&mut t);
     assert_eq!(t.down("q"), eaten("+LCtrl +x -x -LCtrl +q"));
-    assert_eq!(t.up("q"), pass());
+    assert_eq!(t.up("q"), eaten("-q"));
 }
 
 #[test]
