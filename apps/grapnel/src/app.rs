@@ -284,6 +284,14 @@ impl App {
         }
     }
 
+    /// Runs the steps after a `Sleep`, unless cancelled meanwhile (suspend, passthrough, reload).
+    pub fn resume(&mut self, generation: u64, later: grapnel_engine::Later) {
+        if self.exec.is_current(generation) && self.hooks.is_some() {
+            let cmds = self.engine.resume(later);
+            self.exec.run(cmds);
+        }
+    }
+
     pub fn shutdown(&mut self) {
         self.exec.cancel();
         let cmds = self.engine.reset();

@@ -82,7 +82,8 @@ pub struct Reaction { pub consume: bool, pub commands: Vec<Command> }
 pub enum Command {
     Key { key: Key, down: bool },          // マウスボタン・ホイールも含む
     Text(String), MouseMove { x: i32, y: i32, absolute: bool },
-    Sleep(u32), Run { program: String, args: Vec<String> },
+    Sleep(u32), Resume(Later),             // Resume: Sleep の後の手順。Sleep が明けたら Engine::resume に戻す
+    Run { program: String, args: Vec<String> },
     InputBox { prompt: String, then: ActionId },
     ModeChanged(String), Control(ControlCmd), Error(String),
 }
@@ -133,7 +134,7 @@ impl Engine {
 - 他スレッド (パイプ、パッド、ワーカー、ログ) からの仕事は、プロセス内のチャネル (`mpsc::channel`) に送り、`WM_QUEUE` で起こして処理する。メッセージの引数にポインタは載せない (他プロセスから偽装されうるため)。
 - コマンドの実行 (`exec.rs`):
   - 最初の `Sleep` までは呼び出し元 (フック内) で順に送る。後続の物理入力より先に出力を届けるため。
-  - `Sleep` 以降はワーカースレッドで実行する。一時停止・パススルー・再読み込み・終了で世代番号を進め、未実行の分は捨てる。
+  - `Sleep` の後の手順はエンジンがその場では出力を組み立てず `Resume` にまとめる (呼び出し中の手順も内側から順に)。`Sleep` ごとのスレッドで待ってから (重なったアクションもそれぞれの時刻に) `Resume` を実行時の世代番号と一緒にメインスレッドに戻し、`Engine::resume` がその時の修飾キーの状態で組み立てて実行する (ターゲットは始めたときのウインドウで選ぶ)。世代番号が変わったかフックが外れていれば捨てる。一時停止・パススルー・再読み込み・終了で世代番号を進め、未実行の分は捨てる。
   - `Run` は起動用のスレッドを立てて `std::process::Command::spawn` する (フックのスレッドを止めない)。
   - それ以外 (`InputBox`、`ModeChanged`、`Control`、`Error`) はキュー経由でメインスレッドが処理する。入力欄はウインドウを作る際にメッセージが回るので、`App` を借用していない状態で開く。
 - 入力欄が前面にある間は、修飾キー以外の入力を変換しない (修飾キーの状態だけ追跡する)。開く前にエンジンを `reset` し、開いたときの `WindowInfo` で後続のアクションを選ぶ。

@@ -1,21 +1,22 @@
 //! Executing engine commands, in order. Input before the first `Sleep` is sent synchronously (inside
-//! the hook, so it reaches the OS before later physical input); the rest runs on a worker thread and
-//! is dropped when [`Executor::cancel`] is called. Programs start on their own thread so the hook
-//! thread never blocks; UI commands go to the main thread's queue.
+//! the hook, so it reaches the OS before later physical input); the rest waits on its own thread and
+//! is dropped when [`Executor::cancel`] is called. The steps after a `Sleep` come back to the main
+//! thread as `Command::Resume`, to be planned against the modifier state after the sleep. Programs
+//! start on their own thread so the hook thread never blocks; UI commands go to the main thread's
+//! queue.
 
 use crate::{Msg, post};
 use grapnel_engine::Command;
 use grapnel_win::send;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{Sender, channel};
 
 fn is_input(c: &Command) -> bool {
     matches!(c, Command::Key { .. } | Command::Text(_) | Command::MouseMove { .. })
 }
 
-/// Runs `cmds` up to the first `Sleep`; returns the rest.
-fn run_until_sleep(cmds: Vec<Command>) -> Vec<Command> {
+/// Runs `cmds` up to the first `Sleep`; returns the rest. `generation` goes with `Resume`.
+fn run_until_sleep(cmds: Vec<Command>, generation: u64) -> Vec<Command> {
     let mut batch = Vec::new();
     let mut it = cmds.into_iter();
     while let Some(c) = it.next() {
@@ -25,6 +26,10 @@ fn run_until_sleep(cmds: Vec<Command>) -> Vec<Command> {
                 return std::iter::once(c).chain(it).collect();
             }
             c if is_input(&c) => batch.push(c),
+            Command::Resume(later) => {
+                send::send(&std::mem::take(&mut batch));
+                post(Msg::Resume(generation, later));
+            }
             Command::Run { program, args } => {
                 send::send(&std::mem::take(&mut batch));
                 std::thread::spawn(move || {
@@ -45,34 +50,31 @@ fn run_until_sleep(cmds: Vec<Command>) -> Vec<Command> {
 
 pub struct Executor {
     generation: Arc<AtomicU64>,
-    worker: Sender<(u64, Vec<Command>)>,
 }
 
 impl Executor {
     pub fn new() -> Executor {
-        let generation = Arc::new(AtomicU64::new(0));
-        let current = generation.clone();
-        let (worker, rx) = channel::<(u64, Vec<Command>)>();
-        std::thread::spawn(move || {
-            for (gen_, mut cmds) in rx {
-                // ponytail: modifier state after a Sleep was planned before it; re-plan per step if it matters.
-                while let Some(Command::Sleep(ms)) = cmds.first().cloned() {
-                    std::thread::sleep(std::time::Duration::from_millis(ms as u64));
-                    if current.load(Ordering::SeqCst) != gen_ {
-                        break;
-                    }
-                    cmds = run_until_sleep(cmds.split_off(1));
-                }
-            }
-        });
-        Executor { generation, worker }
+        Executor { generation: Arc::new(AtomicU64::new(0)) }
     }
 
+    /// Output after a `Sleep` waits on its own thread, so overlapping actions each resume on time.
+    /// The engine puts at most one `Sleep` in a batch: what follows it comes back as `Resume`.
     pub fn run(&self, cmds: Vec<Command>) {
-        let rest = run_until_sleep(cmds);
-        if !rest.is_empty() {
-            let _ = self.worker.send((self.generation.load(Ordering::SeqCst), rest));
-        }
+        let generation = self.generation.load(Ordering::SeqCst);
+        let rest = run_until_sleep(cmds, generation);
+        let Some((Command::Sleep(ms), rest)) = rest.split_first() else { return };
+        let (ms, rest, current) = (*ms, rest.to_vec(), self.generation.clone());
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+            if current.load(Ordering::SeqCst) == generation {
+                run_until_sleep(rest, generation);
+            }
+        });
+    }
+
+    /// Whether nothing was cancelled since output of `generation` was planned.
+    pub fn is_current(&self, generation: u64) -> bool {
+        self.generation.load(Ordering::SeqCst) == generation
     }
 
     /// Drops delayed output that has not run yet (suspend, passthrough, reload, exit).
