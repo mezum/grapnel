@@ -5,9 +5,9 @@ restart: stop settings run
 
 # Stop grapnel and close the settings tool (unsaved edits there are lost), so both can be rebuilt
 stop:
-    Stop-Process -Name grapnel-settings -ErrorAction SilentlyContinue; Wait-Process -Name grapnel-settings -Timeout 10 -ErrorAction SilentlyContinue
-    if (Get-Process grapnel -ErrorAction SilentlyContinue) { ./target/release/grapnel.exe exit; Wait-Process -Name grapnel -Timeout 10 -ErrorAction SilentlyContinue }
-    Stop-Process -Name grapnel -ErrorAction SilentlyContinue; Wait-Process -Name grapnel -Timeout 10 -ErrorAction SilentlyContinue
+    Get-Process | Where-Object Name -eq grapnel-settings | Stop-Process -PassThru | Wait-Process -Timeout 10
+    if (Get-Process | Where-Object Name -eq grapnel) { ./target/release/grapnel.exe exit; Start-Sleep -Milliseconds 500 }
+    Get-Process | Where-Object Name -eq grapnel | Stop-Process -PassThru | Wait-Process -Timeout 10
 
 # Build the settings tool (target/release/grapnel-settings.exe)
 settings:
