@@ -26,4 +26,7 @@ grapnel-pad = { path = "crates/grapnel-pad" }
 serde = { version = "1", features = ["derive"] }
 toml = { version = "1", features = ["preserve_order"] }
 regex = "1"
+rust-i18n = "4.2.2"
+# Keeps key order in the config files the settings tool reads and writes.
+serde_json = { version = "1", features = ["preserve_order"] }
 log = "0.4"

@@ -12,7 +12,7 @@ grapnel-engine.workspace = true
 grapnel-win.workspace = true
 grapnel-pad.workspace = true
 log.workspace = true
-rust-i18n = "4.2.2"
+rust-i18n.workspace = true
 
 [dependencies.windows]
 version = "0.62"
