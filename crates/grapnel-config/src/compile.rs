@@ -18,7 +18,7 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
-    fn unknown(self, name: &str) -> Msg {
+    pub fn unknown(self, name: &str) -> Msg {
         match self {
             Kind::Mode => msg!("config.unknown_mode", name = name),
             Kind::Target => msg!("config.unknown_target", name = name),
@@ -34,7 +34,11 @@ pub(crate) struct Ctx<'a> {
 
 impl Ctx<'_> {
     pub fn err(&mut self, at: &str, msg: Msg) {
-        self.errors.push(Problem { file: Some(self.file.to_path_buf()), at: at.to_string(), msg });
+        self.errors.push(Problem { file: Some(self.file.to_path_buf()), at: at.to_string(), on_key: false, msg });
+    }
+    /// A problem with the name at `at` rather than its value.
+    pub fn err_key(&mut self, at: &str, msg: Msg) {
+        self.errors.push(Problem { file: Some(self.file.to_path_buf()), at: at.to_string(), on_key: true, msg });
     }
     pub fn ok<T>(&mut self, at: &str, r: Result<T, Msg>) -> Option<T> {
         r.map_err(|e| self.err(at, e)).ok()
@@ -67,7 +71,7 @@ fn index<T>(items: &[T], name: impl Fn(&T) -> &str) -> Names {
 
 pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
     if files.is_empty() {
-        return Err(vec![Problem { file: None, at: String::new(), msg: msg!("config.no_files") }]);
+        return Err(vec![Problem { file: None, at: String::new(), on_key: false, msg: msg!("config.no_files") }]);
     }
     let mut errors = Vec::new();
     let mode =
@@ -87,7 +91,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         let names = names.chain(raw.targets.keys().map(|n| ("targets", n)));
         for (kind, name) in names.chain(raw.actions.keys().map(|n| ("actions", n))) {
             if let Some(prev) = seen.insert((kind, name), path) {
-                c.err(&format!("{kind}.{name}"), msg!("config.duplicate", file = prev.display()));
+                c.err_key(&format!("{kind}.{name}"), msg!("config.duplicate", file = prev.display()));
             }
         }
         for (name, m) in &raw.modes {
@@ -108,7 +112,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
     if raw_mods.len() > Mods::MAX_USER {
         // Modifier bits would overflow while parsing keys; stop here.
         let msg = msg!("config.too_many_modifiers", count = raw_mods.len(), max = Mods::MAX_USER);
-        errors.push(Problem { file: None, at: "modifiers".into(), msg });
+        errors.push(Problem { file: None, at: "modifiers".into(), on_key: false, msg });
         return Err(errors);
     }
     let modifiers = compile_modifiers(&raw_mods, &mut errors);
@@ -222,7 +226,7 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Probl
             && name.chars().all(|ch| ch.is_ascii_alphanumeric())
             && !["C", "M", "S", "W"].contains(&name);
         if !valid {
-            c.err(&at, msg!("config.modifier_name"));
+            c.err_key(&at, msg!("config.modifier_name"));
         }
         let key = c.ok(&format!("{at}.key"), parse_key(&m.key));
         if key.as_ref().is_some_and(|k| k.real_mod().is_some() || matches!(k, Key::Wheel(_) | Key::Gesture(..))) {
@@ -281,7 +285,7 @@ fn compile_targets(raw: &[(&Path, &str, &RawTarget)], ix: &Names, errors: &mut V
     for (i, (t, &(file, ..))) in out.iter().zip(raw).enumerate() {
         if reaches(&out, i, i, &mut vec![false; out.len()]) {
             let at = format!("targets.{}", t.name);
-            errors.push(Problem { file: Some(file.to_path_buf()), at, msg: msg!("config.circular") });
+            errors.push(Problem { file: Some(file.to_path_buf()), at, on_key: true, msg: msg!("config.circular") });
         }
     }
     out

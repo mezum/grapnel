@@ -23,7 +23,7 @@ fn visit(path: &Path, out: &mut Vec<(PathBuf, RawConfig)>, errors: &mut Vec<Prob
     if out.iter().any(|(p, _)| std::fs::canonicalize(p).is_ok_and(|p| p == canon)) {
         return;
     }
-    let problem = |at: String, msg| Problem { file: Some(path.to_path_buf()), at, msg };
+    let problem = |at: String, msg| Problem { file: Some(path.to_path_buf()), at, on_key: false, msg };
     let raw: RawConfig = match std::fs::read_to_string(path)
         .map_err(|e| msg!("config.read", error = e))
         .and_then(|s| toml::from_str(&s).map_err(|e| msg!("config.syntax", error = e)))

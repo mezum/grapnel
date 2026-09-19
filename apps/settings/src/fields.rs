@@ -13,25 +13,49 @@ pub type Options = Vec<(Cow<'static, str>, Cow<'static, str>)>;
 type Getter<V> = dyn for<'a> Fn(&'a RawConfig) -> Option<&'a V> + Send + Sync;
 type GetMut<V> = dyn for<'a> Fn(&'a mut RawConfig) -> Option<&'a mut V> + Send + Sync;
 
+/// `path` is where the value is in the file, spelled as `grapnel_config` reports problems
+/// (`settings.passthrough[1]`, `keymap."C-x"`), so fields can show the problems about them.
 pub struct Place<V: 'static> {
     store: Store,
+    path: Arc<str>,
     get: Arc<Getter<V>>,
     get_mut: Arc<GetMut<V>>,
 }
 
 impl<V> Clone for Place<V> {
     fn clone(&self) -> Self {
-        Place { store: self.store, get: self.get.clone(), get_mut: self.get_mut.clone() }
+        Place { store: self.store, path: self.path.clone(), get: self.get.clone(), get_mut: self.get_mut.clone() }
     }
+}
+
+/// `path` followed by `seg` (`.name`, `[i]` or `."key"`); the leading dot is dropped at the top.
+fn join(path: &str, seg: &str) -> Arc<str> {
+    if path.is_empty() { seg.trim_start_matches('.').into() } else { format!("{path}{seg}").into() }
 }
 
 impl<V: 'static> Place<V> {
     pub fn new(
         store: Store,
+        path: &str,
         get: impl for<'a> Fn(&'a RawConfig) -> Option<&'a V> + Send + Sync + 'static,
         get_mut: impl for<'a> Fn(&'a mut RawConfig) -> Option<&'a mut V> + Send + Sync + 'static,
     ) -> Self {
-        Place { store, get: Arc::new(get), get_mut: Arc::new(get_mut) }
+        Place { store, path: path.into(), get: Arc::new(get), get_mut: Arc::new(get_mut) }
+    }
+
+    /// The same value, reported under `seg` (a field of it that the field helpers edit).
+    pub fn at(&self, seg: &str) -> Self {
+        Place { path: join(&self.path, seg), ..self.clone() }
+    }
+
+    /// The backend's message about this place's value (tracked).
+    pub fn problem(&self) -> Option<String> {
+        self.store.problem(&self.path, false)
+    }
+
+    /// The backend's message about this place's name, when it is a map entry (tracked).
+    pub fn key_problem(&self) -> Option<String> {
+        self.store.problem(&self.path, true)
     }
 
     /// Reads a projection of the value (tracked); `T::default()` when the value is gone.
@@ -48,14 +72,15 @@ impl<V: 'static> Place<V> {
         });
     }
 
-    /// A place for a value inside this one.
+    /// A place for a value inside this one, at `seg` (`""` for the same location).
     pub fn map<W: 'static>(
         &self,
+        seg: &str,
         f: impl for<'a> Fn(&'a V) -> Option<&'a W> + Send + Sync + 'static,
         g: impl for<'a> Fn(&'a mut V) -> Option<&'a mut W> + Send + Sync + 'static,
     ) -> Place<W> {
         let (get, get_mut) = (self.get.clone(), self.get_mut.clone());
-        Place::new(self.store, move |c| get(c).and_then(&f), move |c| get_mut(c).and_then(&g))
+        Place::new(self.store, &join(&self.path, seg), move |c| get(c).and_then(&f), move |c| get_mut(c).and_then(&g))
     }
 }
 
@@ -72,12 +97,14 @@ pub fn rename_key<V>(m: &mut IndexMap<String, V>, old: &str, new: &str) -> bool 
 }
 
 /// A name input that commits on change and restores the old name when `rename` refuses, plus a
-/// delete button.
+/// delete button. The input is marked while `problem` has a message.
 pub fn name_row(
     name: String,
+    problem: impl Fn() -> Option<String> + Clone + Send + Sync + 'static,
     rename: impl Fn(&str, &str) -> bool + 'static,
     delete: impl Fn() + 'static,
 ) -> impl IntoView {
+    let bad = problem.clone();
     let old = name.clone();
     let on_change = move |ev: leptos::ev::Event| {
         let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
@@ -87,7 +114,7 @@ pub fn name_row(
     };
     view! {
         <div class="name">
-            <input prop:value=name on:change=on_change />
+            <input prop:value=name on:change=on_change class:invalid=move || bad().is_some() title=problem />
             <button class="del" on:click=move |_| delete() title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
         </div>
     }
@@ -106,14 +133,17 @@ fn input<V: 'static, T: Default + 'static>(
     let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
     let value = move || to(pg.read(get));
+    // The live check, else what validation said about this place.
     let error = {
-        let value = value.clone();
-        move || check.as_ref().and_then(|c| c(&value()))
+        let (value, p) = (value.clone(), p.clone());
+        move || check.as_ref().and_then(|c| c(&value())).or_else(|| p.problem())
     };
+    let bad = error.clone();
     view! {
         <label class="field">
             <span>{label}</span>
-            <input prop:value=value on:change=move |ev| ps.edit(|v| set(v, from(event_target_value(&ev)))) />
+            <input prop:value=value class:invalid=move || bad().is_some()
+                on:change=move |ev| ps.edit(|v| set(v, from(event_target_value(&ev)))) />
             <small class="error">{error}</small>
         </label>
     }
@@ -142,8 +172,9 @@ pub fn list(label: &str, p: Place<Vec<String>>) -> impl IntoView + use<> {
         let label = label.clone();
         move |j: usize| {
             let (get, set) = (p.clone(), p.clone());
+            let (bad, why) = (p.at(&format!("[{j}]")), p.at(&format!("[{j}]")));
             let body = view! {
-                <input aria-label=label.clone()
+                <input aria-label=label.clone() class:invalid=move || bad.problem().is_some() title=move || why.problem()
                     prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
                     on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
                 {del_button(&p, j)}
@@ -369,9 +400,9 @@ pub fn opt_keys<V>(
 
 pub fn check<V>(label: &str, p: &Place<V>, get: fn(&V) -> bool, set: fn(&mut V, bool)) -> impl IntoView + use<V> {
     let label = label.to_owned();
-    let (pg, ps) = (p.clone(), p.clone());
+    let (pg, ps, bad) = (p.clone(), p.clone(), p.clone());
     view! {
-        <label class="field check">
+        <label class="field check" class:invalid=move || bad.problem().is_some()>
             <input type="checkbox" prop:checked=move || pg.read(get) on:change=move |ev| ps.edit(|v| set(v, event_target_checked(&ev))) />
             <span>{label}</span>
         </label>

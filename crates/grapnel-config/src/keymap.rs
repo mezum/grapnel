@@ -31,12 +31,12 @@ impl Walker<'_> {
             let at = format!("{at}.\"{key}\"");
             let chords = match parse_seq(key, self.user) {
                 Ok(s) if s.0.is_empty() => {
-                    c.err(&at, msg!("config.empty_keys"));
+                    c.err_key(&at, msg!("config.empty_keys"));
                     continue;
                 }
                 Ok(s) => s.0,
                 Err(e) => {
-                    c.err(&at, e);
+                    c.err_key(&at, e);
                     continue;
                 }
             };
@@ -94,7 +94,7 @@ impl Walker<'_> {
     ) {
         let keys = KeySeq(keys);
         if let Some(problem) = rule_key_problem(&keys, self.modifiers) {
-            c.err(at, problem);
+            c.err_key(at, problem);
         }
         let keep_mods = l.is_some_and(|l| l.keep_mods);
         if keep_mods && keys.0.last().is_none_or(|k| k.mods == Mods::NONE) {
@@ -145,7 +145,14 @@ pub(crate) fn compile_action(
             .iter()
             .map(|(t, s)| {
                 let at = format!("{at}.\"{t}\"");
-                let when = if t == "*" { vec![] } else { c.id(&at, Kind::Target, targets, t).into_iter().collect() };
+                let when = match targets.get(t) {
+                    _ if t == "*" => vec![],
+                    Some(&i) => vec![i],
+                    None => {
+                        c.err_key(&at, Kind::Target.unknown(t));
+                        vec![]
+                    }
+                };
                 ActionImpl { when, steps: steps(c, &at, s) }
             })
             .collect(),
@@ -160,7 +167,7 @@ pub(crate) fn check_conflicts(rules: &[Rule], locations: &[(PathBuf, String)], e
             let (fa, la) = &locations[i];
             let (fb, lb) = &locations[j];
             let hides = a.targets.is_empty() && (a.modes == b.modes || (a.modes.is_empty() && !b.modes.is_empty()));
-            let problem = |msg| Problem { file: Some(fb.clone()), at: lb.clone(), msg };
+            let problem = |msg| Problem { file: Some(fb.clone()), at: lb.clone(), on_key: true, msg };
             if a.keys == b.keys && a.modes == b.modes && i < j {
                 errors.push(problem(msg!("config.already_bound", file = fa.display(), at = la)));
             } else if hides && b.keys.0.len() > a.keys.0.len() && b.keys.0.starts_with(&a.keys.0) {

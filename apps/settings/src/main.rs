@@ -69,6 +69,8 @@ pub struct Problem {
     pub file: String,
     /// Location inside the file, as `grapnel_config` names it (`settings.passthrough[1]`).
     pub at: String,
+    /// About the name at `at` (a map key) rather than its value.
+    pub on_key: bool,
     pub text: String,
 }
 
@@ -172,6 +174,14 @@ impl Store {
     pub fn edit(&self, f: impl FnOnce(&mut RawConfig)) {
         let i = self.cur.get_untracked();
         self.docs.update(|d| f(&mut d[i].raw));
+    }
+
+    /// The backend's message about location `at` of the current file, or about its name when
+    /// `on_key` (tracked).
+    pub fn problem(&self, at: &str, on_key: bool) -> Option<String> {
+        let file = self.docs.with(|d| d.get(self.cur.get()).map(|f| f.path.clone()))?;
+        let found = |e: &&Problem| e.file == file && e.at == at && e.on_key == on_key;
+        self.errors.with(|es| es.iter().find(found).map(|e| e.text.clone()))
     }
 
     /// User modifier names across all files, in compile order.

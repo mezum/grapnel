@@ -129,9 +129,9 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             )
             .into_any(),
             "run" => view! {
-                {text("run", p, |s| if let RawStep::Run { run, .. } = s { run.clone() } else { String::new() },
+                {text("run", &p.at(".run"), |s| if let RawStep::Run { run, .. } = s { run.clone() } else { String::new() },
                     |s, x| if let RawStep::Run { run, .. } = s { *run = x })}
-                {list("args", p.map(
+                {list("args", p.map(".args", 
                     |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
                     |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
                 ))}
@@ -140,7 +140,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             "call" => view! {
                 {text("call", p, |s| if let RawStep::Call { call, .. } = s { call.clone() } else { String::new() },
                     |s, x| if let RawStep::Call { call, .. } = s { *call = x })}
-                {opt_text("arg", p, |s| if let RawStep::Call { arg, .. } = s { arg.clone() } else { None },
+                {opt_text("arg", &p.at(".arg"), |s| if let RawStep::Call { arg, .. } = s { arg.clone() } else { None },
                     |s, x| if let RawStep::Call { arg, .. } = s { *arg = x })}
             }
             .into_any(),
@@ -174,7 +174,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             )
             .into_any(),
             _ => view! {
-                {text("prompt", p, |s| if let RawStep::Input { input, .. } = s { input.clone() } else { String::new() },
+                {text("prompt", &p.at(".input"), |s| if let RawStep::Input { input, .. } = s { input.clone() } else { String::new() },
                     |s, x| if let RawStep::Input { input, .. } = s { *input = x })}
                 {opt_text(&t!("ui.step.then"), p,
                     |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
@@ -195,7 +195,7 @@ pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
     let (list, add) = (p.clone(), p.clone());
     let drag = RwSignal::new(None);
     let step = move |j: usize| {
-        let sp = p.map(move |v| v.get(j), move |v| v.get_mut(j));
+        let sp = p.map(&format!("[{j}]"), move |v| v.get(j), move |v| v.get_mut(j));
         let body = view! {
             {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
             {step_fields(sp.clone())}
@@ -243,6 +243,7 @@ fn raw_steps_editor(p: Place<RawSteps>) -> AnyView {
             )
             .into_any(),
             true => steps_editor(p.map(
+                "",
                 |s| if let RawSteps::Steps(v) = s { Some(v) } else { None },
                 |s| if let RawSteps::Steps(v) = s { Some(v) } else { None },
             )),
@@ -295,10 +296,12 @@ pub fn action_editor(p: Place<RawAction>) -> AnyView {
                 keys_or_action(&t!("ui.keys_or_action"), &p, get, set).into_any()
             }
             "steps" => steps_editor(p.map(
+                "",
                 |a| if let RawAction::Steps(v) = a { Some(v) } else { None },
                 |a| if let RawAction::Steps(v) = a { Some(v) } else { None },
             )),
             _ => by_target_editor(p.map(
+                "",
                 |a| if let RawAction::ByTarget(m) = a { Some(m) } else { None },
                 |a| if let RawAction::ByTarget(m) = a { Some(m) } else { None },
             )),
@@ -313,11 +316,12 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
     let drag = RwSignal::new(None);
     let row = move |t: String| {
         let (a, b) = (t.clone(), t.clone());
-        let sp = p.map(move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del, key) = (p.clone(), p.clone(), t.clone(), t.clone());
+        let sp = p.map(&format!(".\"{t}\""), move |m| m.get(&a), move |m| m.get_mut(&b));
+        let (r, d, del, key, bad) = (p.clone(), p.clone(), t.clone(), t.clone(), sp.clone());
         let body = view! {
             {name_row(
                 t,
+                move || bad.key_problem(),
                 move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
                 move || d.edit(|m| drop(m.shift_remove(&del))),
             )}
@@ -343,16 +347,18 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
 
 pub fn actions() -> impl IntoView {
     let store = use_context::<Store>().expect("store");
-    let all = Place::<IndexMap<String, RawAction>>::new(store, |c| Some(&c.actions), |c| Some(&mut c.actions));
+    let all =
+        Place::<IndexMap<String, RawAction>>::new(store, "actions", |c| Some(&c.actions), |c| Some(&mut c.actions));
     let (list, add) = (all.clone(), all.clone());
     let row = move |name: String| {
         let (a, b) = (name.clone(), name.clone());
-        let ap = all.map(move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del) = (all.clone(), all.clone(), name.clone());
+        let ap = all.map(&format!(".{name}"), move |m| m.get(&a), move |m| m.get_mut(&b));
+        let (r, d, del, bad) = (all.clone(), all.clone(), name.clone(), ap.clone());
         view! {
             <div class="row">
                 {name_row(
                     name,
+                    move || bad.key_problem(),
                     move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
                     move || d.edit(|m| drop(m.shift_remove(&del))),
                 )}

@@ -338,7 +338,14 @@ fn input_step_without_then_runs_the_typed_action() {
 #[test]
 fn problems_point_at_list_items_and_are_translated() {
     let e = compile(&files(&[("m", "[settings]\npassthrough = [\"a\", \"x\"]\n[targets.a]")])).unwrap_err();
-    assert_eq!(e[0].at, "settings.passthrough[1]");
+    assert_eq!((e[0].at.as_str(), e[0].on_key), ("settings.passthrough[1]", false));
     assert_eq!(e[0].to_string(), "m: settings.passthrough[1]: unknown target 'x'");
     assert_eq!(e[0].text("ja"), "m: settings.passthrough[1]: 'x' というターゲットはありません");
+}
+
+#[test]
+fn problems_tell_names_from_values() {
+    let e = compile(&files(&[("m", "[keymap]\nFoo = \"a\"\nb = \"nosuch\"")])).unwrap_err();
+    assert!(e.iter().any(|p| p.at == "keymap.\"Foo\"" && p.on_key), "{e:?}");
+    assert!(e.iter().any(|p| p.at == "keymap.\"b\"" && !p.on_key), "{e:?}");
 }

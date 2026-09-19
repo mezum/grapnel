@@ -15,8 +15,9 @@ fn store() -> Store {
 type MapOf<V> = fn(&mut RawConfig) -> &mut BTreeMap<String, V>;
 
 /// Name input (renames on change) and a delete button for a map entry.
-pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl IntoView {
+pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: MapOf<V>) -> impl IntoView {
     let (old, del) = (name.clone(), name.clone());
+    let (at, why) = (format!("{section}.{name}"), format!("{section}.{name}"));
     let rename = move |ev: leptos::ev::Event| {
         let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
         let new = input.value();
@@ -37,7 +38,8 @@ pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl
     };
     view! {
         <div class="name">
-            <input prop:value=name on:change=rename />
+            <input prop:value=name on:change=rename class:invalid=move || store.problem(&at, true).is_some()
+                title=move || store.problem(&why, true) />
             <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
         </div>
     }
@@ -45,6 +47,7 @@ pub fn name_field<V: 'static>(store: Store, name: String, map: MapOf<V>) -> impl
 
 /// Lists a map section with one row per entry and an add button.
 fn map_section<V: Default + 'static, R: IntoView + 'static>(
+    section: &'static str,
     base: &'static str,
     names: fn(&RawConfig) -> Vec<String>,
     map: MapOf<V>,
@@ -61,7 +64,7 @@ fn map_section<V: Default + 'static, R: IntoView + 'static>(
     view! {
         <section>
             <For each=move || store.read(names) key=|n| n.clone() let:name>
-                <div class="row">{name_field(store, name.clone(), map)}{row(store, name)}</div>
+                <div class="row">{name_field(store, section, name.clone(), map)}{row(store, name)}</div>
             </For>
             <button class="add" on:click=add>{t!("ui.add")}</button>
         </section>
@@ -79,21 +82,26 @@ fn language_options() -> Options {
 
 pub fn settings() -> impl IntoView {
     let store = store();
-    let top = Place::<RawConfig>::new(store, |c| Some(c), |c| Some(c));
-    let s = Place::<RawSettings>::new(store, |c| c.settings.as_ref(), |c| Some(c.settings.get_or_insert_default()));
+    let top = Place::<RawConfig>::new(store, "", |c| Some(c), |c| Some(c));
+    let s = Place::<RawSettings>::new(
+        store,
+        "settings",
+        |c| c.settings.as_ref(),
+        |c| Some(c.settings.get_or_insert_default()),
+    );
     view! {
         <section>
-            {list(&t!("ui.general.include"), top.map(|c| Some(&c.include), |c| Some(&mut c.include)))}
+            {list(&t!("ui.general.include"), top.map(".include", |c| Some(&c.include), |c| Some(&mut c.include)))}
             <Show when=move || store.cur.get() == 0 fallback=move || view! {
                 <p>{t!("ui.general.entry_only")}</p>
                 <Show when=move || store.read(|c| c.settings.is_some())>
                     <button class="del" on:click=move |_| store.edit(|c| c.settings = None)>{t!("ui.general.delete_settings")}</button>
                 </Show>
             }>
-                {opt_text("initial_mode", &s, |s| s.initial_mode.clone(), |s, x| s.initial_mode = x)}
-                {list(&t!("ui.general.passthrough"), s.map(|s| Some(&s.passthrough), |s| Some(&mut s.passthrough)))}
-                {opt_keys("suspend_hotkey", &s, |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x)}
-                {num("gesture_threshold (px)", &s, |s| s.gesture_threshold, |s, x| s.gesture_threshold = x)}
+                {opt_text("initial_mode", &s.at(".initial_mode"), |s| s.initial_mode.clone(), |s, x| s.initial_mode = x)}
+                {list(&t!("ui.general.passthrough"), s.map(".passthrough", |s| Some(&s.passthrough), |s| Some(&mut s.passthrough)))}
+                {opt_keys("suspend_hotkey", &s.at(".suspend_hotkey"), |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x)}
+                {num("gesture_threshold (px)", &s.at(".gesture_threshold"), |s| s.gesture_threshold, |s, x| s.gesture_threshold = x)}
                 {select(&t!("ui.general.language"), &s, language_options(),
                     |s| s.language.clone().unwrap_or_default(),
                     |s, x| s.language = (!x.is_empty()).then_some(x))}
@@ -104,19 +112,21 @@ pub fn settings() -> impl IntoView {
 
 pub fn modes() -> impl IntoView {
     map_section(
+        "modes",
         "mode",
         |c| c.modes.keys().cloned().collect(),
         |c| &mut c.modes,
         |store, name| {
             let (a, b) = (name.clone(), name);
-            let p = Place::<RawMode>::new(store, move |c| c.modes.get(&a), move |c| c.modes.get_mut(&b));
+            let at = format!("modes.{a}");
+            let p = Place::<RawMode>::new(store, &at, move |c| c.modes.get(&a), move |c| c.modes.get_mut(&b));
             view! {
-                {check(&t!("ui.mode.block_unmapped"), &p, |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
-                {opt_text(&t!("ui.mode.unmapped_to"), &p, |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
-                {opt_text(&t!("ui.mode.hold"), &p, |m| m.hold.clone(), |m, x| m.hold = x)}
+                {check(&t!("ui.mode.block_unmapped"), &p.at(".block_unmapped"), |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
+                {opt_text(&t!("ui.mode.unmapped_to"), &p.at(".unmapped_to"), |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
+                {opt_text(&t!("ui.mode.hold"), &p.at(".hold"), |m| m.hold.clone(), |m, x| m.hold = x)}
                 <details class="mode-keymap">
                     <summary>{t!("ui.mode.keymap")}</summary>
-                    {node_editor(p.map(|m| Some(&m.keymap), |m| Some(&mut m.keymap)))}
+                    {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)))}
                 </details>
             }
         },
@@ -125,18 +135,21 @@ pub fn modes() -> impl IntoView {
 
 pub fn modifiers() -> impl IntoView {
     map_section(
+        "modifiers",
         "Mod",
         |c| c.modifiers.keys().cloned().collect(),
         |c| &mut c.modifiers,
         |store, name| {
             let (a, b) = (name.clone(), name);
-            let p = Place::<RawModifier>::new(store, move |c| c.modifiers.get(&a), move |c| c.modifiers.get_mut(&b));
+            let at = format!("modifiers.{a}");
+            let p =
+                Place::<RawModifier>::new(store, &at, move |c| c.modifiers.get(&a), move |c| c.modifiers.get_mut(&b));
             view! {
-                {keys("key", &p, |m| m.key.clone(), |m, x| m.key = x, false)}
-                {opt_keys(&t!("ui.modifier.tap"), &p, |m| m.tap.clone(), |m, x| m.tap = x)}
-                {check(&t!("ui.modifier.tap_none"), &p, |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
-                {num("tap_timeout_ms", &p, |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x)}
-                {opt_text(&t!("ui.modifier.as"), &p, |m| m.emulate.clone(), |m, x| m.emulate = x)}
+                {keys("key", &p.at(".key"), |m| m.key.clone(), |m, x| m.key = x, false)}
+                {opt_keys(&t!("ui.modifier.tap"), &p.at(".tap"), |m| m.tap.clone(), |m, x| m.tap = x)}
+                {check(&t!("ui.modifier.tap_none"), &p.at(".tap"), |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
+                {num("tap_timeout_ms", &p.at(".tap_timeout_ms"), |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x)}
+                {opt_text(&t!("ui.modifier.as"), &p.at(".as"), |m| m.emulate.clone(), |m, x| m.emulate = x)}
             }
         },
     )
@@ -144,23 +157,25 @@ pub fn modifiers() -> impl IntoView {
 
 pub fn targets() -> impl IntoView {
     map_section(
+        "targets",
         "target",
         |c| c.targets.keys().cloned().collect(),
         |c| &mut c.targets,
         |store, name| {
             let (a, b) = (name.clone(), name);
-            let p = Place::<RawTarget>::new(store, move |c| c.targets.get(&a), move |c| c.targets.get_mut(&b));
+            let at = format!("targets.{a}");
+            let p = Place::<RawTarget>::new(store, &at, move |c| c.targets.get(&a), move |c| c.targets.get_mut(&b));
             view! {
-                {opt_text("app", &p, |t| t.app.clone(), |t, x| t.app = x)}
-                {opt_text("title", &p, |t| t.title.clone(), |t, x| t.title = x)}
-                {opt_text("class", &p, |t| t.class.clone(), |t, x| t.class = x)}
-                {opt_text("control", &p, |t| t.control.clone(), |t, x| t.control = x)}
-                {opt_text("uia_id", &p, |t| t.uia_id.clone(), |t, x| t.uia_id = x)}
-                {opt_text("uia_name", &p, |t| t.uia_name.clone(), |t, x| t.uia_name = x)}
-                {opt_text("uia_type", &p, |t| t.uia_type.clone(), |t, x| t.uia_type = x)}
-                {opt_text("not", &p, |t| t.not.clone(), |t, x| t.not = x)}
-                {list("any", p.map(|t| Some(&t.any), |t| Some(&mut t.any)))}
-                {list("all", p.map(|t| Some(&t.all), |t| Some(&mut t.all)))}
+                {opt_text("app", &p.at(".app"), |t| t.app.clone(), |t, x| t.app = x)}
+                {opt_text("title", &p.at(".title"), |t| t.title.clone(), |t, x| t.title = x)}
+                {opt_text("class", &p.at(".class"), |t| t.class.clone(), |t, x| t.class = x)}
+                {opt_text("control", &p.at(".control"), |t| t.control.clone(), |t, x| t.control = x)}
+                {opt_text("uia_id", &p.at(".uia_id"), |t| t.uia_id.clone(), |t, x| t.uia_id = x)}
+                {opt_text("uia_name", &p.at(".uia_name"), |t| t.uia_name.clone(), |t, x| t.uia_name = x)}
+                {opt_text("uia_type", &p.at(".uia_type"), |t| t.uia_type.clone(), |t, x| t.uia_type = x)}
+                {opt_text("not", &p.at(".not"), |t| t.not.clone(), |t, x| t.not = x)}
+                {list("any", p.map(".any", |t| Some(&t.any), |t| Some(&mut t.any)))}
+                {list("all", p.map(".all", |t| Some(&t.all), |t| Some(&mut t.all)))}
             }
         },
     )
@@ -168,7 +183,7 @@ pub fn targets() -> impl IntoView {
 
 pub fn keymap() -> impl IntoView {
     let store = store();
-    let p = Place::<RawNode>::new(store, |c| Some(&c.keymap), |c| Some(&mut c.keymap));
+    let p = Place::<RawNode>::new(store, "keymap", |c| Some(&c.keymap), |c| Some(&mut c.keymap));
     view! {
         <section>
             <p class="hint">{t!("ui.keymap.hint")}</p>

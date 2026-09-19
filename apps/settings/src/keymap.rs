@@ -62,24 +62,24 @@ fn set_binding_kind(b: &mut RawBinding, k: String) {
 }
 
 fn leaf_editor(p: Place<RawLeaf>) -> AnyView {
-    let action = p.map(|l| Some(&l.action), |l| Some(&mut l.action));
+    let action = p.map("", |l| Some(&l.action), |l| Some(&mut l.action));
     view! {
         {action_editor(action)}
         <div class="options">
             {select("press", &p, press(),
                 |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
                 |l, x| l.press = match x.as_str() { "hold" => Some(Press::Hold), "tap" => Some(Press::Tap), _ => None })}
-            {opt_keys(&t!("ui.keymap.fallback"), &p, |l| l.fallback.clone(), |l, x| l.fallback = x)}
-            {check(&t!("ui.keymap.fallback_none"), &p, |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
-            {check(&t!("ui.keymap.keep_mods"), &p, |l| l.keep_mods, |l, x| l.keep_mods = x)}
-            {list(&t!("ui.keymap.targets"), p.map(|l| Some(&l.targets), |l| Some(&mut l.targets)))}
+            {opt_keys(&t!("ui.keymap.fallback"), &p.at(".fallback"), |l| l.fallback.clone(), |l, x| l.fallback = x)}
+            {check(&t!("ui.keymap.fallback_none"), &p.at(".fallback"), |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
+            {check(&t!("ui.keymap.keep_mods"), &p.at(".keep_mods"), |l| l.keep_mods, |l, x| l.keep_mods = x)}
+            {list(&t!("ui.keymap.targets"), p.map(".targets", |l| Some(&l.targets), |l| Some(&mut l.targets)))}
         </div>
     }
     .into_any()
 }
 
 fn options_editor(p: Place<RawNode>) -> AnyView {
-    let o = p.map(|n| n.options.as_ref(), |n| Some(n.options.get_or_insert_default()));
+    let o = p.map(".options", |n| n.options.as_ref(), |n| Some(n.options.get_or_insert_default()));
     view! {
         <details class="options">
             <summary>{t!("ui.keymap.options")}</summary>
@@ -90,8 +90,8 @@ fn options_editor(p: Place<RawNode>) -> AnyView {
                 |o, x| o.on_mismatch = match x.as_str() {
                     "replay" => Some(Mismatch::Replay), "discard" => Some(Mismatch::Discard), "fallback" => Some(Mismatch::Fallback), _ => None,
                 })}
-            {num("timeout_ms", &o, |o| o.timeout_ms, |o, x| o.timeout_ms = x)}
-            {opt_keys("fallback", &o, |o| o.fallback.clone(), |o, x| o.fallback = x)}
+            {num("timeout_ms", &o.at(".timeout_ms"), |o| o.timeout_ms, |o, x| o.timeout_ms = x)}
+            {opt_keys("fallback", &o.at(".fallback"), |o| o.fallback.clone(), |o, x| o.fallback = x)}
         </details>
     }
     .into_any()
@@ -113,14 +113,17 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
             )
             .into_any(),
             "steps" => steps_editor(p.map(
+                "",
                 |b| if let RawBinding::Steps(v) = b { Some(v) } else { None },
                 |b| if let RawBinding::Steps(v) = b { Some(v) } else { None },
             )),
             "leaf" => leaf_editor(p.map(
+                "",
                 |b| if let RawBinding::Leaf(l) = b { Some(l) } else { None },
                 |b| if let RawBinding::Leaf(l) = b { Some(l) } else { None },
             )),
             _ => node_editor(p.map(
+                "",
                 |b| if let RawBinding::Node(n) = b { Some(n) } else { None },
                 |b| if let RawBinding::Node(n) = b { Some(n) } else { None },
             )),
@@ -134,12 +137,13 @@ pub fn node_editor(p: Place<RawNode>) -> AnyView {
     let (list, add, opts) = (p.clone(), p.clone(), p.clone());
     let row = move |key: String| {
         let (a, b) = (key.clone(), key.clone());
-        let bp = p.map(move |n| n.children.get(&a), move |n| n.children.get_mut(&b));
-        let (r, d, del) = (p.clone(), p.clone(), key.clone());
+        let bp = p.map(&format!(".\"{key}\""), move |n| n.children.get(&a), move |n| n.children.get_mut(&b));
+        let (r, d, del, bad) = (p.clone(), p.clone(), key.clone(), bp.clone());
         view! {
             <div class="binding">
                 {name_row(
                     key,
+                    move || bad.key_problem(),
                     move |old, new| { let mut ok = false; r.edit(|n| ok = rename_key(&mut n.children, old, new)); ok },
                     move || d.edit(|n| drop(n.children.shift_remove(&del))),
                 )}

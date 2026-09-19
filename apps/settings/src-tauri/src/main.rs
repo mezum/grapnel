@@ -24,16 +24,18 @@ struct FileDoc {
 struct Shown {
     file: String,
     at: String,
+    on_key: bool,
     text: String,
 }
 
 fn shown(problems: Vec<Problem>, lang: &str) -> Vec<Shown> {
     let file = |p: &Problem| p.file.as_ref().map(|f| f.display().to_string()).unwrap_or_default();
-    problems.into_iter().map(|p| Shown { file: file(&p), at: p.at.clone(), text: p.msg.text(lang) }).collect()
+    let show = |p: Problem| Shown { file: file(&p), at: p.at.clone(), on_key: p.on_key, text: p.msg.text(lang) };
+    problems.into_iter().map(show).collect()
 }
 
 fn problem(file: Option<PathBuf>, msg: grapnel_keys::Msg) -> Vec<Problem> {
-    vec![Problem { file, at: String::new(), msg }]
+    vec![Problem { file, at: String::new(), on_key: false, msg }]
 }
 
 /// Files travel as JSON text so key order survives the JavaScript side.

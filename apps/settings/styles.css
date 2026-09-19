@@ -80,6 +80,8 @@ input, select {
 }
 input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+input.invalid { border-color: var(--error); background: color-mix(in srgb, var(--error) 10%, var(--surface)); }
+.field.check.invalid span { color: var(--error); }
 
 /* Header */
 header {

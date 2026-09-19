@@ -9,6 +9,9 @@ pub struct Problem {
     /// Location inside the file, such as `settings.passthrough[1]` or `keymap."C-x"`; empty for
     /// the whole file.
     pub at: String,
+    /// The problem is the name at `at` (a table key such as a chord or a target name) rather
+    /// than its value.
+    pub on_key: bool,
     pub msg: Msg,
 }
 
