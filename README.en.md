@@ -37,7 +37,7 @@ grapnel.exe suspend                           # toggle suspend
 grapnel.exe exit                              # exit
 ```
 
-The tray icon menu lets you suspend, reload, open the settings tool, and exit.
+The tray icon menu lets you suspend, reload, reinstall the input hooks, open the settings tool, and exit. If Windows has dropped the hooks and remapping stopped working, choose "Reinstall the input hooks".
 Place `grapnel-settings.exe` in the same folder as `grapnel.exe` to open it from the menu.
 
 A minimal config:
