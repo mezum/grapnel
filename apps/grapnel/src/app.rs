@@ -16,6 +16,8 @@ use windows::Win32::UI::WindowsAndMessaging::{KillTimer, PostQuitMessage, SetTim
 
 pub static PAD_ENABLED: AtomicBool = AtomicBool::new(false);
 const TIMER_ID: usize = 1;
+/// Checks every 2 s that Windows has not removed the hooks (see `watch_hooks`).
+pub const WATCH_TIMER_ID: usize = 2;
 const HOTKEY_ID: i32 = 1;
 const MODIFIER_VKS: [u8; 8] = [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C];
 
@@ -48,6 +50,11 @@ pub struct App {
     engine: Engine,
     win: WindowInfo,
     hooks: Option<hook::Hooks>,
+    /// Tick of a hook probe awaiting an answer, and the system's last-input tick after it.
+    probe: Option<u32>,
+    probed_input: u32,
+    /// The hooks were found missing at the last watch; reports once per episode.
+    hooks_dead: bool,
     suspended: bool,
     passthrough: bool,
     uia: Option<Uia>,
@@ -68,6 +75,9 @@ impl App {
             cfg: Arc::new(cfg),
             win: WindowInfo::default(),
             hooks: None,
+            probe: None,
+            probed_input: 0,
+            hooks_dead: false,
             suspended: false,
             passthrough: false,
             uia: None,
@@ -77,6 +87,7 @@ impl App {
             prompt_then: Then::Named("{arg}".into()),
         };
         app.configure();
+        unsafe { SetTimer(Some(hwnd), WATCH_TIMER_ID, 2000, None) };
         app.window_changed(window::CHANGED_FOREGROUND);
         app
     }
@@ -202,19 +213,51 @@ impl App {
         if want && self.hooks.is_none() {
             match hook::install() {
                 Ok(h) => self.hooks = Some(h),
-                Err(e) => report!("error.hook", error = e),
+                Err(e) if !self.hooks_dead => report!("error.hook", error = e),
+                Err(e) => log::debug!("hook install failed again: {e}"),
             }
             self.engine.sync_modifiers(&held_modifiers());
             log::debug!("hooks installed");
         } else if !want && self.hooks.is_some() {
-            self.exec.cancel();
-            let cmds = self.engine.reset();
-            self.exec.run(cmds);
-            self.hooks = None;
+            self.unhook();
             log::debug!("hooks removed");
         }
         PAD_ENABLED.store(self.hooks.is_some(), Ordering::Relaxed);
         crate::set_tray_state(&self.tooltip(), self.suspended);
+    }
+
+    /// Releases everything the engine holds and removes the hooks.
+    fn unhook(&mut self) {
+        self.exec.cancel();
+        let cmds = self.engine.reset();
+        self.exec.run(cmds);
+        self.hooks = None;
+    }
+
+    /// Reinstalls hooks that are missing although wanted: removed by Windows (a probe sent after
+    /// the last real input went unanswered) or never installed. Probing only after new input keeps
+    /// the injected probe from holding off the screen saver.
+    pub fn watch_hooks(&mut self) {
+        if self.suspended || self.passthrough {
+            return;
+        }
+        let answered = self.probe.take().map(hook::answered);
+        let dead = self.hooks.is_none() || answered == Some(false);
+        if dead {
+            if !self.hooks_dead {
+                log::warn!("hooks are gone; reinstalling");
+            }
+            self.unhook();
+            self.update_hooks();
+        }
+        self.hooks_dead = dead;
+        if answered == Some(true) {
+            // Only input after the probe's own counts as new activity.
+            self.probed_input = hook::probe_input();
+        } else if self.hooks.is_some() && hook::last_input() != self.probed_input {
+            self.probe = hook::probe();
+            self.probed_input = hook::last_input();
+        }
     }
 
     pub fn toggle_suspend(&mut self) {

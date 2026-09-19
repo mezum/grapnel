@@ -182,6 +182,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             }
         }
         WM_HOTKEY => drop(with_app(App::toggle_suspend)),
+        WM_TIMER if wp.0 == app::WATCH_TIMER_ID => drop(with_app(App::watch_hooks)),
         WM_TIMER => drop(with_app(App::on_timer)),
         m if m == TASKBAR_CREATED.with(Cell::get) => add_tray(hwnd),
         _ => return unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
