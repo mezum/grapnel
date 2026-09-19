@@ -4,11 +4,13 @@ mod compile;
 mod keymap;
 mod load;
 mod matcher;
+mod problem;
 
 pub use compile::compile;
 pub use grapnel_schema::{ControlCmd, InputPosition, Mismatch, Press, RawConfig};
 pub use load::{default_entry, load, save};
 pub use matcher::{Field, Matcher, Target, TargetId, WindowInfo, any_matches, target_matches};
+pub use problem::Problem;
 
 use grapnel_keys::{Chord, Key, KeySeq, Mods};
 

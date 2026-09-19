@@ -53,7 +53,7 @@ pub enum Msg {
     Deferred(Command),
     /// An error, already in the display language.
     Toast(String),
-    Reloaded(Result<Config, Vec<String>>),
+    Reloaded(Result<Config, Vec<grapnel_config::Problem>>),
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
@@ -253,8 +253,11 @@ fn main() {
     RX.with(|r| *r.borrow_mut() = Some(rx));
     logger::init(|detail| post(Msg::Toast(t!("error.library", detail = detail).into_owned())));
     let path = config_path(&args);
-    let cfg =
-        app::load(&path).unwrap_or_else(|errors| fatal(&format!("{}\n{}", t!("fatal.config"), errors.join("\n"))));
+    let cfg = app::load(&path).unwrap_or_else(|errors| {
+        errors.iter().for_each(|e| log::error!("{e}"));
+        let texts: Vec<String> = errors.iter().map(|e| e.text(&rust_i18n::locale())).collect();
+        fatal(&format!("{}\n{}", t!("fatal.config"), texts.join("\n")))
+    });
     set_language(cfg.settings.language.as_deref());
     let hwnd = create_window().unwrap_or_else(|e| fatal(&t!("fatal.window", error = e)));
     MAIN.store(hwnd.0 as isize, Ordering::Relaxed);

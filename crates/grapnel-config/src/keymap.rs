@@ -1,8 +1,8 @@
 //! Keymap trees → flat rules and prefix policies; action definitions → implementations.
 
-use crate::compile::{Ctx, Names, compile_step, rule_key_problem};
+use crate::compile::{Ctx, Kind, Names, compile_step, rule_key_problem};
 use crate::*;
-use grapnel_keys::parse_seq;
+use grapnel_keys::{msg, parse_seq};
 use grapnel_schema::{RawAction, RawBinding, RawLeaf, RawNode, RawStep, RawSteps};
 use std::path::PathBuf;
 
@@ -31,7 +31,7 @@ impl Walker<'_> {
             let at = format!("{at}.\"{key}\"");
             let chords = match parse_seq(key, self.user) {
                 Ok(s) if s.0.is_empty() => {
-                    c.err(&at, "empty key");
+                    c.err(&at, msg!("config.empty_keys"));
                     continue;
                 }
                 Ok(s) => s.0,
@@ -53,7 +53,7 @@ impl Walker<'_> {
                 }
                 RawBinding::Leaf(l) => {
                     for name in l.unknown.keys() {
-                        c.err(&at, format!("unknown option '{name}'"));
+                        c.err(&at, msg!("config.unknown_option", name = name));
                     }
                     let action = match &l.action {
                         RawAction::Short(s) => self.reference(c, &at, s),
@@ -71,7 +71,7 @@ impl Walker<'_> {
             return Some(id);
         }
         if parse_seq(s, &[]).is_err() {
-            c.err(at, format!("unknown action or key '{s}'"));
+            c.err(at, msg!("config.unknown_action_or_key", name = s));
             return None;
         }
         self.anonymous(c, at, &RawAction::Short(s.to_string()))
@@ -98,13 +98,15 @@ impl Walker<'_> {
         }
         let keep_mods = l.is_some_and(|l| l.keep_mods);
         if keep_mods && keys.0.last().is_none_or(|k| k.mods == Mods::NONE) {
-            c.err(&format!("{at}.keep_mods"), "the last chord of the key needs a modifier");
+            c.err(&format!("{at}.keep_mods"), msg!("config.keep_mods"));
         }
         let Some(action) = action else { return };
         self.rules.push(Rule {
             keys,
             action,
-            targets: l.map(|l| c.ids(&format!("{at}.targets"), "target", self.targets, &l.targets)).unwrap_or_default(),
+            targets: l
+                .map(|l| c.ids(&format!("{at}.targets"), Kind::Target, self.targets, &l.targets))
+                .unwrap_or_default(),
             modes: modes.to_vec(),
             press: l.and_then(|l| l.press).unwrap_or_default(),
             fallback: l
@@ -125,14 +127,16 @@ pub(crate) fn compile_action(
     actions: &Names,
     modes: &Names,
 ) -> Vec<ActionImpl> {
+    // A single string is reported at `at` itself; list entries at `at[i]`.
     let steps = |c: &mut Ctx, at: &str, raw: &RawSteps| -> Vec<Step> {
-        let list = match raw {
-            RawSteps::Short(s) => std::slice::from_ref(s).iter().map(|s| RawStep::Short(s.clone())).collect(),
-            RawSteps::Steps(v) => v.clone(),
-        };
-        let compiled =
-            list.iter().enumerate().filter_map(|(i, s)| compile_step(c, &format!("{at}[{i}]"), s, actions, modes));
-        compiled.collect()
+        match raw {
+            RawSteps::Short(s) => compile_step(c, at, &RawStep::Short(s.clone()), actions, modes).into_iter().collect(),
+            RawSteps::Steps(v) => v
+                .iter()
+                .enumerate()
+                .filter_map(|(i, s)| compile_step(c, &format!("{at}[{i}]"), s, actions, modes))
+                .collect(),
+        }
     };
     match raw {
         RawAction::Short(s) => vec![ActionImpl { when: vec![], steps: steps(c, at, &RawSteps::Short(s.clone())) }],
@@ -141,7 +145,7 @@ pub(crate) fn compile_action(
             .iter()
             .map(|(t, s)| {
                 let at = format!("{at}.\"{t}\"");
-                let when = if t == "*" { vec![] } else { c.ids(&at, "target", targets, std::slice::from_ref(t)) };
+                let when = if t == "*" { vec![] } else { c.id(&at, Kind::Target, targets, t).into_iter().collect() };
                 ActionImpl { when, steps: steps(c, &at, s) }
             })
             .collect(),
@@ -150,20 +154,17 @@ pub(crate) fn compile_action(
 
 /// Same key twice in one mode, or a key hidden behind a shorter binding (in the same mode, or a
 /// global one hiding a mode one). A short binding limited by `targets` hides nothing.
-pub(crate) fn check_conflicts(rules: &[Rule], locations: &[(PathBuf, String)], errors: &mut Vec<String>) {
+pub(crate) fn check_conflicts(rules: &[Rule], locations: &[(PathBuf, String)], errors: &mut Vec<Problem>) {
     for (i, a) in rules.iter().enumerate() {
         for (j, b) in rules.iter().enumerate().filter(|(j, _)| *j != i) {
             let (fa, la) = &locations[i];
             let (fb, lb) = &locations[j];
             let hides = a.targets.is_empty() && (a.modes == b.modes || (a.modes.is_empty() && !b.modes.is_empty()));
+            let problem = |msg| Problem { file: Some(fb.clone()), at: lb.clone(), msg };
             if a.keys == b.keys && a.modes == b.modes && i < j {
-                errors.push(format!("{}: {lb}: already bound at {}: {la}", fb.display(), fa.display()));
+                errors.push(problem(msg!("config.already_bound", file = fa.display(), at = la)));
             } else if hides && b.keys.0.len() > a.keys.0.len() && b.keys.0.starts_with(&a.keys.0) {
-                errors.push(format!(
-                    "{}: {lb}: unreachable because {} binds its prefix at {la}",
-                    fb.display(),
-                    fa.display()
-                ));
+                errors.push(problem(msg!("config.unreachable", file = fa.display(), at = la)));
             }
         }
     }

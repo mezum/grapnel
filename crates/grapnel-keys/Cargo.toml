@@ -4,3 +4,6 @@ description = "Key, chord and key-sequence types and parser for grapnel"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+
+[dependencies]
+rust-i18n = "4.2.2"

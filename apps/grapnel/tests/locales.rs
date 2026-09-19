@@ -45,7 +45,8 @@ fn used_keys_exist() {
     let en = locale(&Path::new(ROOT).join("locales/en.toml"));
     let mut files = Vec::new();
     sources(&Path::new(ROOT).join("apps"), &mut files);
-    let re = regex::Regex::new(r#"\b(?:t|report)!\(\s*"([^"]+)""#).unwrap();
+    sources(&Path::new(ROOT).join("crates"), &mut files);
+    let re = regex::Regex::new(r#"\b(?:t|report|msg)!\(\s*"([^"]+)""#).unwrap();
     let used: BTreeSet<_> = files.iter().flat_map(|f| re.captures_iter(f).map(|c| c[1].to_string())).collect();
     assert!(used.len() > 10, "{used:?}");
     let missing: Vec<_> = used.difference(&en).collect();

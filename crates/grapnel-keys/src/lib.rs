@@ -1,6 +1,11 @@
 //! Key, chord and key-sequence types and their text syntax (`C-x t 0`, `Mu-j`, `RButton:UL`).
 
+rust_i18n::i18n!("../../locales", fallback = "en");
+
+mod msg;
 mod names;
+
+pub use msg::Msg;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MouseButton {
@@ -135,7 +140,7 @@ pub struct KeySeq(pub Vec<Chord>);
 const REAL_NAMES: [(&str, Mods); 4] = [("C", Mods::CTRL), ("M", Mods::ALT), ("S", Mods::SHIFT), ("W", Mods::WIN)];
 
 /// Parses one key name, including gestures (`RButton:UL`).
-pub fn parse_key(s: &str) -> Result<Key, String> {
+pub fn parse_key(s: &str) -> Result<Key, Msg> {
     if let Some((btn, dirs)) = s.split_once(':')
         && let Some(&(_, b)) = names::MOUSE.iter().find(|(n, _)| n.eq_ignore_ascii_case(btn))
     {
@@ -146,19 +151,19 @@ pub fn parse_key(s: &str) -> Result<Key, String> {
                 'D' => Ok(Dir::D),
                 'L' => Ok(Dir::L),
                 'R' => Ok(Dir::R),
-                _ => Err(format!("invalid gesture direction '{c}' in '{s}'")),
+                _ => Err(msg!("keys.bad_direction", dir = c, key = s)),
             })
             .collect::<Result<Vec<_>, _>>()?;
         if dirs.is_empty() {
-            return Err(format!("gesture '{s}' has no direction"));
+            return Err(msg!("keys.no_direction", key = s));
         }
         return Ok(Key::Gesture(b, dirs));
     }
-    names::lookup(s).ok_or_else(|| format!("unknown key '{s}'"))
+    names::lookup(s).ok_or_else(|| msg!("keys.unknown", key = s))
 }
 
 /// Parses a chord such as `C-S-x` or `Mu-j`. `user` lists user modifier names by bit index.
-pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, String> {
+pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, Msg> {
     let mut mods = Mods::NONE;
     let mut rest = s;
     while let Some(i) = rest.find('-').filter(|&i| i > 0 && i + 1 < rest.len()) {
@@ -176,7 +181,7 @@ pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, String> {
 }
 
 /// Parses a space-separated key sequence. An empty string yields an empty sequence.
-pub fn parse_seq(s: &str, user: &[&str]) -> Result<KeySeq, String> {
+pub fn parse_seq(s: &str, user: &[&str]) -> Result<KeySeq, Msg> {
     s.split_whitespace().map(|c| parse_chord(c, user)).collect::<Result<_, _>>().map(KeySeq)
 }
 

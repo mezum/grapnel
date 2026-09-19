@@ -38,27 +38,53 @@ pub struct FileDoc {
 }
 
 #[derive(Serialize)]
-/// Files travel as JSON text: a JS object would reorder integer-like keys.
+/// Files travel as JSON text: a JS object would reorder integer-like keys. Problems come back
+/// worded in `lang`.
 struct Files {
     files: String,
+    lang: String,
 }
 
 impl Files {
     fn of(docs: &[FileDoc]) -> Files {
-        Files { files: serde_json::to_string(docs).unwrap() }
+        Files { files: serde_json::to_string(docs).unwrap(), lang: rust_i18n::locale().to_string() }
     }
 }
 
 #[derive(Serialize)]
 struct Entry {
     entry: String,
+    lang: String,
+}
+
+impl Entry {
+    fn of(entry: String) -> Entry {
+        Entry { entry, lang: rust_i18n::locale().to_string() }
+    }
+}
+
+/// A problem found by the backend, already in the UI language.
+#[derive(Deserialize, Clone, PartialEq)]
+pub struct Problem {
+    pub file: String,
+    /// Location inside the file, as `grapnel_config` names it (`settings.passthrough[1]`).
+    pub at: String,
+    pub text: String,
+}
+
+impl std::fmt::Display for Problem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let parts = [&self.file, &self.at, &self.text];
+        let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).filter(|s| !s.is_empty()).collect();
+        f.write_str(&parts.join(": "))
+    }
 }
 
 #[derive(Deserialize)]
 struct SaveError {
     /// Some or all files were written (a later write or reading them back failed).
     saved: bool,
-    errors: Vec<String>,
+    errors: Vec<Problem>,
 }
 
 /// Bundled languages (`"en"`, `"ja"`, ...).
@@ -133,6 +159,7 @@ fn theme_icon(theme: &str) -> &'static str {
 pub struct Store {
     pub docs: RwSignal<Vec<FileDoc>>,
     pub cur: RwSignal<usize>,
+    pub errors: RwSignal<Vec<Problem>>,
 }
 
 impl Store {
@@ -155,11 +182,11 @@ impl Store {
 
 #[component]
 fn App() -> impl IntoView {
-    let store = Store { docs: RwSignal::new(vec![]), cur: RwSignal::new(0) };
+    let store = Store { docs: RwSignal::new(vec![]), cur: RwSignal::new(0), errors: RwSignal::new(vec![]) };
     provide_context(store);
     let entry = RwSignal::new(String::new());
     let tab = RwSignal::new(0usize);
-    let errors = RwSignal::new(Vec::<String>::new());
+    let errors = store.errors;
     let status = RwSignal::new(String::new());
     let lang = RwSignal::new(initial_language());
     set_language(&lang.get_untracked());
@@ -168,7 +195,7 @@ fn App() -> impl IntoView {
 
     let load = move || {
         spawn_local(async move {
-            match call::<_, String, Vec<String>>("load", &Entry { entry: entry.get_untracked() }).await {
+            match call::<_, String, Vec<Problem>>("load", &Entry::of(entry.get_untracked())).await {
                 Ok(json) => {
                     let docs: Vec<FileDoc> = serde_json::from_str(&json).unwrap();
                     store.cur.set(0);
@@ -181,7 +208,7 @@ fn App() -> impl IntoView {
     };
     let open = move || {
         spawn_local(async move {
-            let picked = call::<_, Option<String>, ()>("pick_entry", &Entry { entry: entry.get_untracked() }).await;
+            let picked = call::<_, Option<String>, ()>("pick_entry", &Entry::of(entry.get_untracked())).await;
             if let Ok(Some(path)) = picked {
                 entry.set(path);
                 load();
@@ -192,12 +219,13 @@ fn App() -> impl IntoView {
         entry.set(call::<_, String, String>("initial_entry", &()).await.unwrap_or_default());
         load();
     });
-    // Validate after every edit.
+    // Validate after every edit, and again in a newly chosen language.
     Effect::new(move |_| {
+        lang.track();
         let files = store.docs.get();
         if !files.is_empty() {
             let files = Files::of(&files);
-            spawn_local(async move { errors.set(call::<_, Vec<String>, ()>("validate", &files).await.unwrap()) });
+            spawn_local(async move { errors.set(call::<_, Vec<Problem>, ()>("validate", &files).await.unwrap()) });
         }
     });
     let save = move |apply: bool| {
@@ -280,7 +308,7 @@ fn App() -> impl IntoView {
             <span class="status">{move || status.get()}</span>
         </nav>
         <ul class="errors">
-            {move || errors.get().into_iter().map(|e| view! { <li>{e}</li> }).collect_view()}
+            {move || errors.get().into_iter().map(|e| view! { <li>{e.to_string()}</li> }).collect_view()}
         </ul>
         <Show when=move || !store.docs.with(Vec::is_empty)>
             <main>

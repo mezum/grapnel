@@ -10,8 +10,12 @@ fn ok(s: &str) -> Config {
     compile(&files(&[("main.toml", s)])).unwrap()
 }
 
+fn join(problems: Vec<Problem>) -> String {
+    problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
+}
+
 fn errs(list: &[(&str, &str)]) -> String {
-    compile(&files(list)).unwrap_err().join("\n")
+    join(compile(&files(list)).unwrap_err())
 }
 
 fn seq(s: &str, user: &[&str]) -> KeySeq {
@@ -112,7 +116,7 @@ close = "C-w"
 fn reports_unknown_names_with_location() {
     let e = errs(&[("m.toml", "[keymap]\nFoo = \"a\"\nb = { do = \"a\", targets = [\"t\"] }\nc = [{ mode = \"z\" }]")]);
     assert!(e.contains("m.toml: keymap.\"Foo\": unknown key 'Foo'"), "{e}");
-    assert!(e.contains("keymap.\"b\".targets: unknown target 't'"), "{e}");
+    assert!(e.contains("keymap.\"b\".targets[0]: unknown target 't'"), "{e}");
     assert!(e.contains("keymap.\"c\"[0]: unknown mode 'z'"), "{e}");
 }
 
@@ -193,8 +197,8 @@ fn load_reports_missing_and_invalid() {
     let d = temp_dir("bad");
     write(&d.join("config.toml"), "include = [\"missing.toml\", \"apps/bad.toml\"]");
     write(&d.join("apps/bad.toml"), "[keymap]\na = 1");
-    let e = load(&d.join("config.toml")).unwrap_err().join("\n");
-    assert!(e.contains("include 'missing.toml': file not found"), "{e}");
+    let e = join(load(&d.join("config.toml")).unwrap_err());
+    assert!(e.contains("include[0]: file not found"), "{e}");
     assert!(e.contains("bad.toml"), "{e}");
 }
 
@@ -329,4 +333,12 @@ fn input_step_without_then_runs_the_typed_action() {
     );
     let q = &c.actions[c.action_id("q").unwrap()].impls[0].steps[0];
     assert_eq!(q, &Step::Input { prompt: "?".into(), then: Some(mx), position: InputPosition::Center });
+}
+
+#[test]
+fn problems_point_at_list_items_and_are_translated() {
+    let e = compile(&files(&[("m", "[settings]\npassthrough = [\"a\", \"x\"]\n[targets.a]")])).unwrap_err();
+    assert_eq!(e[0].at, "settings.passthrough[1]");
+    assert_eq!(e[0].to_string(), "m: settings.passthrough[1]: unknown target 'x'");
+    assert_eq!(e[0].text("ja"), "m: settings.passthrough[1]: 'x' というターゲットはありません");
 }

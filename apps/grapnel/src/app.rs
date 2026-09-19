@@ -1,7 +1,7 @@
 //! Main-thread state: engine, hooks, foreground window, suspend/passthrough and reload.
 
 use crate::exec::Executor;
-use grapnel_config::{Config, ControlCmd, Field, WindowInfo, any_matches};
+use grapnel_config::{Config, ControlCmd, Field, Problem, WindowInfo, any_matches};
 use grapnel_engine::{Command, Engine, Event, Fault};
 use grapnel_keys::{Key, Mods};
 use grapnel_win::{hook, inputbox, uia::Uia, window};
@@ -37,7 +37,7 @@ fn held_mods() -> Mods {
         .fold(Mods::NONE, |a, (_, m)| a | m)
 }
 
-pub fn load(path: &Path) -> Result<Config, Vec<String>> {
+pub fn load(path: &Path) -> Result<Config, Vec<Problem>> {
     grapnel_config::load(path).and_then(|files| grapnel_config::compile(&files))
 }
 
@@ -228,7 +228,7 @@ impl App {
         std::thread::spawn(move || crate::post(crate::Msg::Reloaded(load(&path))));
     }
 
-    pub fn apply_reload(&mut self, result: Result<Config, Vec<String>>) {
+    pub fn apply_reload(&mut self, result: Result<Config, Vec<Problem>>) {
         match result {
             Ok(cfg) => {
                 self.exec.cancel();
@@ -249,7 +249,7 @@ impl App {
                     1 => String::new(),
                     n => format!("\n{}", t!("reload.more", count = n - 1)),
                 };
-                crate::balloon(&t!("reload.failed"), &format!("{}{more}", errors[0]), true);
+                crate::balloon(&t!("reload.failed"), &format!("{}{more}", errors[0].text(&rust_i18n::locale())), true);
             }
         }
     }

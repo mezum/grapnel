@@ -14,6 +14,7 @@ serde.workspace = true
 # Tauri reads command arguments through serde_json::Value; keep key order (keymap, targets).
 serde_json = { version = "1", features = ["preserve_order"] }
 grapnel-config.workspace = true
+grapnel-keys.workspace = true
 grapnel-schema.workspace = true
 grapnel-win.workspace = true
 tauri-plugin-dialog = "2"

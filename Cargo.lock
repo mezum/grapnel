@@ -1631,6 +1631,9 @@ dependencies = [
 [[package]]
 name = "grapnel-keys"
 version = "0.1.0"
+dependencies = [
+ "rust-i18n",
+]
 
 [[package]]
 name = "grapnel-pad"
@@ -1656,6 +1659,7 @@ name = "grapnel-settings"
 version = "0.1.0"
 dependencies = [
  "grapnel-config",
+ "grapnel-keys",
  "grapnel-schema",
  "grapnel-win",
  "serde",
