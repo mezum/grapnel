@@ -49,8 +49,8 @@ pub fn format_seq(seq: &KeySeq, user_mods: &[&str]) -> String;
 TOML と 1 対 1 の serde 型 (`RawConfig`, `RawNode`, `RawBinding`, `RawAction`, `RawStep` ...)。
 意味の検証はしない。設定ツールのフロントエンド (wasm) とバックエンドで共有する。
 
-- キーマップの節 `RawNode` は `options` と、`#[serde(flatten)]` した chord → `RawBinding` の `IndexMap`。
-- `RawBinding` は untagged で、文字列 / 手順の配列 / `do` を持つテーブル (`RawLeaf`) / それ以外のテーブル (子の節) の順に試す。`RawLeaf` は未知の項目を `unknown` に集めて compile 側でエラーにする (綴り間違いが子の節と解釈されるのを防ぐ。flatten があると配列からは読めなくなる効果もある)。
+- キーマップのノード `RawNode` は `options` と、`#[serde(flatten)]` した chord → `RawBinding` の `IndexMap`。
+- `RawBinding` は untagged で、文字列 / 手順の配列 / `do` を持つテーブル (`RawLeaf`) / それ以外のテーブル (子ノード) の順に試す。`RawLeaf` は未知の項目を `unknown` に集めて compile 側でエラーにする (綴り間違いが子ノードと解釈されるのを防ぐ。flatten があると配列からは読めなくなる効果もある)。
 - アクション `RawAction` は文字列 / 手順の配列 / ターゲット名 → 手順の `IndexMap`。評価順が意味を持つので、マップは `IndexMap` で順序を保つ (`toml` の `preserve_order` を使う)。
 
 ## 4. grapnel-config
@@ -64,7 +64,7 @@ pub fn any_matches(targets: &[Target], ids: &[TargetId], win: &WindowInfo) -> bo
 
 - `Config` はエンジンが使う形で、名前は添字 (`TargetId`, `ActionId`, `ModeId`) に解決済み。
 - キーマップの木 (`keymap.rs`) は、葉ごとの `Rule` (キー列・アクション・モード・press など) に平らにする。モード専用のキーマップの `Rule` を先に並べるので、エンジンは宣言順に探すだけで優先順位が付く。
-- 節の `options` は祖先の値と合わせて `Prefix { keys, modes, policy }` にする。エンジンは待機中の chord 列に対して `Config::policy` で一番深い節の設定を引く。
+- ノードの `options` は祖先の値と合わせて `Prefix { keys, modes, policy }` にする。エンジンは待機中の chord 列に対して `Config::policy` で一番深いノードの設定を引く。
 - キーマップにその場で書いたアクション (文字列のキー列、手順の配列) は、位置を名前にした無名のアクションとして `actions` の後ろに足す。
 - 同じモードでの重複キーと、短いキーに隠れて届かないキーはエラーにする。
 - ターゲットの文字列は `Matcher` (Exact / Regex) に変換する。glob は正規表現に変換する。
@@ -103,7 +103,7 @@ impl Engine {
 | --- | --- |
 | `down` | 物理的に押されているキーの集合 (リピート判定と chord の修飾状態) |
 | `os_mods` | OS から見て押されている修飾キー (退避と復元の基準) |
-| `pending` | 待機中の chord 列と、その節の設定 (`Policy`)、期限 |
+| `pending` | 待機中の chord 列と、そのノードの設定 (`Policy`)、期限 |
 | `user_mods` | ユーザー修飾キーの状態 (待機 / 保留 / 有効) |
 | `active` | 押されている入力キー → `Hold(出力 chord)` / `Pass(元のキー)` / `Tap(リピート時に再実行する手順)` |
 | `swallowed` | 押下を握りつぶしたキー。解放も握りつぶす |
@@ -150,7 +150,7 @@ impl Engine {
 - `save` は全ファイルを検証してから書く。`apply` はパイプに `reload` を書く。
 - フロントエンドは引数を `serde_json` で JSON 文字列にしてから `JSON.parse` で JS のオブジェクトにして渡す (マップを `Map` にせず、`__proto__` のようなキーも失わないため)。
 - UI: 上にエントリのパスと読み込み・保存・保存して適用・言語とテーマの選択、ファイルのタブ、セクションのタブ (インポート / デフォルトキーマップ / モード別キーマップ / キー配列 / カスタム修飾キー / ターゲット / アクション / その他)、検証エラーの一覧。編集のたびに検証し、エラーがあれば保存ボタンを無効にする。
-- キーマップは再帰的な節エディタで編集する。各キーの種類 (キー・アクション名 / 連続アクション指定 / 設定付き / 子の節) を切り替えると、残せる内容は残して変換する。モードのタブでは、同じ節エディタでモード専用のキーマップを編集する。
+- キーマップは再帰的なノードエディタで編集する。各キーの種類 (キー・アクション名 / 連続アクション指定 / 設定付き / 子ノード) を切り替えると、残せる内容は残して変換する。モードのタブでは、同じノードエディタでモード専用のキーマップを編集する。
 - Tauri はコマンドの引数を `serde_json::Value` 経由で読むので、バックエンドで `serde_json` の `preserve_order` を有効にしてキーの順序を保つ (アクションのターゲットは順序が意味を持つ)。
 - 値の入出力は `Place` (現在のファイル内の 1 か所を指す読み書きの組) とフィールド関数 (`text`, `opt_text`, `list`, `num`, `keys`, `check`, `select`) で束ねる。入力は `change` イベントで反映する (打鍵ごとの再描画でフォーカスを失わないため)。
 - キー欄は `grapnel-keys` でその場で構文を検証する。
