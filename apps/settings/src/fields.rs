@@ -132,37 +132,63 @@ type Hint = Arc<dyn Fn() -> String + Send + Sync>;
 
 /// Binds a string-ish input. `to`/`from` convert between the field and the input text.
 #[allow(clippy::too_many_arguments)]
+/// `from` may reject the typed text with a message; the text then stays, marked, and the value is
+/// left as it was.
 fn input<V: 'static, T: Default + 'static>(
     label: &str,
     p: &Place<V>,
     get: fn(&V) -> T,
     set: fn(&mut V, T),
     to: fn(T) -> String,
-    from: fn(String) -> T,
+    from: fn(String) -> Result<T, String>,
     check: Option<Check>,
     hint: Option<Hint>,
 ) -> impl IntoView + use<V, T> {
     let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
-    let value = move || to(pg.read(get));
-    // The live check, else what validation said about this place.
+    // Rejected text and why; cleared by the next accepted input.
+    let rejected = RwSignal::new(None::<(String, String)>);
+    // Any edit, file switch or reload shows the stored value again.
+    let store = p.store;
+    Effect::new(move |_| {
+        store.docs.track();
+        store.cur.track();
+        rejected.set(None);
+    });
+    let value = move || rejected.with(|r| r.as_ref().map(|r| r.0.clone())).unwrap_or_else(|| to(pg.read(get)));
+    // The rejection, else the live check, else what validation said about this place.
     let error = {
         let (value, p) = (value.clone(), p.clone());
-        move || check.as_ref().and_then(|c| c(&value())).or_else(|| p.problem())
+        move || {
+            rejected
+                .with(|r| r.as_ref().map(|r| r.1.clone()))
+                .or_else(|| check.as_ref().and_then(|c| c(&value())))
+                .or_else(|| p.problem())
+        }
     };
     let bad = error.clone();
+    let changed = move |ev| {
+        let text = event_target_value(&ev);
+        match from(text.clone()) {
+            Ok(x) => {
+                rejected.set(None);
+                ps.edit(|v| set(v, x));
+            }
+            Err(why) => rejected.set(Some((text, why))),
+        }
+    };
     view! {
         <label class="field">
             <span>{label}</span>
             <input prop:value=value class:invalid=move || bad().is_some() placeholder=move || hint.as_ref().map(|h| h())
-                on:change=move |ev| ps.edit(|v| set(v, from(event_target_value(&ev)))) />
+                on:change=changed />
             <small class="error">{error}</small>
         </label>
     }
 }
 
 pub fn text<V>(label: &str, p: &Place<V>, get: fn(&V) -> String, set: fn(&mut V, String)) -> impl IntoView + use<V> {
-    input(label, p, get, set, |s| s, |s| s, None, None)
+    input(label, p, get, set, |s| s, Ok, None, None)
 }
 
 /// Empty input means "not set", which `hint` explains.
@@ -173,7 +199,16 @@ pub fn opt_text<V, H: Fn() -> String + Send + Sync + 'static>(
     set: fn(&mut V, Option<String>),
     hint: H,
 ) -> impl IntoView + use<V, H> {
-    input(label, p, get, set, Option::unwrap_or_default, |s| (!s.is_empty()).then_some(s), None, Some(Arc::new(hint)))
+    input(
+        label,
+        p,
+        get,
+        set,
+        Option::unwrap_or_default,
+        |s| Ok((!s.is_empty()).then_some(s)),
+        None,
+        Some(Arc::new(hint)),
+    )
 }
 
 /// One input per item (so items may hold commas), each draggable and deletable, and an add button.
@@ -371,7 +406,12 @@ pub fn num<V, H: Fn() -> String + Send + Sync + 'static>(
     set: fn(&mut V, Option<u32>),
     hint: H,
 ) -> impl IntoView + use<V, H> {
-    let (to, from) = (|n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_default(), |s: String| s.trim().parse().ok());
+    let to = |n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_default();
+    // Empty is "not set"; anything else must be a number, or it is kept and marked.
+    let from = |s: String| match s.trim() {
+        "" => Ok(None),
+        n => n.parse().map(Some).map_err(|_| t!("ui.not_a_number").into_owned()),
+    };
     input(label, p, get, set, to, from, None, Some(Arc::new(hint)))
 }
 
@@ -390,7 +430,7 @@ pub fn keys_or_action<V>(
         (!named && grapnel_keys::parse_seq(s, &[]).is_err())
             .then(|| t!("config.unknown_action_or_key", name = s).into_owned())
     });
-    input(label, p, get, set, |s| s, |s| s, Some(check), None)
+    input(label, p, get, set, |s| s, Ok, Some(check), None)
 }
 
 /// Live key-sequence syntax check. `user_mods` allows user modifiers (input keys only).
@@ -409,7 +449,7 @@ pub fn keys<V>(
     set: fn(&mut V, String),
     user_mods: bool,
 ) -> impl IntoView + use<V> {
-    input(label, p, get, set, |s| s, |s| s, key_check(p.store, user_mods), None)
+    input(label, p, get, set, |s| s, Ok, key_check(p.store, user_mods), None)
 }
 
 /// Optional key sequence; empty input means "not set".
@@ -420,7 +460,7 @@ pub fn opt_keys<V, H: Fn() -> String + Send + Sync + 'static>(
     set: fn(&mut V, Option<String>),
     hint: H,
 ) -> impl IntoView + use<V, H> {
-    let from = |s: String| (!s.is_empty()).then_some(s);
+    let from = |s: String| Ok((!s.is_empty()).then_some(s));
     input(label, p, get, set, Option::unwrap_or_default, from, key_check(p.store, false), Some(Arc::new(hint)))
 }
 
