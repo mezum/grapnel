@@ -120,8 +120,9 @@ options = "Node options (inherited by descendants)"
 add_key = "Add key"
 
 [ui.keyswap]
-hint = "Treat a key as another (a layout swap). Left: the key pressed (S- for with Shift). Right: what it types on the JIS layout (e.g. S-2 → @). The keymap sees the swapped key."
-to = "Types"
+hint = "Treat a key as another (a layout swap). From: the key pressed (S- for with Shift). To: what it types on the JIS layout (e.g. S-2 → @). The keymap sees the swapped key."
+from = "From"
+to = "To"
 add = "Add key"
 
 [ui.step]

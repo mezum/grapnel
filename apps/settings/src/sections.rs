@@ -208,17 +208,27 @@ pub fn keyswap() -> impl IntoView {
     let row = move |key: String| {
         let (a, b) = (key.clone(), key.clone());
         let vp = p.map(&format!(".\"{key}\""), move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del, bad) = (p.clone(), p.clone(), key.clone(), vp.clone());
+        let (r, d, del, old) = (p.clone(), p.clone(), key.clone(), key.clone());
+        let (bad, why) = (vp.clone(), vp.clone());
+        // Renames on change; an empty or taken key puts the old one back.
+        let rename = move |ev: leptos::ev::Event| {
+            let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
+            let mut ok = false;
+            r.edit(|m| ok = rename_key(m, &old, &input.value()));
+            if !ok {
+                input.set_value(&old);
+            }
+        };
         view! {
-            <div class="binding">
-                {name_row(
-                    None,
-                    key,
-                    move || bad.key_problem(),
-                    move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
-                    move || d.edit(|m| drop(m.shift_remove(&del))),
-                )}
+            <div class="row swap">
+                <label class="field">
+                    <span>{t!("ui.keyswap.from")}</span>
+                    <input prop:value=key on:change=rename
+                        class:invalid=move || bad.key_problem().is_some() title=move || why.key_problem() />
+                </label>
                 {keys(&t!("ui.keyswap.to"), &vp, |v| v.clone(), |v, x| *v = x, false)}
+                <button class="del" on:click=move |_| d.edit(|m| drop(m.shift_remove(&del)))
+                    title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
             </div>
         }
     };
