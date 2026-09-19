@@ -49,7 +49,7 @@ drag = "ドラッグ (または ↑/↓ キー) で並べ替え"
 kind = "種類"
 keys_or_action = "キー / アクション名"
 steps = "連続アクション指定"
-add_step = "手順を追加"
+add_step = "アクションの追加"
 language_auto = "Windows の表示言語"
 
 [ui.status]
