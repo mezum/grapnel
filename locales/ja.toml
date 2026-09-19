@@ -82,7 +82,6 @@ others = "その他の動作に関する全体設定です。エントリーフ�
 
 [ui.general]
 include = "include (glob 可)"
-entry_only = "settings はエントリファイルにだけ書けます。"
 delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"
 language = "language (表示言語)"
@@ -114,7 +113,6 @@ tap_none = "tap で何も送らない"
 as = "as (例: C, C-S)"
 
 [ui.keymap]
-hint = "キーは chord (例: C-x)。「次の入力を待つ」にすると、続けて押すキー列 (C-x t 0 など) になる。"
 extended = "拡張オプション"
 node = "次の入力を待つ"
 press_default = "既定 (hold)"
@@ -129,7 +127,6 @@ options = "節の設定 (子孫に引き継ぐ)"
 add_key = "キーを追加"
 
 [ui.keyswap]
-hint = "「入れ替え対象キー」は押すキー (S- を付けると Shift を押しているとき)、「入れ替え後」は JIS 配列で何を打ったことにするか (例: S-2 → @)。"
 from = "入れ替え対象キー"
 to = "入れ替え後"
 add = "キーを追加"

@@ -110,7 +110,6 @@ pub fn others() -> impl IntoView {
     view! {
         <section>
             <Show when=move || store.cur.get() == 0 fallback=move || view! {
-                <p>{t!("ui.general.entry_only")}</p>
                 <Show when=move || store.read(|c| c.settings.is_some())>
                     <button class="del" on:click=move |_| store.edit(|c| c.settings = None)>{t!("ui.general.delete_settings")}</button>
                 </Show>
@@ -204,7 +203,6 @@ pub fn keymap() -> impl IntoView {
     let p = Place::<RawNode>::new(store, "keymap", |c| Some(&c.keymap), |c| Some(&mut c.keymap));
     view! {
         <section>
-            <p class="hint">{t!("ui.keymap.hint")}</p>
             {node_editor(p, true)}
         </section>
     }
@@ -248,7 +246,6 @@ pub fn keyswap() -> impl IntoView {
     };
     view! {
         <section>
-            <p class="hint">{t!("ui.keyswap.hint")}</p>
             <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|k| k.clone() let:k>{row(k)}</For>
             <button class="add" on:click=add_row>{t!("ui.keyswap.add")}</button>
         </section>
