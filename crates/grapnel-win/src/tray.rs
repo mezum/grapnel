@@ -2,10 +2,27 @@
 
 use crate::wide;
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 const ID: u32 = 1;
+/// Icon resources of the program (see `apps/grapnel/grapnel.rc`).
+const ICON: u16 = 1;
+const ICON_SUSPENDED: u16 = 2;
+
+/// The program's icon resource `id` at the small-icon size, else the stock application icon.
+fn icon(id: u16) -> HICON {
+    unsafe {
+        let module = GetModuleHandleW(None).ok().map(Into::into);
+        let (w, h) = (GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
+        // LR_SHARED: the system keeps the icon, so repeated loads neither leak nor need DestroyIcon.
+        LoadImageW(module, windows::core::PCWSTR(id as usize as *const u16), IMAGE_ICON, w, h, LR_SHARED)
+            .map(|i| HICON(i.0))
+            .or_else(|_| LoadIconW(None, IDI_APPLICATION))
+            .unwrap_or_default()
+    }
+}
 
 pub struct Tray {
     hwnd: HWND,
@@ -29,18 +46,17 @@ impl Tray {
         let mut d = tray.data();
         d.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         d.uCallbackMessage = msg;
-        d.hIcon = unsafe { LoadIconW(None, IDI_APPLICATION)? };
+        d.hIcon = icon(ICON);
         copy(&mut d.szTip, tip);
         unsafe { Shell_NotifyIconW(NIM_ADD, &d).ok()? };
         Ok(tray)
     }
 
-    /// Updates the tooltip; a paused state shows a warning icon.
+    /// Updates the tooltip; a paused state shows the greyed icon.
     pub fn set_state(&self, tip: &str, paused: bool) {
         let mut d = self.data();
         d.uFlags = NIF_ICON | NIF_TIP;
-        let icon = if paused { IDI_WARNING } else { IDI_APPLICATION };
-        d.hIcon = unsafe { LoadIconW(None, icon).unwrap_or_default() };
+        d.hIcon = icon(if paused { ICON_SUSPENDED } else { ICON });
         copy(&mut d.szTip, tip);
         let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &d) };
     }

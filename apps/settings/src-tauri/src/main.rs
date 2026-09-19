@@ -129,10 +129,12 @@ struct SaveError {
     errors: Vec<Shown>,
 }
 
-/// Asks the running grapnel to reload its configuration.
+/// Asks the running grapnel to reload from the entry file edited here, which it keeps using.
 #[tauri::command]
-fn apply() -> Result<(), String> {
-    grapnel_win::pipe::send("reload").map_err(|e| e.to_string())
+fn apply(loaded: tauri::State<Loaded>) -> Result<(), String> {
+    let entry = loaded.0.lock().unwrap().first().map(|(p, _)| p.clone()).ok_or("nothing loaded")?;
+    let entry = std::path::absolute(&entry).map_err(|e| e.to_string())?;
+    grapnel_win::pipe::send(&format!("reload {}", entry.display())).map_err(|e| e.to_string())
 }
 
 /// Whether the running grapnel's control pipe exists (listing pipes does not connect to it).
