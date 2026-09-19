@@ -18,3 +18,4 @@ grapnel-keys.workspace = true
 grapnel-schema.workspace = true
 grapnel-win.workspace = true
 tauri-plugin-dialog = "2"
+rust-i18n = "4.2.2"

@@ -7,6 +7,10 @@ use grapnel_schema::RawConfig;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
+use tauri::Emitter;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+rust_i18n::i18n!("../../../locales", fallback = "en");
 
 /// Files the backend loaded, as last read or written. `save` refuses to write anywhere else and
 /// skips files whose content did not change.
@@ -131,11 +135,100 @@ fn apply() -> Result<(), String> {
     grapnel_win::pipe::send("reload").map_err(|e| e.to_string())
 }
 
+/// Whether the running grapnel's control pipe exists (listing pipes does not connect to it).
+#[tauri::command]
+fn grapnel_running() -> bool {
+    let name = grapnel_win::pipe::name();
+    let name = name.rsplit('\\').next().unwrap_or_default().to_string();
+    let pipes = std::fs::read_dir(r"\\.\pipe\").into_iter().flatten().flatten();
+    pipes.map(|e| e.file_name()).any(|n| n.to_string_lossy().eq_ignore_ascii_case(&name))
+}
+
+/// Builds the menu bar in `lang`; the front end calls it again when the language changes. Items
+/// other than Help are handled by the front end, which gets their ids as `menu` events. Shortcuts
+/// are only shown here (after a tab); the page handles the keys, so they work in the web view.
+#[tauri::command]
+fn set_menu(app: tauri::AppHandle, lang: String) -> tauri::Result<()> {
+    let t = |key: &str| rust_i18n::t!(key, locale = &lang).into_owned();
+    let item = |id: &str, key: &str, keys: &str| {
+        let label = if keys.is_empty() { t(key) } else { format!("{}\t{keys}", t(key)) };
+        MenuItem::with_id(&app, id, label, true, None::<&str>)
+    };
+    let sep = || PredefinedMenuItem::separator(&app);
+    let file = Submenu::with_items(
+        &app,
+        t("ui.menu.file"),
+        true,
+        &[
+            &item("open", "ui.menu.open", "Ctrl+O")?,
+            &item("reload", "ui.menu.reload", "")?,
+            &sep()?,
+            &item("save", "ui.menu.save", "Ctrl+S")?,
+            &item("save_apply", "ui.menu.save_apply", "Ctrl+Shift+S")?,
+            &sep()?,
+            &item("exit", "ui.menu.exit", "")?,
+        ],
+    )?;
+    let theme = Submenu::with_items(
+        &app,
+        t("ui.menu.theme"),
+        true,
+        &[
+            &item("theme:auto", "ui.theme.auto", "")?,
+            &item("theme:light", "ui.theme.light", "")?,
+            &item("theme:dark", "ui.theme.dark", "")?,
+        ],
+    )?;
+    let language = Submenu::new(&app, t("ui.menu.language"), true)?;
+    for l in rust_i18n::available_locales!() {
+        let name = rust_i18n::t!("language_name", locale = l).into_owned();
+        language.append(&MenuItem::with_id(&app, format!("lang:{l}"), name, true, None::<&str>)?)?;
+    }
+    let view = Submenu::with_items(&app, t("ui.menu.view"), true, &[&theme, &language])?;
+    let help = Submenu::with_items(
+        &app,
+        t("ui.menu.help"),
+        true,
+        &[&item("docs", "ui.menu.docs", "")?, &item("about", "ui.menu.about", "")?],
+    )?;
+    app.set_menu(Menu::with_items(&app, &[&file, &view, &help])?)?;
+    *ABOUT.lock().unwrap() = t("ui.menu.about_text").replace("%{version}", env!("CARGO_PKG_VERSION"));
+    Ok(())
+}
+
+/// The About text in the menu's language.
+static ABOUT: Mutex<String> = Mutex::new(String::new());
+
+fn on_menu(app: &tauri::AppHandle, id: &str) {
+    use tauri_plugin_dialog::DialogExt;
+    match id {
+        "docs" => {
+            let url = "https://github.com/mezum/grapnel/blob/main/docs/spec.md";
+            if let Err(e) = std::process::Command::new("explorer").arg(url).spawn() {
+                eprintln!("cannot open {url}: {e}");
+            }
+        }
+        "about" => app.dialog().message(ABOUT.lock().unwrap().clone()).title("grapnel-settings").show(|_| {}),
+        "exit" => app.exit(0),
+        id => drop(app.emit("menu", id)),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Loaded::default())
-        .invoke_handler(tauri::generate_handler![initial_entry, pick_entry, load, validate, save, apply])
+        .on_menu_event(|app, ev| on_menu(app, ev.id().as_ref()))
+        .invoke_handler(tauri::generate_handler![
+            initial_entry,
+            pick_entry,
+            load,
+            validate,
+            save,
+            apply,
+            set_menu,
+            grapnel_running
+        ])
         .run(tauri::generate_context!())
         .expect("error while running grapnel-settings");
 }

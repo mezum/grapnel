@@ -41,7 +41,6 @@ more = "(%{count} more)"
 
 [ui]
 title = "grapnel settings"
-open = "Open…"
 file = "File to edit"
 save = "Save"
 save_apply = "Save and apply"
@@ -171,10 +170,30 @@ add_target = "Add target"
 add = "Add action"
 
 [ui.theme]
-label = "Theme: %{name} (click to change)"
 auto = "Auto"
 light = "Light"
 dark = "Dark"
+
+[ui.menu]
+file = "&File"
+open = "&Open…"
+reload = "&Reload from disk"
+save = "&Save"
+save_apply = "Save and &apply"
+exit = "E&xit"
+view = "&View"
+theme = "&Theme"
+language = "&Language"
+help = "&Help"
+docs = "&Configuration reference"
+about = "&About grapnel-settings"
+about_text = "grapnel-settings %{version}\nSettings editor for grapnel."
+
+[ui.bar]
+unsaved = "Unsaved changes"
+errors = "%{count} error(s)"
+running = "grapnel is running"
+not_running = "grapnel is not running"
 
 [keys]
 unknown = "unknown key '%{key}'"
