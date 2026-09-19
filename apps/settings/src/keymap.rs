@@ -80,12 +80,16 @@ fn set_extended(b: &mut RawBinding, on: bool) {
     }
 }
 
-/// The extended options. Without them (`p` is then empty) the fields are disabled and show
-/// the defaults.
-fn leaf_options(p: Place<RawLeaf>, off: impl Fn() -> bool + Send + Sync + 'static) -> impl IntoView {
+/// The extended options, folded, with their on/off `switch` next to the fold toggle. Without them
+/// (`p` is then empty) the fields are disabled and show the defaults.
+fn leaf_options(
+    p: Place<RawLeaf>,
+    switch: impl IntoView + 'static,
+    off: impl Fn() -> bool + Send + Sync + 'static,
+) -> impl IntoView {
     view! {
         <details class="options">
-            <summary>{t!("ui.keymap.extended")}</summary>
+            <summary>{t!("ui.keymap.extended")}{switch}</summary>
             <fieldset disabled=off>
                 {select("press", &p, press(),
                     |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
@@ -186,20 +190,17 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
         |b| if let RawBinding::Leaf(l) = b { Some(l) } else { None },
     );
     let ext = p.clone();
-    // Target-keyed steps exist only as extended options, so that switch stays on for them.
-    let switch =
-        move || {
-            let ext = ext.clone();
-            (k.get() != "node").then(|| view! {
-            <label class="extended">
-                <input type="checkbox" prop:checked=move || is_leaf.get() disabled=move || k.get() == "by_target"
-                    on:change=move |ev| ext.edit(|b| set_extended(b, event_target_checked(&ev))) />
-                <span>{t!("ui.keymap.extended")}</span>
-            </label>
-        })
+    let options = move || {
+        let ext = ext.clone();
+        // Target-keyed steps exist only as extended options, so the switch stays on for them.
+        let switch = view! {
+            <input type="checkbox" class="extended" title=t!("ui.keymap.extended") aria-label=t!("ui.keymap.extended")
+                prop:checked=move || is_leaf.get() disabled=move || k.get() == "by_target"
+                on:change=move |ev| ext.edit(|b| set_extended(b, event_target_checked(&ev))) />
         };
-    let options = move || (k.get() != "node").then(|| leaf_options(leaf_place.clone(), move || !is_leaf.get()));
-    view! { {select(&t!("ui.kind"), &p, binding_kinds(), binding_kind, set_binding_kind)} {switch} {fields} {options} }
+        (k.get() != "node").then(|| leaf_options(leaf_place.clone(), switch, move || !is_leaf.get()))
+    };
+    view! { {select(&t!("ui.kind"), &p, binding_kinds(), binding_kind, set_binding_kind)} {fields} {options} }
         .into_any()
 }
 
