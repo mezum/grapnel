@@ -12,6 +12,10 @@
 
 文書: [要件定義書](docs/requirements.md) / [仕様書 (設定の書き方)](docs/spec.md) / [設計書](docs/design.md)
 
+## ダウンロード
+
+[Releases](https://github.com/mezum/grapnel/releases) の zip に `grapnel.exe`・`grapnel-settings.exe`・設定例が入っています。好きなフォルダに展開して `grapnel.exe` を起動してください。
+
 ## ビルド
 
 必要なもの: Rust stable (rust-toolchain.toml で固定)、`wasm32-unknown-unknown` ターゲット、[trunk](https://trunkrs.dev/)、[tauri-cli](https://tauri.app/) 2.x。
@@ -23,6 +27,8 @@ cd apps/settings && cargo tauri build --no-bundle   # 設定ツール target/rel
 ```
 
 設定ツールの開発時は `apps/settings` で `cargo tauri dev` を使います。
+
+リリースは、`Cargo.toml` の `workspace.package.version` を上げてから `v` 付きのタグ (例: `v0.2.0`) を push します。GitHub Actions がビルドして Releases に zip を置きます。
 
 [just](https://github.com/casey/just) があれば、`just restart` で「起動中の grapnel を止める → 設定ツールをビルド → grapnel を起動」をまとめて実行できます (`just --list` で一覧)。開いている設定ツールは閉じるので、未保存の編集は失われます。
 

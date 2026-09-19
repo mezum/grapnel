@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check that the tag matches the version
+        shell: pwsh
+        run: |
+          $meta = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
+          $version = ($meta.packages | Where-Object name -eq grapnel).version
+          if ("v$version" -ne $env:TAG) { throw "tag $env:TAG does not match version $version in Cargo.toml" }
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: cargo-
+      # Third party, so pinned to a commit.
+      - uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
+        with:
+          tool: just,trunk,tauri-cli
+      - run: just build
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "grapnel-$env:TAG-windows-x64"
+          New-Item -ItemType Directory $name | Out-Null
+          Copy-Item target/release/grapnel.exe, target/release/grapnel-settings.exe $name
+          Copy-Item README.md, README.en.md, LICENSE-MIT, LICENSE-APACHE, THIRD_PARTY_NOTICES.md $name
+          Copy-Item -Recurse examples $name
+          Compress-Archive $name "$name.zip"
+      - run: gh release create $env:TAG "grapnel-$env:TAG-windows-x64.zip" --verify-tag --generate-notes --title $env:TAG
+        shell: pwsh

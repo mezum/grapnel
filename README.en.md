@@ -12,6 +12,10 @@ A resident tool for Windows 11 that remaps keyboard, mouse, and gamepad input in
 
 Documents (Japanese): [Requirements](docs/requirements.md) / [Specification (how to write the config)](docs/spec.md) / [Design](docs/design.md)
 
+## Download
+
+The zip on [Releases](https://github.com/mezum/grapnel/releases) contains `grapnel.exe`, `grapnel-settings.exe` and the example configs. Extract it to any folder and run `grapnel.exe`.
+
 ## Build
 
 Requirements: Rust stable (pinned by rust-toolchain.toml), the `wasm32-unknown-unknown` target, [trunk](https://trunkrs.dev/), and [tauri-cli](https://tauri.app/) 2.x.
@@ -23,6 +27,8 @@ cd apps/settings && cargo tauri build --no-bundle   # settings tool: target/rele
 ```
 
 When developing the settings tool, use `cargo tauri dev` in `apps/settings`.
+
+To release, bump `workspace.package.version` in `Cargo.toml`, then push a tag with a `v` prefix (e.g. `v0.2.0`). GitHub Actions builds it and attaches the zip to a release.
 
 With [just](https://github.com/casey/just), `just restart` stops the running grapnel, builds the settings tool, and starts grapnel in one step (`just --list` shows all recipes). It closes any open settings tool, so unsaved edits are lost.
 
