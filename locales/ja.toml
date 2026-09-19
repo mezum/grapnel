@@ -11,6 +11,7 @@ passthrough = " (パススルー中)"
 [notice]
 undefined = "%{keys} は定義されていません"
 timed_out = "%{keys} は時間切れになりました"
+mode = "モード: %{mode}"
 
 [error]
 unknown_action = "アクション '%{name}' はありません"

@@ -271,7 +271,10 @@ impl App {
     /// Non-input commands, on the main thread outside the hook.
     pub fn deferred(&mut self, c: Command) {
         match c {
-            Command::ModeChanged(_) => crate::set_tray_state(&self.tooltip(), self.suspended),
+            Command::ModeChanged(mode) => {
+                crate::set_tray_state(&self.tooltip(), self.suspended);
+                crate::show_toast(&t!("notice.mode", mode = mode), 1500);
+            }
             Command::Control(ControlCmd::Suspend) => self.toggle_suspend(),
             Command::Control(ControlCmd::Reload) => self.reload(),
             Command::Control(ControlCmd::Exit) => unsafe { PostQuitMessage(0) },

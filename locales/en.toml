@@ -13,6 +13,7 @@ passthrough = " (passthrough)"
 [notice]
 undefined = "%{keys} is undefined"
 timed_out = "%{keys} timed out"
+mode = "Mode: %{mode}"
 
 [error]
 unknown_action = "No action named '%{name}'"
