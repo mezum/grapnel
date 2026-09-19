@@ -306,14 +306,20 @@ fn vim_visual_command_and_search() {
     t.up("l");
     assert_eq!(mode(&t.down("y")), Some("normal"));
     t.up("y");
-    // :w saves.
-    t.tap(":");
-    assert_eq!(t.e.mode_name(), "command");
-    t.tap("w");
-    let r = t.down("Enter");
+    // : opens a prompt whose text names a vim:* action; :w saves and returns to normal.
+    let r = t.down(":");
+    t.up(":");
+    let then = grapnel_config::Then::Named("vim:{arg}".into());
+    assert_eq!(mode(&r), Some("command"));
+    assert!(r.commands.iter().any(|c| matches!(c, Command::InputBox { then: t, .. } if *t == then)));
+    let r = Reaction { consume: true, commands: t.e.invoke_input(&then, "w", &t.win) };
     assert_eq!(mode(&r), Some("normal"));
     assert!(r.commands.ends_with(&keys("+LCtrl +s -s -LCtrl")), "{:?}", r.commands);
-    t.up("Enter");
+    // A dismissed prompt leaves command mode on the next key, which is dropped.
+    t.tap(":");
+    let r = t.down("j");
+    assert_eq!((r.consume, mode(&r)), (true, Some("normal")));
+    t.up("j");
     // / opens the app's search; typing goes there; Enter searches and returns.
     t.tap("/");
     assert_eq!(t.e.mode_name(), "search");

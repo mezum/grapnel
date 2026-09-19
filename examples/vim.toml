@@ -1,6 +1,7 @@
 # Vim 風のモード (normal / input / visual / command / search)。キーは JIS 配列を前提にしている。
 # 使い方: grapnel.exe --config examples\vim.toml
 # または %APPDATA%\grapnel\config.toml から include = ["...\\vim.toml"] で読み込む。
+# アクションの中身は default-actions.toml にある。
 #
 # 起動時は default モード (input と同じく何もしない)。テキスト入力欄で Esc を押すと normal モードに入る。
 # 最初から normal にしたい場合は、エントリファイルの [settings] に initial_mode = "normal" を書く。
@@ -38,52 +39,53 @@ unmapped_to = "input"
 
 [modes.normal.keymap]
 # 移動。押している間は出力も押したまま (hold) なので、押し続ければキーリピートする。
-h = "Left"
-j = "Down"
-k = "Up"
-l = "Right"
-Backspace = "Left"
-Space = "Right"
-Enter = "Down Home"
-w = "C-Right"
-e = "C-Right"
-b = "C-Left"
-"0" = "Home"
-"^" = "Home"
-"S-4" = "End"                                  # $
-"S-g" = "C-End"                                # G
-"C-f" = "PageDown"
-"C-d" = "PageDown"
-"C-b" = "PageUp"
-"C-u" = "PageUp"
-# 削除・変更・コピー・貼り付け。行の操作は Home から次の行頭まで (改行を含めて) 選んで行う。
-x = "Delete"
-"S-x" = "Backspace"
-"S-d" = "S-End C-x"
-"S-c" = ["S-End C-x", { mode = "input" }]
-s = ["S-Right C-x", { mode = "input" }]
-"S-s" = ["Home S-End C-x", { mode = "input" }]
-"S-y" = "Home S-Down C-c Left"
-p = "C-v"
-"S-p" = "C-v"
+h = "backward_char"
+j = "next_line"
+k = "previous_line"
+l = "forward_char"
+Backspace = "backward_char"
+Space = "forward_char"
+Enter = ["next_line", "beginning_of_line"]
+w = "forward_word"
+e = "forward_word"
+b = "backward_word"
+"0" = "beginning_of_line"
+"^" = "beginning_of_line"
+"S-4" = "end_of_line"                          # $
+"S-g" = "end_of_buffer"                        # G
+"C-f" = "scroll_up"
+"C-d" = "scroll_up"
+"C-b" = "scroll_down"
+"C-u" = "scroll_down"
+# 削除・変更・コピー・貼り付け。
+x = "delete_char"
+"S-x" = "delete_backward_char"
+"S-d" = "kill_line"
+"S-c" = ["kill_line", { mode = "input" }]
+s = ["select_forward_char", "kill_region", { mode = "input" }]
+"S-s" = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]
+"S-y" = "copy_whole_line"
+p = "yank"
+"S-p" = "yank"
 u = "undo"
 "C-r" = "redo"
 # input モードへ。
 i = [{ mode = "input" }]
-a = ["Right", { mode = "input" }]
-"S-i" = ["Home", { mode = "input" }]
-"S-a" = ["End", { mode = "input" }]
-o = ["End Enter", { mode = "input" }]
-"S-o" = ["Home Enter Up", { mode = "input" }]
+a = ["forward_char", { mode = "input" }]
+"S-i" = ["beginning_of_line", { mode = "input" }]
+"S-a" = ["end_of_line", { mode = "input" }]
+o = ["end_of_line", "newline", { mode = "input" }]
+"S-o" = ["beginning_of_line", "newline", "previous_line", { mode = "input" }]
 # visual モードへ。v は今の 1 文字、V は今の行を選んだ状態で始める。
-v = [{ mode = "visual" }, "S-Right"]
-"S-v" = ["Home", { mode = "visual" }, "S-Down"]
-# アプリの検索欄を開いて search モードへ。n / N は次 / 前を検索 (F3 / Shift+F3)。
-"/" = ["C-f", { mode = "search" }]
-"S-/" = ["C-f", { mode = "search" }]           # ?
-n = "F3"
-"S-n" = "S-F3"
-":" = [{ mode = "command" }]                    # US 配列では "S-:"
+v = [{ mode = "visual" }, "select_forward_char"]
+"S-v" = ["beginning_of_line", { mode = "visual" }, "select_next_line"]
+# アプリの検索欄を開いて search モードへ。
+"/" = ["search_forward", { mode = "search" }]
+"S-/" = ["search_forward", { mode = "search" }]  # ?
+n = "search_next"
+"S-n" = "search_previous"
+# 画面下にコマンドの入力欄を出す (command モード)。入力した Ex コマンドを下の vim:<名前> で実行する。
+":" = [{ mode = "command" }, { input = ":", then = "vim:{arg}", position = "bottom" }]  # US 配列では "S-:"
 # Esc はそのまま送る (ダイアログを閉じるなど)。
 Esc = "Esc"
 # 割り当てていない英字と数字は何もしない (文字として入力されないように)。
@@ -104,31 +106,32 @@ z = []
 "9" = []
 
 [modes.normal.keymap.g]
-g = "C-Home"                                   # gg
+g = "beginning_of_buffer"                      # gg
 
 [modes.normal.keymap.d]
-d = "Home S-Down C-x"                          # dd
-w = "C-S-Right C-x"
-e = "C-S-Right C-x"
-b = "C-S-Left C-x"
-"0" = "S-Home C-x"
-"S-4" = "S-End C-x"
+d = "kill_whole_line"                          # dd
+w = "kill_word"
+e = "kill_word"
+b = "backward_kill_word"
+"0" = ["select_beginning_of_line", "kill_region"]
+"S-4" = "kill_line"
 
+# コピーした後は選択を解除する (カーソルは選んだ範囲の先頭へ)。
 [modes.normal.keymap.y]
-y = "Home S-Down C-c Left"                     # yy
-w = "C-S-Right C-c Left"
-e = "C-S-Right C-c Left"
-b = "C-S-Left C-c Right"
-"0" = "S-Home C-c Right"
-"S-4" = "S-End C-c Left"
+y = "copy_whole_line"                          # yy
+w = ["select_forward_word", "kill_ring_save", "backward_char"]
+e = ["select_forward_word", "kill_ring_save", "backward_char"]
+b = ["select_backward_word", "kill_ring_save", "backward_char"]
+"0" = ["select_beginning_of_line", "kill_ring_save", "backward_char"]
+"S-4" = ["select_end_of_line", "kill_ring_save", "backward_char"]
 
 [modes.normal.keymap.c]
-c = ["Home S-End C-x", { mode = "input" }]     # cc
-w = ["C-S-Right C-x", { mode = "input" }]
-e = ["C-S-Right C-x", { mode = "input" }]
-b = ["C-S-Left C-x", { mode = "input" }]
-"0" = ["S-Home C-x", { mode = "input" }]
-"S-4" = ["S-End C-x", { mode = "input" }]
+c = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]  # cc
+w = ["kill_word", { mode = "input" }]
+e = ["kill_word", { mode = "input" }]
+b = ["backward_kill_word", { mode = "input" }]
+"0" = ["select_beginning_of_line", "kill_region", { mode = "input" }]
+"S-4" = ["kill_line", { mode = "input" }]
 
 # g / d / y / c の後に上に無いキーが来たら捨てる (送り直すと文字が入力されるため)。
 [modes.normal.keymap.options]
@@ -143,52 +146,70 @@ block_unmapped = true
 unmapped_to = "normal"
 
 [modes.visual.keymap]
-h = "S-Left"
-j = "S-Down"
-k = "S-Up"
-l = "S-Right"
-w = "C-S-Right"
-e = "C-S-Right"
-b = "C-S-Left"
-"0" = "S-Home"
-"^" = "S-Home"
-"S-4" = "S-End"
-"S-g" = "C-S-End"
-"g g" = "C-S-Home"
+h = "select_backward_char"
+j = "select_next_line"
+k = "select_previous_line"
+l = "select_forward_char"
+w = "select_forward_word"
+e = "select_forward_word"
+b = "select_backward_word"
+"0" = "select_beginning_of_line"
+"^" = "select_beginning_of_line"
+"S-4" = "select_end_of_line"
+"S-g" = "select_end_of_buffer"
+"g g" = "select_beginning_of_buffer"
 # 選択範囲への操作は、先に normal (Shift を離す) に戻ってから行う。
-y = [{ mode = "normal" }, "C-c", "Left"]
-d = [{ mode = "normal" }, "C-x"]
-x = [{ mode = "normal" }, "C-x"]
-c = [{ mode = "input" }, "C-x"]
-s = [{ mode = "input" }, "C-x"]
-p = [{ mode = "normal" }, "C-v"]
-Esc = [{ mode = "normal" }, "Left"]
-v = [{ mode = "normal" }, "Left"]
-"S-v" = [{ mode = "normal" }, "Left"]
+y = [{ mode = "normal" }, "kill_ring_save", "backward_char"]
+d = [{ mode = "normal" }, "kill_region"]
+x = [{ mode = "normal" }, "kill_region"]
+c = [{ mode = "input" }, "kill_region"]
+s = [{ mode = "input" }, "kill_region"]
+p = [{ mode = "normal" }, "yank"]
+Esc = [{ mode = "normal" }, "backward_char"]
+v = [{ mode = "normal" }, "backward_char"]
+"S-v" = [{ mode = "normal" }, "backward_char"]
 
 [modes.visual.keymap.options]
 on_mismatch = "discard"
 
-# ---- command (: の後) ----
-# 入力は画面に出ない。キーマップに無いキーを押すと捨てて normal に戻る。
+# ---- command (: の入力欄を出している間) ----
+# 入力欄を Esc で閉じたときは、次に押したキーを捨てて normal に戻る。
 [modes.command]
 block_unmapped = true
 unmapped_to = "normal"
-
-[modes.command.keymap]
-"w Enter" = [{ mode = "normal" }, "save"]                        # :w
-"q Enter" = [{ mode = "normal" }, "close_document"]              # :q
-"q S-1 Enter" = [{ mode = "normal" }, "close_document"]          # :q! (保存しないかはアプリの確認に任せる)
-"w q Enter" = [{ mode = "normal" }, "save", "close_document"]    # :wq
-"x Enter" = [{ mode = "normal" }, "save", "close_document"]      # :x
-Esc = [{ mode = "normal" }]
-Backspace = [{ mode = "normal" }]
-
-[modes.command.keymap.options]
-on_mismatch = "discard"
 
 # ---- search (/ や ? の後) ----
 # 文字はそのままアプリの検索欄に入る。Enter で検索して検索欄を閉じ、Esc でやめて normal に戻る。
 [modes.search.keymap]
 Enter = ["Enter Esc", { mode = "normal" }]
 Esc = ["Esc", { mode = "normal" }]
+
+# ---- Ex コマンド (: の入力欄で打つもの) ----
+# 入力の最初の語が vim:<語> のアクションになり、残りは引数になる (ここでは使わない)。
+# どれも normal モードに戻ってから実行する。無いコマンドはエラーの通知になる。
+[actions]
+"vim:w" = [{ mode = "normal" }, "save"]
+"vim:write" = [{ mode = "normal" }, "save"]
+"vim:sav" = [{ mode = "normal" }, "save_as"]
+"vim:saveas" = [{ mode = "normal" }, "save_as"]
+"vim:q" = [{ mode = "normal" }, "close_document"]
+"vim:quit" = [{ mode = "normal" }, "close_document"]
+"vim:q!" = [{ mode = "normal" }, "close_document"]  # 保存しないかはアプリの確認に任せる
+"vim:wq" = [{ mode = "normal" }, "save", "close_document"]
+"vim:x" = [{ mode = "normal" }, "save", "close_document"]
+"vim:qa" = [{ mode = "normal" }, "quit_app"]
+"vim:qa!" = [{ mode = "normal" }, "quit_app"]
+"vim:wqa" = [{ mode = "normal" }, "save", "quit_app"]
+"vim:e" = [{ mode = "normal" }, "open_file"]     # ファイル名はアプリのダイアログで選ぶ
+"vim:edit" = [{ mode = "normal" }, "open_file"]
+"vim:tabnew" = [{ mode = "normal" }, "new_tab"]
+"vim:tabn" = [{ mode = "normal" }, "next_tab"]
+"vim:tabnext" = [{ mode = "normal" }, "next_tab"]
+"vim:tabp" = [{ mode = "normal" }, "previous_tab"]
+"vim:tabprevious" = [{ mode = "normal" }, "previous_tab"]
+"vim:tabc" = [{ mode = "normal" }, "close_document"]
+"vim:tabclose" = [{ mode = "normal" }, "close_document"]
+"vim:u" = [{ mode = "normal" }, "undo"]
+"vim:undo" = [{ mode = "normal" }, "undo"]
+"vim:red" = [{ mode = "normal" }, "redo"]
+"vim:redo" = [{ mode = "normal" }, "redo"]
