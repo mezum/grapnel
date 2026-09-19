@@ -149,9 +149,11 @@ section { display: flex; flex-direction: column; gap: 8px; }
 .impl { flex-basis: 100%; background: var(--surface-2); box-shadow: none; }
 /* Top-aligned so an error or an added argument below a field does not move its neighbours. */
 .binding { align-items: flex-start; }
+.binding > .sortable-body { align-items: flex-start; }
+.binding > .grip { align-self: flex-start; margin-top: 6px; }
 .name { display: flex; gap: 4px; align-items: center; }
 .name input { font-weight: 600; min-width: 140px; }
-.binding > .name input { font-family: Consolas, monospace; }
+.binding > .sortable-body > .name input { font-family: Consolas, monospace; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
 .field span { color: var(--muted); }
 .field .item { display: flex; gap: 4px; align-items: center; }
@@ -191,7 +193,7 @@ main > .hint { margin-bottom: 4px; }
 .swap input { font-family: Consolas, monospace; }
 
 /* Keymap rows: the kind and value explain themselves, so their labels are for screen readers only. */
-.binding > .field > span {
+.binding > .sortable-body > .field > span {
   position: absolute;
   width: 1px;
   height: 1px;

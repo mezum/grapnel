@@ -225,22 +225,24 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
 /// A keymap node: its options and one row per chord, recursively.
 pub fn node_editor(p: Place<RawNode>, root: bool) -> AnyView {
     let (list, add, opts) = (p.clone(), p.clone(), p.clone());
+    let drag = RwSignal::new(None);
     let row = move |key: String| {
         let (a, b) = (key.clone(), key.clone());
         let bp = p.map(&format!(".\"{key}\""), move |n| n.children.get(&a), move |n| n.children.get_mut(&b));
-        let (r, d, del, bad) = (p.clone(), p.clone(), key.clone(), bp.clone());
-        view! {
-            <div class="binding">
-                {name_row(
-                    None,
-                    key,
-                    move || bad.key_problem(),
-                    move |old, new| { let mut ok = false; r.edit(|n| ok = rename_key(&mut n.children, old, new)); ok },
-                    move || d.edit(|n| drop(n.children.shift_remove(&del))),
-                )}
-                {binding_editor(bp)}
-            </div>
-        }
+        let (r, d, del, bad, pos) = (p.clone(), p.clone(), key.clone(), bp.clone(), key.clone());
+        let body = view! {
+            {name_row(
+                None,
+                key,
+                move || bad.key_problem(),
+                move |old, new| { let mut ok = false; r.edit(|n| ok = rename_key(&mut n.children, old, new)); ok },
+                move || d.edit(|n| drop(n.children.shift_remove(&del))),
+            )}
+            {binding_editor(bp)}
+        };
+        let len = |n: &RawNode| n.children.len();
+        let mv = |n: &mut RawNode, from, to| n.children.move_index(from, to);
+        sortable(&p, drag, move |n| n.children.get_index_of(&pos), len, mv, "binding", body)
     };
     let add_row = move |_| {
         // An empty key is reported by validation until the user types the chord.
