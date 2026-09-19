@@ -22,7 +22,7 @@ cd apps/settings && cargo tauri build --no-bundle   # 設定ツール target/rel
 
 設定ツールの開発時は `apps/settings` で `cargo tauri dev` を使います。
 
-[just](https://github.com/casey/just) があれば、`just restart` で「起動中の grapnel を止める → 設定ツールをビルド → grapnel を起動」をまとめて実行できます (`just --list` で一覧)。設定ツールは閉じておいてください。
+[just](https://github.com/casey/just) があれば、`just restart` で「起動中の grapnel を止める → 設定ツールをビルド → grapnel を起動」をまとめて実行できます (`just --list` で一覧)。開いている設定ツールは閉じるので、未保存の編集は失われます。
 
 ## 使い方
 

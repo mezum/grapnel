@@ -3,10 +3,11 @@ set windows-shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
 # Stop grapnel, rebuild the settings tool, then run grapnel again
 restart: stop settings run
 
-# Stop the running grapnel (the settings tool must be closed so it can be rebuilt)
+# Stop grapnel and close the settings tool (unsaved edits there are lost), so both can be rebuilt
 stop:
-    if (Get-Process grapnel-settings -ErrorAction SilentlyContinue) { Write-Error "grapnel-settings is open; close it first"; exit 1 }
+    Stop-Process -Name grapnel-settings -ErrorAction SilentlyContinue; Wait-Process -Name grapnel-settings -Timeout 10 -ErrorAction SilentlyContinue
     if (Get-Process grapnel -ErrorAction SilentlyContinue) { ./target/release/grapnel.exe exit; Wait-Process -Name grapnel -Timeout 10 -ErrorAction SilentlyContinue }
+    Stop-Process -Name grapnel -ErrorAction SilentlyContinue; Wait-Process -Name grapnel -Timeout 10 -ErrorAction SilentlyContinue
 
 # Build the settings tool (target/release/grapnel-settings.exe)
 settings:
