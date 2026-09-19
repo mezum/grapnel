@@ -2,7 +2,7 @@
 
 use crate::keymap::{Walker, check_conflicts, compile_action};
 use crate::*;
-use grapnel_keys::{Mods, Msg, msg, parse_chord, parse_key, parse_seq};
+use grapnel_keys::{Layout, Mods, Msg, msg, parse_chord, parse_key, parse_seq};
 use grapnel_schema::{RawAction, RawMode, RawModifier, RawStep, RawTarget};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -30,6 +30,7 @@ impl Kind {
 pub(crate) struct Ctx<'a> {
     pub errors: &'a mut Vec<Problem>,
     pub file: &'a Path,
+    pub layout: Layout,
 }
 
 impl Ctx<'_> {
@@ -56,9 +57,9 @@ impl Ctx<'_> {
     }
     /// Parses keys to send; user modifiers, gestures and pad buttons cannot be sent.
     pub fn output(&mut self, at: &str, s: &str) -> Option<KeySeq> {
-        let seq = self.ok(at, parse_seq(s, &[]))?;
+        let seq = self.ok(at, parse_seq(s, &[], self.layout))?;
         if let Some(c) = seq.0.iter().find(|c| matches!(c.key, Key::Gesture(..) | Key::Pad(_))) {
-            self.err(at, msg!("config.cannot_send", key = grapnel_keys::format_key(&c.key)));
+            self.err(at, msg!("config.cannot_send", key = grapnel_keys::format_key(&c.key, self.layout)));
             return None;
         }
         Some(seq)
@@ -74,6 +75,17 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         return Err(vec![Problem { file: None, at: String::new(), on_key: false, msg: msg!("config.no_files") }]);
     }
     let mut errors = Vec::new();
+    let (entry, raw) = &files[0];
+    let s = raw.settings.clone().unwrap_or_default();
+    let layout = match s.layout.as_deref().map(|n| (n, Layout::from_name(n))) {
+        None => Layout::default(),
+        Some((_, Some(l))) => l,
+        Some((name, None)) => {
+            let msg = msg!("config.unknown_layout", name = name);
+            errors.push(Problem { file: Some(entry.clone()), at: "settings.layout".into(), on_key: false, msg });
+            Layout::default()
+        }
+    };
     let mode = |name: &str, m: &RawMode| Mode {
         name: name.into(),
         block_unmapped: m.block_unmapped,
@@ -87,7 +99,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
     let mut raw_actions: Vec<(&Path, &str, &RawAction)> = Vec::new();
     let mut seen: HashMap<(&str, &str), &Path> = HashMap::new();
     for (i, (path, raw)) in files.iter().enumerate() {
-        let mut c = Ctx { errors: &mut errors, file: path };
+        let mut c = Ctx { errors: &mut errors, file: path, layout };
         if i > 0 && raw.settings.is_some() {
             c.err("settings", msg!("config.entry_only"));
         }
@@ -120,21 +132,21 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         errors.push(Problem { file: None, at: "modifiers".into(), on_key: false, msg });
         return Err(errors);
     }
-    let modifiers = compile_modifiers(&raw_mods, &mut errors);
-    let targets = compile_targets(&raw_targets, &target_ix, &mut errors);
-    let keyswap = compile_keyswap(files, &modifiers, &mut errors);
+    let modifiers = compile_modifiers(&raw_mods, layout, &mut errors);
+    let targets = compile_targets(&raw_targets, &target_ix, layout, &mut errors);
+    let keyswap = compile_keyswap(files, &modifiers, layout, &mut errors);
 
     let mut actions: Vec<Action> = raw_actions
         .iter()
         .map(|&(file, name, raw)| {
-            let mut c = Ctx { errors: &mut errors, file };
+            let mut c = Ctx { errors: &mut errors, file, layout };
             let impls = compile_action(&mut c, &format!("actions.{name}"), raw, &target_ix, &action_ix, &mode_ix);
             Action { name: name.to_string(), impls }
         })
         .collect();
 
     for (path, raw) in files {
-        let mut c = Ctx { errors: &mut errors, file: path };
+        let mut c = Ctx { errors: &mut errors, file: path, layout };
         for (name, m) in &raw.modes {
             let target = &mut modes[mode_ix[name]];
             if let Some(to) = &m.unmapped_to {
@@ -158,27 +170,25 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         locations: &mut locations,
     };
     for (path, raw) in files {
-        let mut c = Ctx { errors: &mut errors, file: path };
+        let mut c = Ctx { errors: &mut errors, file: path, layout };
         for (name, m) in &raw.modes {
             let at = format!("modes.{name}.keymap");
             walker.walk(&mut c, &m.keymap, &[], &at, &[mode_ix[name]]);
         }
     }
     for (path, raw) in files {
-        let mut c = Ctx { errors: &mut errors, file: path };
+        let mut c = Ctx { errors: &mut errors, file: path, layout };
         walker.walk(&mut c, &raw.keymap, &[], "keymap", &[]);
     }
     check_conflicts(&rules, &locations, &mut errors);
 
-    let (entry, raw) = &files[0];
-    let s = raw.settings.clone().unwrap_or_default();
-    let mut c = Ctx { errors: &mut errors, file: entry };
+    let mut c = Ctx { errors: &mut errors, file: entry, layout };
     let initial = s.initial_mode.as_deref().unwrap_or(DEFAULT_MODE);
     let settings = Settings {
         initial_mode: c.id("settings.initial_mode", Kind::Mode, &mode_ix, initial).unwrap_or(0),
         passthrough: c.ids("settings.passthrough", Kind::Target, &target_ix, &s.passthrough),
         suspend_hotkey: s.suspend_hotkey.as_ref().and_then(|h| {
-            let chord = c.ok("settings.suspend_hotkey", parse_chord(h, &[]))?;
+            let chord = c.ok("settings.suspend_hotkey", parse_chord(h, &[], layout))?;
             let ok = matches!(chord.key, Key::Vk(_)) && chord.key.real_mod().is_none();
             ok.then_some(chord).or_else(|| {
                 c.err("settings.suspend_hotkey", msg!("config.hotkey"));
@@ -187,6 +197,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         }),
         gesture_threshold: s.gesture_threshold.unwrap_or(30).max(1),
         language: s.language,
+        layout,
     };
     if errors.is_empty() {
         Ok(Config { settings, modes, modifiers, targets, keyswap, rules, prefixes, actions })
@@ -207,12 +218,12 @@ fn parse_real_mods(s: Option<&str>) -> Result<Mods, Msg> {
     })
 }
 
-pub(crate) fn rule_key_problem(keys: &KeySeq, mods: &[Modifier]) -> Option<Msg> {
+pub(crate) fn rule_key_problem(keys: &KeySeq, mods: &[Modifier], layout: Layout) -> Option<Msg> {
     if keys.0.is_empty() {
         return Some(msg!("config.empty_keys"));
     }
     keys.0.iter().find_map(|c| {
-        let name = grapnel_keys::format_key(&c.key);
+        let name = grapnel_keys::format_key(&c.key, layout);
         if c.key.real_mod().is_some() {
             Some(msg!("config.is_modifier", key = name))
         } else if mods.iter().any(|m| m.key == c.key) {
@@ -223,10 +234,10 @@ pub(crate) fn rule_key_problem(keys: &KeySeq, mods: &[Modifier]) -> Option<Msg> 
     })
 }
 
-fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Problem>) -> Vec<Modifier> {
+fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], layout: Layout, errors: &mut Vec<Problem>) -> Vec<Modifier> {
     let mut out = Vec::new();
     for &(file, name, m) in raw {
-        let mut c = Ctx { errors, file };
+        let mut c = Ctx { errors, file, layout };
         let at = format!("modifiers.{name}");
         let valid = name.starts_with(|ch: char| ch.is_ascii_alphabetic())
             && name.chars().all(|ch| ch.is_ascii_alphanumeric())
@@ -234,7 +245,7 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Probl
         if !valid {
             c.err_key(&at, msg!("config.modifier_name"));
         }
-        let key = c.ok(&format!("{at}.key"), parse_key(&m.key));
+        let key = c.ok(&format!("{at}.key"), parse_key(&m.key, layout));
         if key.as_ref().is_some_and(|k| k.real_mod().is_some() || matches!(k, Key::Wheel(_) | Key::Gesture(..))) {
             c.err(&format!("{at}.key"), msg!("config.modifier_key"));
         }
@@ -255,23 +266,24 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Probl
 fn compile_keyswap(
     files: &[(PathBuf, RawConfig)],
     mods: &[Modifier],
+    layout: Layout,
     errors: &mut Vec<Problem>,
 ) -> HashMap<(Key, bool), Chord> {
     let keyboard = |k: &Key| matches!(k, Key::Vk(_) | Key::Sc(_)) && k.real_mod().is_none();
     let mut out = HashMap::new();
     let mut seen: HashMap<(Key, bool), (&Path, String)> = HashMap::new();
     for (path, raw) in files {
-        let mut c = Ctx { errors, file: path };
+        let mut c = Ctx { errors, file: path, layout };
         for (from, to) in &raw.keyswap {
             let at = format!("keyswap.\"{from}\"");
-            let from = parse_chord(from, &[]).ok().filter(|f| {
+            let from = parse_chord(from, &[], layout).ok().filter(|f| {
                 matches!(f.mods, Mods::NONE | Mods::SHIFT) && keyboard(&f.key) && !mods.iter().any(|m| m.key == f.key)
             });
             let Some(from) = from else {
                 c.err_key(&at, msg!("config.keyswap_from"));
                 continue;
             };
-            let to = parse_seq(to, &[]).ok().and_then(|s| match s.0.as_slice() {
+            let to = parse_seq(to, &[], layout).ok().and_then(|s| match s.0.as_slice() {
                 [t] if keyboard(&t.key) => Some(t.clone()),
                 _ => None,
             });
@@ -291,10 +303,15 @@ fn compile_keyswap(
     out
 }
 
-fn compile_targets(raw: &[(&Path, &str, &RawTarget)], ix: &Names, errors: &mut Vec<Problem>) -> Vec<Target> {
+fn compile_targets(
+    raw: &[(&Path, &str, &RawTarget)],
+    ix: &Names,
+    layout: Layout,
+    errors: &mut Vec<Problem>,
+) -> Vec<Target> {
     let mut out = Vec::new();
     for &(file, name, t) in raw {
-        let mut c = Ctx { errors, file };
+        let mut c = Ctx { errors, file, layout };
         let at = format!("targets.{name}");
         // A path separator means "match the full path". In a regex that is an escaped `\\`,
         // so `re:^emacs\.exe$` still matches the file name.
@@ -349,14 +366,16 @@ fn reaches(ts: &[Target], from: TargetId, goal: TargetId, seen: &mut Vec<bool>) 
 pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, modes: &Names) -> Option<Step> {
     Some(match s {
         // A bare string calls the action of that name if there is one; `{ keys = ... }` is always keys.
-        RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: None },
+        RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: String::new() },
         RawStep::Short(k) | RawStep::Keys { keys: k } => Step::Keys(c.output(at, k)?),
         RawStep::Text { text } => Step::Text(text.clone()),
         RawStep::MouseMove { mouse_move: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: false },
         RawStep::MouseMoveTo { mouse_move_to: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: true },
         RawStep::Sleep { sleep } => Step::Sleep(*sleep),
         RawStep::Run { run, args } => Step::Run { program: run.clone(), args: args.clone() },
-        RawStep::Call { call, arg } => Step::Call { action: c.id(at, Kind::Action, actions, call)?, arg: arg.clone() },
+        RawStep::Call { call, arg } => {
+            Step::Call { action: c.id(at, Kind::Action, actions, call)?, arg: arg.clone().unwrap_or_default() }
+        }
         RawStep::Mode { mode } => Step::Mode(c.id(at, Kind::Mode, modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
         RawStep::Input { input, then, position } => {

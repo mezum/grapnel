@@ -46,7 +46,7 @@
   color: var(--fg);
   background: var(--bg);
 }
-body { margin: 0; background: var(--bg); }
+body { margin: 0; background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
 
 /* Controls */
 button, input, select { font: inherit; color: var(--fg); }
@@ -111,17 +111,28 @@ header {
   border-bottom: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
-header .brand { font-weight: 600; }
 header .files { flex: 1; min-width: 160px; font-family: Consolas, monospace; }
-button.icon { display: flex; padding: 4px; }
-button.icon svg { width: 20px; height: 20px; fill: currentColor; }
-header .lang { margin-left: 8px; }
 
-.content { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+.content { flex: 1; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Status bar */
+footer.statusbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 16px;
+  padding: 3px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+footer.statusbar .path { font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+footer.statusbar .message { margin-left: auto; color: var(--accent); }
+footer.statusbar .bad { color: var(--error); }
 
 /* Section tabs */
 nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.status { margin-left: auto; color: var(--accent); }
 nav.tabs { gap: 0; border-bottom: 1px solid var(--line); }
 nav.tabs button {
   background: none;

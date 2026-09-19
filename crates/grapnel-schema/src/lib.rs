@@ -43,6 +43,9 @@ pub struct RawSettings {
     /// Display language (`"ja"`, `"en"`, ...); unset follows Windows.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    /// Keyboard layout for symbol key names (`"jis"`, `"us"`, ...); unset is JIS.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -232,6 +235,7 @@ pub enum RawStep {
     },
     Call {
         call: String,
+        /// Argument for the called action; `{arg}` stands for the current one. Unset is empty.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         arg: Option<String>,
     },

@@ -3,6 +3,7 @@ language_name = "日本語"
 [tray]
 suspend = "一時停止"
 reload = "設定を再読み込み"
+rehook = "フックを設定し直す"
 settings = "設定ツールを開く"
 exit = "終了"
 suspended = " (一時停止中)"
@@ -39,7 +40,6 @@ more = "(他 %{count} 件)"
 
 [ui]
 title = "grapnel 設定"
-open = "開く…"
 file = "編集するファイル"
 save = "上書き保存"
 save_apply = "上書き保存して適用"
@@ -87,6 +87,14 @@ include = "include (glob 可)"
 delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"
 language = "language (表示言語)"
+layout = "layout (記号のキー名のキーボード配列)"
+
+[ui.layout]
+jis = "日本語 (JIS)"
+us = "英語 (US)"
+uk = "英語 (UK)"
+de = "ドイツ語"
+fr = "フランス語"
 
 [ui.name]
 mode = "モード名"
@@ -155,6 +163,7 @@ control = "常駐側への指示"
 input = "入力欄の表示"
 text_label = "text ({arg} で引数)"
 then = "then ({arg} = 入力値)"
+arg = "arg ({arg} で今の引数)"
 position = "position (入力欄の位置)"
 center = "中央"
 bottom = "画面下 (横幅いっぱい)"
@@ -170,10 +179,30 @@ add_target = "ターゲットを追加"
 add = "アクションを追加"
 
 [ui.theme]
-label = "テーマ: %{name} (クリックで切り替え)"
 auto = "自動"
 light = "ライト"
 dark = "ダーク"
+
+[ui.menu]
+file = "ファイル(&F)"
+open = "開く(&O)…"
+reload = "ディスクから読み直す(&R)"
+save = "上書き保存(&S)"
+save_apply = "上書き保存して適用(&A)"
+exit = "終了(&X)"
+view = "表示(&V)"
+theme = "テーマ(&T)"
+language = "言語(&L)"
+help = "ヘルプ(&H)"
+docs = "設定の書き方(&C)"
+about = "grapnel-settings について(&A)"
+about_text = "grapnel-settings %{version}\ngrapnel の設定ツール"
+
+[ui.bar]
+unsaved = "未保存の変更あり"
+errors = "エラー %{count} 件"
+running = "grapnel 起動中"
+not_running = "grapnel は起動していません"
 
 [keys]
 unknown = "'%{key}' というキーはありません"
@@ -186,6 +215,7 @@ entry_only = "最初の設定ファイルにだけ書けます"
 duplicate = "%{file} ですでに定義されています"
 too_many_modifiers = "修飾キーが多すぎます (%{count} 個、最大 %{max} 個)"
 unknown_mode = "'%{name}' というモードはありません"
+unknown_layout = "'%{name}' というキーボード配列はありません (jis, us, uk, de, fr のどれか)"
 unknown_target = "'%{name}' というターゲットはありません"
 unknown_action = "'%{name}' というアクションはありません"
 unknown_action_or_key = "'%{name}' というアクションまたはキーはありません"

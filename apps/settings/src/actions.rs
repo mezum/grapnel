@@ -143,8 +143,10 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             "call" => view! {
                 {text("call", p, |s| if let RawStep::Call { call, .. } = s { call.clone() } else { String::new() },
                     |s, x| if let RawStep::Call { call, .. } = s { *call = x })}
-                {opt_text("arg", &p.at(".arg"), |s| if let RawStep::Call { arg, .. } = s { arg.clone() } else { None },
-                    |s, x| if let RawStep::Call { arg, .. } = s { *arg = x }, || t!("ui.hint.none").into_owned())}
+                // Empty is an empty argument; the file leaves `arg` out for it.
+                {text(&t!("ui.step.arg"), &p.at(".arg"),
+                    |s| if let RawStep::Call { arg, .. } = s { arg.clone().unwrap_or_default() } else { String::new() },
+                    |s, x| if let RawStep::Call { arg, .. } = s { *arg = (!x.is_empty()).then_some(x) })}
             }
             .into_any(),
             "mode" => text(

@@ -5,6 +5,7 @@ language_name = "English"
 [tray]
 suspend = "Suspend"
 reload = "Reload settings"
+rehook = "Reinstall the input hooks"
 settings = "Open settings"
 exit = "Exit"
 suspended = " (suspended)"
@@ -41,7 +42,6 @@ more = "(%{count} more)"
 
 [ui]
 title = "grapnel settings"
-open = "Open…"
 file = "File to edit"
 save = "Save"
 save_apply = "Save and apply"
@@ -89,6 +89,14 @@ include = "include (glob allowed)"
 delete_settings = "Delete settings from this file"
 passthrough = "passthrough (targets)"
 language = "language (display language)"
+layout = "layout (keyboard layout of symbol key names)"
+
+[ui.layout]
+jis = "Japanese (JIS)"
+us = "English (US)"
+uk = "English (UK)"
+de = "German"
+fr = "French"
 
 [ui.name]
 mode = "Mode name"
@@ -157,6 +165,7 @@ control = "Control grapnel"
 input = "Show input box"
 text_label = "text ({arg} = argument)"
 then = "then ({arg} = the typed text)"
+arg = "arg ({arg} = the current argument)"
 position = "position (where the input box appears)"
 center = "Center"
 bottom = "Screen bottom (full width)"
@@ -172,10 +181,30 @@ add_target = "Add target"
 add = "Add action"
 
 [ui.theme]
-label = "Theme: %{name} (click to change)"
 auto = "Auto"
 light = "Light"
 dark = "Dark"
+
+[ui.menu]
+file = "&File"
+open = "&Open…"
+reload = "&Reload from disk"
+save = "&Save"
+save_apply = "Save and &apply"
+exit = "E&xit"
+view = "&View"
+theme = "&Theme"
+language = "&Language"
+help = "&Help"
+docs = "&Configuration reference"
+about = "&About grapnel-settings"
+about_text = "grapnel-settings %{version}\nSettings editor for grapnel."
+
+[ui.bar]
+unsaved = "Unsaved changes"
+errors = "%{count} error(s)"
+running = "grapnel is running"
+not_running = "grapnel is not running"
 
 [keys]
 unknown = "unknown key '%{key}'"
@@ -188,6 +217,7 @@ entry_only = "only allowed in the entry file"
 duplicate = "already defined in %{file}"
 too_many_modifiers = "too many modifiers (%{count} > %{max})"
 unknown_mode = "unknown mode '%{name}'"
+unknown_layout = "unknown keyboard layout '%{name}' (use jis, us, uk, de or fr)"
 unknown_target = "unknown target '%{name}'"
 unknown_action = "unknown action '%{name}'"
 unknown_action_or_key = "unknown action or key '%{name}'"

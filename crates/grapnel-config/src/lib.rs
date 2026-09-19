@@ -44,6 +44,8 @@ pub struct Settings {
     pub suspend_hotkey: Option<Chord>,
     pub gesture_threshold: u32,
     pub language: Option<String>,
+    /// Layout that symbol key names are resolved against.
+    pub layout: grapnel_keys::Layout,
 }
 
 #[derive(Clone, Debug)]
@@ -127,13 +129,28 @@ pub struct ActionImpl {
 pub enum Step {
     Keys(KeySeq),
     Text(String),
-    MouseMove { x: i32, y: i32, absolute: bool },
+    MouseMove {
+        x: i32,
+        y: i32,
+        absolute: bool,
+    },
     Sleep(u32),
-    Run { program: String, args: Vec<String> },
-    Call { action: ActionId, arg: Option<String> },
+    Run {
+        program: String,
+        args: Vec<String>,
+    },
+    /// `arg` is the argument to pass; `{arg}` in it stands for the current one (empty by default).
+    Call {
+        action: ActionId,
+        arg: String,
+    },
     Mode(ModeId),
     Control(ControlCmd),
-    Input { prompt: String, then: Then, position: InputPosition },
+    Input {
+        prompt: String,
+        then: Then,
+        position: InputPosition,
+    },
 }
 
 /// What an input box does with the confirmed text.

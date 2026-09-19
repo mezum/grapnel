@@ -43,10 +43,12 @@ const MENU_SUSPEND: u32 = 1;
 const MENU_RELOAD: u32 = 2;
 const MENU_SETTINGS: u32 = 3;
 const MENU_EXIT: u32 = 4;
+const MENU_REHOOK: u32 = 5;
 
 static MAIN: AtomicIsize = AtomicIsize::new(0);
 
 /// Work handed to the main thread from hooks, workers and other threads.
+#[allow(clippy::large_enum_variant, reason = "a few messages per second at most; boxing buys nothing")]
 pub enum Msg {
     Pipe(String),
     Pad(Event),
@@ -115,6 +117,7 @@ fn tray_menu() {
     let items = [
         (MENU_SUSPEND, t!("tray.suspend"), suspended),
         (MENU_RELOAD, t!("tray.reload"), false),
+        (MENU_REHOOK, t!("tray.rehook"), false),
         (MENU_SETTINGS, t!("tray.settings"), false),
         (MENU_EXIT, t!("tray.exit"), false),
     ];
@@ -122,6 +125,7 @@ fn tray_menu() {
     match tray::menu(hwnd, &items) {
         Some(MENU_SUSPEND) => drop(with_app(App::toggle_suspend)),
         Some(MENU_RELOAD) => drop(with_app(App::reload)),
+        Some(MENU_REHOOK) => drop(with_app(App::rehook)),
         Some(MENU_SETTINGS) => open_settings(),
         Some(MENU_EXIT) => unsafe { PostQuitMessage(0) },
         _ => {}

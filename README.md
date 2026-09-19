@@ -43,7 +43,7 @@ grapnel.exe suspend                           # 一時停止を切り替え
 grapnel.exe exit                              # 終了
 ```
 
-トレイアイコンのメニューから、一時停止・再読み込み・設定ツールの起動・終了ができます。
+トレイアイコンのメニューから、一時停止・再読み込み・フックの設定し直し・設定ツールの起動・終了ができます。Windows がフックを外してしまい変換が効かなくなったときは、「フックを設定し直す」を選んでください。
 設定ツールは `grapnel.exe` と同じフォルダに `grapnel-settings.exe` を置くと、メニューから開けます。
 
 最小の設定例:
@@ -57,7 +57,16 @@ key = "Muhenkan"          # 無変換: 単独なら無変換、押しながら�
 "C-x C-s" = "C-s"         # 続けて押すキー列 (C-x を押してから C-s)
 ```
 
-書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を、F19 を macOS の Cmd キーのように使う例は [examples/mac-cmd.toml](examples/mac-cmd.toml) を、Vim 風のモード (normal / input / visual / command / search) の例は [examples/vim.toml](examples/vim.toml) を、JIS 配列のキーボードを AX 配列として使う例 (keyswap。他の設定と一緒に include すると、キーバインドも AX 配列の記号の位置で働く) は [examples/ax.toml](examples/ax.toml) を参照してください。ax.toml 以外は共通のアクションを [examples/default-actions.toml](examples/default-actions.toml) から読み込みます。
+記号のキー名 (`;` や `$` など) は既定で JIS 配列として読みます。US・UK・ドイツ語・フランス語の配列では `[settings]` に `layout = "us"` (`"uk"`、`"de"`、`"fr"`) を書いてください。
+
+書き方の詳細は [仕様書](docs/spec.md) を参照してください。設定例:
+
+- [examples/emacs.toml](examples/emacs.toml): Emacs 風キーバインド
+- [examples/mac-cmd.toml](examples/mac-cmd.toml): F19 を macOS の Cmd キーのように使う
+- [examples/vim.toml](examples/vim.toml): Vim 風のモード (normal / input / visual / command / search)
+- [examples/ax.toml](examples/ax.toml): JIS 配列のキーボードを AX 配列として使う (`layout` は JIS のまま。keyswap。他の設定と一緒に include すると、キーバインドも AX 配列の記号の位置で働く)
+
+ax.toml 以外は共通のアクションを [examples/default-actions.toml](examples/default-actions.toml) から読み込みます。
 
 ## 制限
 

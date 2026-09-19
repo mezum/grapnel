@@ -2,9 +2,11 @@
 
 rust_i18n::i18n!("../../locales", fallback = "en");
 
+mod layouts;
 mod msg;
 mod names;
 
+pub use layouts::Layout;
 pub use msg::Msg;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -140,7 +142,7 @@ pub struct KeySeq(pub Vec<Chord>);
 const REAL_NAMES: [(&str, Mods); 4] = [("C", Mods::CTRL), ("M", Mods::ALT), ("S", Mods::SHIFT), ("W", Mods::WIN)];
 
 /// Parses one key name, including gestures (`RButton:UL`).
-pub fn parse_key(s: &str) -> Result<Key, Msg> {
+pub fn parse_key(s: &str, layout: Layout) -> Result<Key, Msg> {
     if let Some((btn, dirs)) = s.split_once(':')
         && let Some(&(_, b)) = names::MOUSE.iter().find(|(n, _)| n.eq_ignore_ascii_case(btn))
     {
@@ -159,11 +161,11 @@ pub fn parse_key(s: &str) -> Result<Key, Msg> {
         }
         return Ok(Key::Gesture(b, dirs));
     }
-    names::lookup(s).ok_or_else(|| msg!("keys.unknown", key = s))
+    names::lookup(s, layout).ok_or_else(|| msg!("keys.unknown", key = s))
 }
 
 /// Parses a chord such as `C-S-x` or `Mu-j`. `user` lists user modifier names by bit index.
-pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, Msg> {
+pub fn parse_chord(s: &str, user: &[&str], layout: Layout) -> Result<Chord, Msg> {
     let mut mods = Mods::NONE;
     let mut rest = s;
     while let Some(i) = rest.find('-').filter(|&i| i > 0 && i + 1 < rest.len()) {
@@ -177,24 +179,24 @@ pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, Msg> {
         mods = mods | m;
         rest = &rest[i + 1..];
     }
-    if let Some((_, key)) = names::SHIFTED.iter().find(|(n, _)| *n == rest) {
-        return Ok(Chord { mods: mods | Mods::SHIFT, key: key.clone() });
+    if let Some((key, true)) = names::symbol_key(rest, layout) {
+        return Ok(Chord { mods: mods | Mods::SHIFT, key });
     }
-    Ok(Chord { mods, key: parse_key(rest)? })
+    Ok(Chord { mods, key: parse_key(rest, layout)? })
 }
 
 /// Parses a space-separated key sequence. An empty string yields an empty sequence.
-pub fn parse_seq(s: &str, user: &[&str]) -> Result<KeySeq, Msg> {
-    s.split_whitespace().map(|c| parse_chord(c, user)).collect::<Result<_, _>>().map(KeySeq)
+pub fn parse_seq(s: &str, user: &[&str], layout: Layout) -> Result<KeySeq, Msg> {
+    s.split_whitespace().map(|c| parse_chord(c, user, layout)).collect::<Result<_, _>>().map(KeySeq)
 }
 
-pub fn format_key(key: &Key) -> String {
-    names::name(key)
+pub fn format_key(key: &Key, layout: Layout) -> String {
+    names::name(key, layout)
 }
 
 /// Symbols typed with Shift are written as the symbol (`S-4` → `$`).
-pub fn format_chord(chord: &Chord, user: &[&str]) -> String {
-    let shifted = names::SHIFTED.iter().find(|(_, k)| *k == chord.key).filter(|_| chord.mods.contains(Mods::SHIFT));
+pub fn format_chord(chord: &Chord, user: &[&str], layout: Layout) -> String {
+    let shifted = chord.mods.contains(Mods::SHIFT).then(|| names::symbol(&chord.key, true, layout)).flatten();
     let mut out = String::new();
     for (n, m) in REAL_NAMES {
         if chord.mods.contains(m) && !(shifted.is_some() && m == Mods::SHIFT) {
@@ -209,13 +211,13 @@ pub fn format_chord(chord: &Chord, user: &[&str]) -> String {
         }
     }
     match shifted {
-        Some((symbol, _)) => out + symbol,
-        None => out + &format_key(&chord.key),
+        Some(symbol) => out + symbol,
+        None => out + &format_key(&chord.key, layout),
     }
 }
 
-pub fn format_seq(seq: &KeySeq, user: &[&str]) -> String {
-    seq.0.iter().map(|c| format_chord(c, user)).collect::<Vec<_>>().join(" ")
+pub fn format_seq(seq: &KeySeq, user: &[&str], layout: Layout) -> String {
+    seq.0.iter().map(|c| format_chord(c, user, layout)).collect::<Vec<_>>().join(" ")
 }
 
 #[cfg(test)]

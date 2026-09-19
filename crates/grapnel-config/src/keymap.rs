@@ -29,7 +29,7 @@ impl Walker<'_> {
         }
         for (key, binding) in &node.children {
             let at = format!("{at}.\"{key}\"");
-            let chords = match parse_seq(key, self.user) {
+            let chords = match parse_seq(key, self.user, c.layout) {
                 Ok(s) if s.0.is_empty() => {
                     c.err_key(&at, msg!("config.empty_keys"));
                     continue;
@@ -70,7 +70,7 @@ impl Walker<'_> {
         if let Some(&id) = self.named.get(s) {
             return Some(id);
         }
-        if parse_seq(s, &[]).is_err() {
+        if parse_seq(s, &[], c.layout).is_err() {
             c.err(at, msg!("config.unknown_action_or_key", name = s));
             return None;
         }
@@ -93,7 +93,7 @@ impl Walker<'_> {
         l: Option<&RawLeaf>,
     ) {
         let keys = KeySeq(keys);
-        if let Some(problem) = rule_key_problem(&keys, self.modifiers) {
+        if let Some(problem) = rule_key_problem(&keys, self.modifiers, c.layout) {
             c.err_key(at, problem);
         }
         let keep_mods = l.is_some_and(|l| l.keep_mods);

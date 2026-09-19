@@ -19,7 +19,7 @@ fn errs(list: &[(&str, &str)]) -> String {
 }
 
 fn seq(s: &str, user: &[&str]) -> KeySeq {
-    parse_seq(s, user).unwrap()
+    parse_seq(s, user, Default::default()).unwrap()
 }
 
 const BASE: &str = r#"
@@ -63,7 +63,7 @@ fn compiles_base() {
     let down = &c.actions[c.action_id("down").unwrap()];
     assert_eq!(down.impls.len(), 2);
     assert_eq!(down.impls[0].when, [0]);
-    assert_eq!(down.impls[0].steps[1], Step::Call { action: 0, arg: None });
+    assert_eq!(down.impls[0].steps[1], Step::Call { action: 0, arg: String::new() });
     assert_eq!(down.impls[1].when, [] as [usize; 0]);
 }
 
@@ -319,14 +319,17 @@ fn step_strings_call_actions_when_named() {
     let c = ok("[keymap]\na = [\"undo\", \"C-s\", { keys = \"C-z\" }]\n[actions]\nundo = \"C-z\"\nundo2 = \"undo\"");
     let undo = c.action_id("undo").unwrap();
     let steps = &c.actions[c.rules[0].action].impls[0].steps;
-    assert_eq!(steps[0], Step::Call { action: undo, arg: None });
+    assert_eq!(steps[0], Step::Call { action: undo, arg: String::new() });
     assert_eq!(steps[1], Step::Keys(seq("C-s", &[])));
     // `{ keys = ... }` always means keys.
     assert!(
         errs(&[("m", "[keymap]\na = [{ keys = \"undo\" }]\n[actions]\nundo = \"C-z\"")]).contains("unknown key 'undo'")
     );
     // An action's own string may name another action.
-    assert_eq!(c.actions[c.action_id("undo2").unwrap()].impls[0].steps, [Step::Call { action: undo, arg: None }]);
+    assert_eq!(
+        c.actions[c.action_id("undo2").unwrap()].impls[0].steps,
+        [Step::Call { action: undo, arg: String::new() }]
+    );
 }
 
 #[test]
@@ -408,4 +411,18 @@ fn keyswap_compiles_and_checks_keys() {
     assert!(e.contains("keyswap.\"Muhenkan\""), "{e}");
     assert!(e.contains("keyswap.\"x\""), "{e}");
     assert!(e.contains("b.toml: keyswap.\"S-4\""), "{e}");
+}
+
+#[test]
+fn layout_resolves_symbol_names() {
+    let c = ok("[settings]\nlayout = \"us\"\n[keymap]\n\";\" = \"@\"\n[keyswap]\n\"'\" = \"S-;\"");
+    assert_eq!(c.rules[0].keys.0[0].key, Key::Vk(0xBA));
+    // `@` is S-2 on US.
+    let at_sign = KeySeq(vec![grapnel_keys::Chord { mods: Mods::SHIFT, key: Key::Vk(b'2') }]);
+    assert!(matches!(&c.actions[c.rules[0].action].impls[0].steps[..], [Step::Keys(k)] if *k == at_sign));
+    assert_eq!(c.keyswap[&(Key::Vk(0xDE), false)].key, Key::Vk(0xBA));
+    // JIS stays the default.
+    assert_eq!(ok("[keymap]\n\";\" = \"a\"").rules[0].keys.0[0].key, Key::Vk(0xBB));
+    let e = errs(&[("main.toml", "[settings]\nlayout = \"dvorak\"")]);
+    assert!(e.contains("settings.layout") && e.contains("dvorak"), "{e}");
 }

@@ -43,7 +43,7 @@ grapnel.exe suspend                           # toggle suspend
 grapnel.exe exit                              # exit
 ```
 
-The tray icon menu lets you suspend, reload, open the settings tool, and exit.
+The tray icon menu lets you suspend, reload, reinstall the input hooks, open the settings tool, and exit. If Windows has dropped the hooks and remapping stopped working, choose "Reinstall the input hooks".
 Place `grapnel-settings.exe` in the same folder as `grapnel.exe` to open it from the menu.
 
 A minimal config:
@@ -57,7 +57,16 @@ key = "Muhenkan"          # Muhenkan: Muhenkan when tapped, a modifier when held
 "C-x C-s" = "C-s"         # key sequence (press C-x, then C-s)
 ```
 
-See the [specification](docs/spec.md) for details. Examples: Emacs-style key bindings in [examples/emacs.toml](examples/emacs.toml), using F19 like the macOS Cmd key in [examples/mac-cmd.toml](examples/mac-cmd.toml), Vim-style modes (normal / input / visual / command / search) in [examples/vim.toml](examples/vim.toml), and using a JIS keyboard as the AX layout in [examples/ax.toml](examples/ax.toml) (keyswap; when included together with other configs, key bindings also follow the positions of the AX layout's symbols). All but ax.toml load shared actions from [examples/default-actions.toml](examples/default-actions.toml).
+Symbol key names (such as `;` and `$`) are read as the Japanese JIS layout by default. On a US, UK, German or French layout, set `layout = "us"` (`"uk"`, `"de"`, `"fr"`) under `[settings]`.
+
+See the [specification](docs/spec.md) for details. Examples:
+
+- [examples/emacs.toml](examples/emacs.toml): Emacs-style key bindings
+- [examples/mac-cmd.toml](examples/mac-cmd.toml): using F19 like the macOS Cmd key
+- [examples/vim.toml](examples/vim.toml): Vim-style modes (normal / input / visual / command / search)
+- [examples/ax.toml](examples/ax.toml): using a JIS keyboard as the AX layout (keep `layout` as JIS; keyswap; when included together with other configs, key bindings also follow the positions of the AX layout's symbols)
+
+All but ax.toml load shared actions from [examples/default-actions.toml](examples/default-actions.toml).
 
 ## Limitations
 

@@ -85,6 +85,11 @@ fn language_options() -> Options {
     std::iter::once(("".into(), t!("ui.language_auto"))).chain(own).collect()
 }
 
+/// Keyboard layouts; JIS is the default, so choosing it removes the setting.
+fn layout_options() -> Options {
+    grapnel_keys::Layout::ALL.iter().map(|l| (l.name().into(), t!(format!("ui.layout.{}", l.name())))).collect()
+}
+
 pub fn imports() -> impl IntoView {
     let top = Place::<RawConfig>::new(store(), "", |c| Some(c), |c| Some(c));
     view! {
@@ -118,6 +123,9 @@ pub fn others() -> impl IntoView {
                 {select(&t!("ui.general.language"), &s, language_options(),
                     |s| s.language.clone().unwrap_or_default(),
                     |s, x| s.language = (!x.is_empty()).then_some(x))}
+                {select(&t!("ui.general.layout"), &s, layout_options(),
+                    |s| s.layout.clone().unwrap_or_else(|| "jis".into()),
+                    |s, x| s.layout = (x != "jis").then_some(x))}
             </Show>
         </section>
     }

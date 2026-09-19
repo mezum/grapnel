@@ -27,7 +27,7 @@ pub fn t_file(path: &std::path::Path) -> T {
 }
 
 pub fn k(s: &str) -> Key {
-    parse_key(s).unwrap()
+    parse_key(s, Default::default()).unwrap()
 }
 
 /// `"+a -a +LCtrl"` → key commands.
