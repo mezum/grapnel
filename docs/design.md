@@ -121,7 +121,7 @@ impl Engine {
 | `hook` | LL フックの設置/解除。コールバックで `Event` に変換してスレッドローカルのハンドラを呼び、戻り値で握りつぶす。`dwExtraInfo` が自分の印 (`INJECT_TAG`) なら素通し |
 | `send` | `Command::Key/Text/MouseMove` を `INPUT` 配列に変換して `SendInput`。変換部は純粋関数でテストする |
 | `window` | `SetWinEventHook` (前面切替・タイトル変更・フォーカス) の通知と、前面ウインドウの `WindowInfo` 取得 |
-| `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する |
+| `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する。問い合わせには番号を振り、最新の問い合わせへの答えでない結果は使わない (前面やフォーカスが変わると、答えが届くまでは UIA の項目を空にする) |
 | `tray` | `Shell_NotifyIconW`、バルーン、メニュー (メニューはモーダルループを回すので自由関数) |
 | `toast` | モニターの左下に短いメッセージを出す (Emacs のエコーエリア風)。フォーカスを奪わず、クリックを透過し、タイマーで消える。`Command::Notice` と実行中のエラーの表示に使う |
 | `inputbox` | Edit を 1 つ持つポップアップ。Enter で確定、Esc で取消。前面化は Alt の注入でロックを外す (`AttachThreadInput` は相手のハングに巻き込まれるので使わない)。閉じたら元の前面ウインドウに戻す |
