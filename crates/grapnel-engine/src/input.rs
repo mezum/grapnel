@@ -30,6 +30,18 @@ impl Engine {
         user.fold(real, |a, (i, _)| a | Mods::user(i))
     }
 
+    /// The chord `[keyswap]` turns `key` into with the modifiers held now, if it swaps it.
+    fn swapped(&self, key: &Key) -> Option<Chord> {
+        let mods = self.current_mods();
+        let to = self.cfg.keyswap.get(&(key.clone(), mods.contains(Mods::SHIFT)))?;
+        Some(Chord { mods: Mods(mods.0 & !Mods::SHIFT.0) | to.mods, key: to.key.clone() })
+    }
+
+    /// The chord `key` makes with the modifiers held now, as the keymap sees it.
+    fn chord_of(&self, key: &Key) -> Chord {
+        self.swapped(key).unwrap_or_else(|| Chord { mods: self.current_mods(), key: key.clone() })
+    }
+
     pub(crate) fn on_down(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
         let instant = matches!(key, Key::Wheel(_) | Key::Gesture(..));
         let repeat = !instant && !self.down.insert(key.clone());
@@ -209,8 +221,18 @@ impl Engine {
         Reaction { consume: r.consume, commands: out }
     }
 
-    /// Injects `key` down and passes it through until released.
+    /// Injects `key` down and passes it through until released. A swapped key is held as the
+    /// chord it stands for instead.
     pub(crate) fn inject_pass(&mut self, key: Key, out: &mut Vec<Command>) {
+        if let Some(to) = self.swapped(&key) {
+            // Shift is the swap's; other modifiers stay as the OS sees them (see `restore`).
+            let (lifted, kept) = self.real_kept.unwrap_or_default();
+            let others = (to.mods.real().0 & !lifted.0) | self.emulated_mods().0 | kept.0;
+            self.press_mods(Mods(others & !Mods::SHIFT.0 | to.mods.0 & Mods::SHIFT.0), out);
+            out.push(Command::Key { key: to.key.clone(), down: true });
+            self.active.insert(key, Active::Hold(to));
+            return;
+        }
         if !matches!(key, Key::Gesture(..)) {
             out.push(Command::Key { key: key.clone(), down: true });
         }
@@ -220,12 +242,12 @@ impl Engine {
     }
 
     /// In a `count` mode, a plain digit before any chord adds to the count (`0` only continues one).
-    fn take_digit(&mut self, key: &Key) -> Option<Reaction> {
-        let Key::Vk(vk @ 0x30..=0x39) = *key else { return None };
+    fn take_digit(&mut self, key: &Key, chord: &Chord) -> Option<Reaction> {
+        let Key::Vk(vk @ 0x30..=0x39) = chord.key else { return None };
         let digit = (vk - 0x30) as u32;
         let wanted = self.cfg.modes[self.mode].count
             && self.pending.is_none()
-            && self.current_mods() == Mods::NONE
+            && chord.mods == Mods::NONE
             && (digit > 0 || self.count.is_some());
         if !wanted {
             return None;
@@ -238,10 +260,10 @@ impl Engine {
     }
 
     fn match_fresh(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
-        if let Some(r) = self.take_digit(&key) {
+        let chord = self.chord_of(&key);
+        if let Some(r) = self.take_digit(&key, &chord) {
             return r;
         }
-        let chord = Chord { mods: self.current_mods(), key: key.clone() };
         let mut seq = self.pending.as_ref().map(|p| p.chords.clone()).unwrap_or_default();
         seq.push(chord);
         let rules = &self.cfg.rules;
@@ -255,6 +277,11 @@ impl Engine {
             let has_impl =
                 self.cfg.actions[rule.action].impls.iter().any(|m| any_matches(&self.cfg.targets, &m.when, win));
             if seq.len() == 1 && rule.fallback.is_none() && !has_impl {
+                if self.swapped(&key).is_some() {
+                    let mut out = vec![];
+                    self.inject_pass(key, &mut out);
+                    return consumed(out);
+                }
                 if !instant {
                     self.passing.insert(key);
                 }
@@ -297,6 +324,18 @@ impl Engine {
         }
         if block {
             self.swallowed.insert(key);
+            return consumed(commands);
+        }
+        // A key still held may have changed the modifiers (a swap lifting Shift): undo that
+        // before this key, as a keyboard would.
+        let mut fix = vec![];
+        if self.swapped(&key).is_none() {
+            self.restore(&mut fix);
+        }
+        if self.swapped(&key).is_some() || !fix.is_empty() {
+            commands.append(&mut fix);
+            self.inject_pass(key, &mut commands);
+            return consumed(commands);
         }
         Reaction { consume: block, commands }
     }
@@ -307,7 +346,7 @@ impl Engine {
         let mut keys = grapnel_keys::format_seq(&KeySeq(pending.to_vec()), &names);
         match current {
             Some(k) => {
-                let chord = Chord { mods: self.current_mods(), key: k.clone() };
+                let chord = self.chord_of(k);
                 keys = format!("{keys} {}", grapnel_keys::format_chord(&chord, &names));
                 Command::Notice(Notice::Undefined(keys))
             }

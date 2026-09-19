@@ -183,11 +183,12 @@ impl Config {
         self.actions.iter().position(|a| a.name == name)
     }
 
-    /// Scan codes that rules or modifiers listen for; the hook reports these as `Key::Sc`.
+    /// Scan codes that rules, modifiers or keyswap listen for; the hook reports these as `Key::Sc`.
     pub fn scancodes(&self) -> Vec<u16> {
         let rule_keys = self.rules.iter().flat_map(|r| r.keys.0.iter().map(|c| &c.key));
         let mut v: Vec<u16> = rule_keys
             .chain(self.modifiers.iter().map(|m| &m.key))
+            .chain(self.keyswap.keys().map(|(k, _)| k))
             .filter_map(|k| match k {
                 Key::Sc(s) => Some(*s),
                 _ => None,

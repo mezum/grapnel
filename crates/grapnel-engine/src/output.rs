@@ -210,7 +210,7 @@ impl Engine {
     }
 
     /// Makes the OS modifier state equal `want` (real modifiers only).
-    fn press_mods(&mut self, want: Mods, out: &mut Vec<Command>) {
+    pub(crate) fn press_mods(&mut self, want: Mods, out: &mut Vec<Command>) {
         for (m, left) in REAL {
             let held: Vec<Key> = self.os_mods.iter().filter(|k| k.real_mod() == Some(m)).cloned().collect();
             if want.contains(m) && held.is_empty() {
