@@ -212,14 +212,27 @@ impl App {
             self.engine.sync_modifiers(&held_modifiers());
             log::debug!("hooks installed");
         } else if !want && self.hooks.is_some() {
-            self.exec.cancel();
-            let cmds = self.engine.reset();
-            self.exec.run(cmds);
-            self.hooks = None;
+            self.unhook();
             log::debug!("hooks removed");
         }
         PAD_ENABLED.store(self.hooks.is_some(), Ordering::Relaxed);
         crate::set_tray_state(&self.tooltip(), self.suspended);
+    }
+
+    /// Releases everything the engine holds and removes the hooks.
+    fn unhook(&mut self) {
+        self.exec.cancel();
+        let cmds = self.engine.reset();
+        self.exec.run(cmds);
+        self.hooks = None;
+    }
+
+    /// Installs the hooks again, for when Windows has removed them silently (it does that when a
+    /// callback takes longer than `LowLevelHooksTimeout`) and remapping has stopped.
+    pub fn rehook(&mut self) {
+        log::info!("reinstalling the hooks");
+        self.unhook();
+        self.update_hooks();
     }
 
     pub fn toggle_suspend(&mut self) {

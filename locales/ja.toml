@@ -3,6 +3,7 @@ language_name = "日本語"
 [tray]
 suspend = "一時停止"
 reload = "設定を再読み込み"
+rehook = "フックを設定し直す"
 settings = "設定ツールを開く"
 exit = "終了"
 suspended = " (一時停止中)"

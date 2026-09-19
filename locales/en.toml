@@ -5,6 +5,7 @@ language_name = "English"
 [tray]
 suspend = "Suspend"
 reload = "Reload settings"
+rehook = "Reinstall the input hooks"
 settings = "Open settings"
 exit = "Exit"
 suspended = " (suspended)"

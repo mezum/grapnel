@@ -141,6 +141,7 @@ impl Engine {
 - 一時停止のホットキーは、ルールやモードに握りつぶされないようフックの段階で素通しにする。
 - タイマー: `Engine::next_deadline` から `SetTimer` を張り直す。
 - パススルー: 前面の変化 (UIA を使う設定では UIA の結果が届いた時点) で `settings.passthrough` を評価し、入ったら `Engine::reset` → フック解除、出たらフック再設置 → `GetAsyncKeyState` で修飾キーを同期。
+- フックの復帰: Windows はコールバックが `LowLevelHooksTimeout` を超えたフックを黙って外す。監視や自動復帰はせず、トレイメニューの「フックを設定し直す」で `Engine::reset` → フック解除 → 設置し直す。
 - 再読み込み: 読み込みとコンパイルはワーカースレッドで行い、結果をキューで受け取る。成功したら新しいエンジンに差し替えて修飾キーを同期し、失敗したらバルーンで知らせて旧設定を維持する。
 - ログ: `log` crate。デバッグでは stdout、リリースでは `%LOCALAPPDATA%\grapnel\grapnel.log` へ書く。exe 自身のエラーは `report!` で左下のトーストに、ライブラリ crate が `log::error!` したものは「エラー:」の見出しを付けて英語の詳細のままトーストに出す (設定の再読み込み結果はバルーン)。
 - 起動引数: `--config <path>`。`grapnel reload|suspend|exit` で起動中のインスタンスをパイプ経由で操作する。
