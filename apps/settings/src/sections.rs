@@ -6,13 +6,12 @@ use crate::keymap::node_editor;
 use grapnel_schema::*;
 use leptos::prelude::*;
 use rust_i18n::t;
-use std::collections::BTreeMap;
 
 fn store() -> Store {
     use_context::<Store>().expect("store")
 }
 
-type MapOf<V> = fn(&mut RawConfig) -> &mut BTreeMap<String, V>;
+type MapOf<V> = fn(&mut RawConfig) -> &mut IndexMap<String, V>;
 
 /// Name input (renames on change) and a delete button for a map entry.
 pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: MapOf<V>) -> impl IntoView {
@@ -27,16 +26,7 @@ pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: Ma
         let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
         let new = input.value();
         let mut ok = false;
-        store.edit(|c| {
-            let m = map(c);
-            if !new.is_empty()
-                && !m.contains_key(&new)
-                && let Some(v) = m.remove(&old)
-            {
-                m.insert(new, v);
-                ok = true;
-            }
-        });
+        store.edit(|c| ok = rename_key(map(c), &old, &new));
         if !ok {
             input.set_value(&old); // empty or taken name: keep the old one
         }
@@ -47,22 +37,24 @@ pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: Ma
             <div class="name">
                 <input prop:value=name on:change=rename aria-label=label
                     class:invalid=move || store.problem(&at, true).is_some() title=move || store.problem(&why, true) />
-                <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
+                <button class="del" on:click=move |_| store.edit(|c| drop(map(c).shift_remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
             </div>
         </div>
         <div class="break"></div>
     }
 }
 
-/// Lists a map section with one row per entry and an add button.
+/// Lists a map section with one reorderable row per entry and an add button.
 fn map_section<V: Default + 'static, R: IntoView + 'static>(
     section: &'static str,
     base: &'static str,
-    names: fn(&RawConfig) -> Vec<String>,
+    get: fn(&RawConfig) -> &IndexMap<String, V>,
     map: MapOf<V>,
     row: fn(Store, String) -> R,
 ) -> impl IntoView {
     let store = store();
+    let p = Place::new(store, section, move |c| Some(get(c)), move |c| Some(map(c)));
+    let drag = RwSignal::new(None);
     let add = move |_| {
         store.edit(|c| {
             let m = map(c);
@@ -72,8 +64,12 @@ fn map_section<V: Default + 'static, R: IntoView + 'static>(
     };
     view! {
         <section>
-            <For each=move || store.read(names) key=|n| n.clone() let:name>
-                <div class="row">{name_field(store, section, name.clone(), map)}{row(store, name)}</div>
+            <For each=move || store.read(|c| get(c).keys().cloned().collect::<Vec<_>>()) key=|n| n.clone() let:name>
+                {
+                    let key = name.clone();
+                    let body = view! { {name_field(store, section, name.clone(), map)}{row(store, name)} };
+                    sortable(&p, drag, move |m| m.get_index_of(&key), IndexMap::len, IndexMap::move_index, "row", body)
+                }
             </For>
             <button class="add" on:click=add>{t!("ui.add")}</button>
         </section>
@@ -131,7 +127,7 @@ pub fn modes() -> impl IntoView {
     map_section(
         "modes",
         "mode",
-        |c| c.modes.keys().cloned().collect(),
+        |c| &c.modes,
         |c| &mut c.modes,
         |store, name| {
             let (a, b) = (name.clone(), name);
@@ -157,7 +153,7 @@ pub fn modifiers() -> impl IntoView {
     map_section(
         "modifiers",
         "Mod",
-        |c| c.modifiers.keys().cloned().collect(),
+        |c| &c.modifiers,
         |c| &mut c.modifiers,
         |store, name| {
             let (a, b) = (name.clone(), name);
@@ -185,7 +181,7 @@ pub fn targets() -> impl IntoView {
     map_section(
         "targets",
         "target",
-        |c| c.targets.keys().cloned().collect(),
+        |c| &c.targets,
         |c| &mut c.targets,
         |store, name| {
             let (a, b) = (name.clone(), name);
@@ -220,10 +216,11 @@ pub fn keymap() -> impl IntoView {
 pub fn keyswap() -> impl IntoView {
     let p = Place::<IndexMap<String, String>>::new(store(), "keyswap", |c| Some(&c.keyswap), |c| Some(&mut c.keyswap));
     let (list, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
     let row = move |key: String| {
         let (a, b) = (key.clone(), key.clone());
         let vp = p.map(&format!(".\"{key}\""), move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del, old) = (p.clone(), p.clone(), key.clone(), key.clone());
+        let (r, d, del, old, pos) = (p.clone(), p.clone(), key.clone(), key.clone(), key.clone());
         let (bad, why) = (vp.clone(), vp.clone());
         // Renames on change; an empty or taken key puts the old one back.
         let rename = move |ev: leptos::ev::Event| {
@@ -234,18 +231,17 @@ pub fn keyswap() -> impl IntoView {
                 input.set_value(&old);
             }
         };
-        view! {
-            <div class="row swap">
-                <label class="field">
-                    <span>{t!("ui.keyswap.from")}</span>
-                    <input prop:value=key on:change=rename
-                        class:invalid=move || bad.key_problem().is_some() title=move || why.key_problem() />
-                </label>
-                {keys(&t!("ui.keyswap.to"), &vp, |v| v.clone(), |v, x| *v = x, false)}
-                <button class="del" on:click=move |_| d.edit(|m| drop(m.shift_remove(&del)))
-                    title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
-            </div>
-        }
+        let body = view! {
+            <label class="field">
+                <span>{t!("ui.keyswap.from")}</span>
+                <input prop:value=key on:change=rename
+                    class:invalid=move || bad.key_problem().is_some() title=move || why.key_problem() />
+            </label>
+            {keys(&t!("ui.keyswap.to"), &vp, |v| v.clone(), |v, x| *v = x, false)}
+            <button class="del" on:click=move |_| d.edit(|m| drop(m.shift_remove(&del)))
+                title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
+        };
+        sortable(&p, drag, move |m| m.get_index_of(&pos), IndexMap::len, IndexMap::move_index, "row swap", body)
     };
     // An empty key is reported by validation until the user types it.
     let add_row = move |_| {

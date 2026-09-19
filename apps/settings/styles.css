@@ -180,7 +180,9 @@ section { display: flex; flex-direction: column; gap: 8px; }
 /* Rows that can be dragged: the handle, then the fields, which wrap within their own box. */
 .sortable-body { display: flex; flex-wrap: wrap; gap: 6px 12px; flex: 1; min-width: 0; }
 .item > .sortable-body { gap: 4px; align-items: center; }
-.impl > .sortable-body { align-items: flex-end; }
+.impl > .sortable-body, .row > .sortable-body { align-items: flex-end; }
+/* A row's first line is a labelled field; the handle lines up with its input. */
+.row > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
 .impl > .grip { align-self: flex-start; margin-top: 6px; }
 .step { display: flex; gap: 12px; align-items: flex-start; padding-left: 10px; border-left: 2px solid var(--line); }
 .step > .sortable-body { align-items: flex-start; }

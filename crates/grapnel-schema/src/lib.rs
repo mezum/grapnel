@@ -2,7 +2,6 @@
 
 pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 fn is_false(b: &bool) -> bool {
     !*b
@@ -15,12 +14,12 @@ pub struct RawConfig {
     pub include: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settings: Option<RawSettings>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub modes: BTreeMap<String, RawMode>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub modifiers: BTreeMap<String, RawModifier>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub targets: BTreeMap<String, RawTarget>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub modes: IndexMap<String, RawMode>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub modifiers: IndexMap<String, RawModifier>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub targets: IndexMap<String, RawTarget>,
     /// Physical key (alone or with `S-`) → the JIS key chord it types, seen by the keymap too.
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub keyswap: IndexMap<String, String>,

@@ -357,22 +357,22 @@ pub fn actions() -> impl IntoView {
     let all =
         Place::<IndexMap<String, RawAction>>::new(store, "actions", |c| Some(&c.actions), |c| Some(&mut c.actions));
     let (list, add) = (all.clone(), all.clone());
+    let drag = RwSignal::new(None);
     let row = move |name: String| {
         let (a, b) = (name.clone(), name.clone());
         let ap = all.map(&format!(".{name}"), move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del, bad) = (all.clone(), all.clone(), name.clone(), ap.clone());
-        view! {
-            <div class="row">
-                {name_row(
-                    Some(t!("ui.name.action").into_owned()),
-                    name,
-                    move || bad.key_problem(),
-                    move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
-                    move || d.edit(|m| drop(m.shift_remove(&del))),
-                )}
-                {action_editor(ap)}
-            </div>
-        }
+        let (r, d, del, bad, key) = (all.clone(), all.clone(), name.clone(), ap.clone(), name.clone());
+        let body = view! {
+            {name_row(
+                Some(t!("ui.name.action").into_owned()),
+                name,
+                move || bad.key_problem(),
+                move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
+                move || d.edit(|m| drop(m.shift_remove(&del))),
+            )}
+            {action_editor(ap)}
+        };
+        sortable(&all, drag, move |m| m.get_index_of(&key), IndexMap::len, IndexMap::move_index, "row", body)
     };
     let add_action = move |_| {
         add.edit(|m| {
