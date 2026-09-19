@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      # rustup installs the toolchain, components and targets from rust-toolchain.toml.
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      # The whole run: the examples check spans crates.
+      - run: cargo test
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk,tauri-cli
+      - run: cargo clippy -p grapnel-settings-ui --target wasm32-unknown-unknown -- -D warnings
+      - run: cargo tauri build --no-bundle
+        working-directory: apps/settings
+      - run: cargo clippy -p grapnel-settings -- -D warnings
