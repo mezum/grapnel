@@ -10,12 +10,12 @@ use std::sync::Arc;
 /// Drop-down entries: (value, label).
 pub type Options = Vec<(Cow<'static, str>, Cow<'static, str>)>;
 
-type Get<V> = dyn for<'a> Fn(&'a RawConfig) -> Option<&'a V> + Send + Sync;
+type Getter<V> = dyn for<'a> Fn(&'a RawConfig) -> Option<&'a V> + Send + Sync;
 type GetMut<V> = dyn for<'a> Fn(&'a mut RawConfig) -> Option<&'a mut V> + Send + Sync;
 
 pub struct Place<V: 'static> {
     store: Store,
-    get: Arc<Get<V>>,
+    get: Arc<Getter<V>>,
     get_mut: Arc<GetMut<V>>,
 }
 
@@ -133,22 +133,22 @@ pub fn opt_text<V>(
     input(label, p, get, set, Option::unwrap_or_default, |s| (!s.is_empty()).then_some(s), None)
 }
 
-/// One input per item (so items may hold commas), each with move/delete buttons, and an add button.
+/// One input per item (so items may hold commas), each draggable and deletable, and an add button.
 pub fn list(label: &str, p: Place<Vec<String>>) -> impl IntoView + use<> {
     let label = label.to_owned();
     let (items, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
     let row = {
         let label = label.clone();
         move |j: usize| {
             let (get, set) = (p.clone(), p.clone());
-            view! {
-                <div class="item">
-                    <input aria-label=label.clone()
-                        prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
-                        on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
-                    {item_buttons(&p, j)}
-                </div>
-            }
+            let body = view! {
+                <input aria-label=label.clone()
+                    prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
+                    on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
+                {del_button(&p, j)}
+            };
+            sortable(&p, drag, move |_| Some(j), Vec::len, vec_move, "item", body)
         }
     };
     view! {
@@ -160,32 +160,153 @@ pub fn list(label: &str, p: Place<Vec<String>>) -> impl IntoView + use<> {
     }
 }
 
-/// Up/down buttons that swap the entry at `pos` with its neighbour.
-pub fn move_buttons<V: 'static, P: Fn(&V) -> Option<usize> + Clone + Send + Sync + 'static>(
-    p: &Place<V>,
-    pos: P,
-    len: fn(&V) -> usize,
-    swap: fn(&mut V, usize, usize),
-) -> impl IntoView + use<V, P> {
-    let (a, b, c, d) = (p.clone(), p.clone(), p.clone(), p.clone());
-    let (pa, pb, pc, pd) = (pos.clone(), pos.clone(), pos.clone(), pos);
+/// Moves item `from` so that it ends up at index `to`.
+pub fn vec_move<T>(v: &mut Vec<T>, from: usize, to: usize) {
+    let x = v.remove(from);
+    v.insert(to, x);
+}
+
+/// Delete button for item `j` of a list.
+pub fn del_button<T: 'static>(p: &Place<Vec<T>>, j: usize) -> impl IntoView + use<T> {
+    let del = p.clone();
     view! {
-        <button class="move" title=t!("ui.move_up") aria-label=t!("ui.move_up")
-            disabled=move || a.read(|v| pa(v).is_none_or(|i| i == 0))
-            on:click=move |_| b.edit(|v| if let Some(i) = pb(v).filter(|&i| i > 0) { swap(v, i - 1, i) })>"↑"</button>
-        <button class="move" title=t!("ui.move_down") aria-label=t!("ui.move_down")
-            disabled=move || c.read(|v| pc(v).is_none_or(|i| i + 1 >= len(v)))
-            on:click=move |_| d.edit(|v| if let Some(i) = pd(v).filter(|&i| i + 1 < len(v)) { swap(v, i, i + 1) })>"↓"</button>
+        <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete")
+            on:click=move |_| del.edit(|v| if j < v.len() { drop(v.remove(j)) })>"✕"</button>
     }
 }
 
-/// Move and delete buttons for item `j` of a list.
-pub fn item_buttons<T: 'static>(p: &Place<Vec<T>>, j: usize) -> impl IntoView + use<T> {
-    let del = p.clone();
+/// A row being dragged, and the index it would be inserted before.
+#[derive(Clone, Copy, PartialEq)]
+pub struct Drag {
+    from: usize,
+    to: Option<usize>,
+}
+
+/// Material Icons `drag_indicator` (Apache-2.0, see THIRD_PARTY_NOTICES.md).
+const GRIP: &str = "M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z";
+
+/// A row of a reorderable list: a drag handle, then `body`. Dropping a row of the same list (one
+/// `drag` per list) on the upper or lower half of this row moves it before or after this row.
+/// ↑/↓ on the focused handle move it by one. `pos` finds this row's index in the list.
+pub fn sortable<V, P, B>(
+    p: &Place<V>,
+    drag: RwSignal<Option<Drag>>,
+    pos: P,
+    len: fn(&V) -> usize,
+    mv: fn(&mut V, usize, usize),
+    class: &'static str,
+    body: B,
+) -> impl IntoView + use<V, P, B>
+where
+    V: 'static,
+    P: Fn(&V) -> Option<usize> + Clone + Send + Sync + 'static,
+    B: IntoView,
+{
+    use leptos::wasm_bindgen::JsCast;
+    use leptos::web_sys::{DragEvent, Element, KeyboardEvent};
+    let at = {
+        let (p, pos) = (p.clone(), pos.clone());
+        move || p.read(|v| pos(v))
+    };
+    let count = {
+        let p = p.clone();
+        move || p.read(len)
+    };
+    let start = {
+        let at = at.clone();
+        move |ev: DragEvent| {
+            let Some(i) = at() else { return };
+            let row = ev.target().and_then(|t| t.dyn_into::<Element>().ok()).and_then(|e| e.parent_element());
+            if let (Some(dt), Some(row)) = (ev.data_transfer(), row) {
+                dt.set_effect_allowed("move");
+                let r = row.get_bounding_client_rect();
+                dt.set_drag_image(&row, ev.client_x() - r.left() as i32, ev.client_y() - r.top() as i32);
+            }
+            drag.set(Some(Drag { from: i, to: None }));
+        }
+    };
+    let over = {
+        let at = at.clone();
+        move |ev: DragEvent| {
+            let (Some(d), Some(i)) = (drag.get_untracked(), at()) else { return };
+            ev.prevent_default(); // accept the drop
+            ev.stop_propagation(); // an enclosing list's row is not the target
+            let r = ev.current_target().unwrap().unchecked_into::<Element>().get_bounding_client_rect();
+            let to = if f64::from(ev.client_y()) < r.top() + r.height() / 2.0 { i } else { i + 1 };
+            if d.to != Some(to) {
+                drag.set(Some(Drag { to: Some(to), ..d }));
+            }
+        }
+    };
+    let dropped = {
+        let p = p.clone();
+        move |ev: DragEvent| {
+            let Some(Drag { from, to: Some(to) }) = drag.get_untracked() else { return };
+            ev.prevent_default();
+            ev.stop_propagation();
+            drag.set(None);
+            let to = if to > from { to - 1 } else { to };
+            p.edit(|v| {
+                if from != to && from.max(to) < len(v) {
+                    mv(v, from, to)
+                }
+            });
+        }
+    };
+    let key = {
+        let (p, at) = (p.clone(), at.clone());
+        move |ev: KeyboardEvent| {
+            let Some(i) = at() else { return };
+            let to = match ev.key().as_str() {
+                "ArrowUp" if i > 0 => i - 1,
+                "ArrowDown" => i + 1,
+                _ => return,
+            };
+            ev.prevent_default();
+            p.edit(|v| {
+                if to < len(v) {
+                    mv(v, i, to)
+                }
+            });
+            // Keep the focus on the moved row's handle once the list is redrawn.
+            let list = ev
+                .current_target()
+                .unwrap()
+                .unchecked_into::<Element>()
+                .parent_element()
+                .and_then(|r| r.parent_element());
+            request_animation_frame(move || {
+                let grips = list.and_then(|l| l.query_selector_all(":scope > .sortable > .grip").ok());
+                if let Some(g) = grips.and_then(|g| g.item(to as u32)) {
+                    let _ = g.unchecked_into::<leptos::web_sys::HtmlElement>().focus();
+                }
+            });
+        }
+    };
+    // The insertion line shows only where the drop would change the order.
+    let line = {
+        let at = at.clone();
+        move |after: bool| {
+            let (Some(d), Some(i)) = (drag.get(), at()) else { return false };
+            let to = if after { i + 1 } else { i };
+            d.to == Some(to) && to != d.from && to != d.from + 1 && (!after || to == count())
+        }
+    };
+    let before = line.clone();
+    let dragging = {
+        let at = at.clone();
+        move || drag.get().is_some_and(|d| Some(d.from) == at())
+    };
     view! {
-        {move_buttons(p, move |_| Some(j), Vec::len, |v, a, b| v.swap(a, b))}
-        <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete")
-            on:click=move |_| del.edit(|v| if j < v.len() { drop(v.remove(j)) })>"✕"</button>
+        <div class=format!("sortable {class}") class:dragging=dragging
+            class:drop-before=move || before(false) class:drop-after=move || line(true)
+            on:dragover=over on:drop=dropped>
+            <span class="grip" draggable="true" tabindex="0" role="button" title=t!("ui.drag") aria-label=t!("ui.drag")
+                on:dragstart=start on:dragend=move |_| drag.set(None) on:keydown=key>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d=GRIP /></svg>
+            </span>
+            {body}
+        </div>
     }
 }
 

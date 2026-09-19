@@ -190,18 +190,18 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
     }
 }
 
-/// An ordered list of steps with add/move/remove.
+/// An ordered list of steps with add/drag/remove.
 pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
     let (list, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
     let step = move |j: usize| {
         let sp = p.map(move |v| v.get(j), move |v| v.get_mut(j));
-        view! {
-            <div class="step">
-                {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
-                {step_fields(sp.clone())}
-                {item_buttons(&p, j)}
-            </div>
-        }
+        let body = view! {
+            {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
+            {step_fields(sp.clone())}
+            {del_button(&p, j)}
+        };
+        sortable(&p, drag, move |_| Some(j), Vec::len, vec_move, "step", body)
     };
     view! {
         <div class="steps">
@@ -310,21 +310,20 @@ pub fn action_editor(p: Place<RawAction>) -> AnyView {
 /// Target name (`*` = always) → keys or steps, evaluated top to bottom.
 fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
     let (list, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
     let row = move |t: String| {
         let (a, b) = (t.clone(), t.clone());
         let sp = p.map(move |m| m.get(&a), move |m| m.get_mut(&b));
         let (r, d, del, key) = (p.clone(), p.clone(), t.clone(), t.clone());
-        view! {
-            <div class="impl">
-                {move_buttons(&p, move |m| m.get_index_of(&key), IndexMap::len, IndexMap::swap_indices)}
-                {name_row(
-                    t,
-                    move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
-                    move || d.edit(|m| drop(m.shift_remove(&del))),
-                )}
-                {raw_steps_editor(sp)}
-            </div>
-        }
+        let body = view! {
+            {name_row(
+                t,
+                move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
+                move || d.edit(|m| drop(m.shift_remove(&del))),
+            )}
+            {raw_steps_editor(sp)}
+        };
+        sortable(&p, drag, move |m| m.get_index_of(&key), IndexMap::len, IndexMap::move_index, "impl", body)
     };
     let add_row = move |_| {
         add.edit(|m| {

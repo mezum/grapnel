@@ -63,8 +63,13 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 button.del { background: none; border-color: transparent; color: var(--muted); padding: 4px 8px; }
 button.del:hover:not(:disabled) { color: var(--error); border-color: var(--error); }
-button.move { background: none; border-color: transparent; color: var(--muted); padding: 4px 6px; }
-button.move:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.grip { display: flex; align-self: center; color: var(--muted); cursor: grab; border-radius: 4px; }
+.grip:hover { color: var(--fg); }
+.grip:focus-visible { outline: 2px solid var(--accent); }
+.grip svg { width: 18px; height: 18px; fill: currentColor; }
+.dragging { opacity: 0.4; }
+.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.drop-after { box-shadow: 0 2px 0 var(--accent); }
 button.add { background: none; border-style: dashed; color: var(--muted); align-self: flex-start; }
 button.add:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 input, select {
