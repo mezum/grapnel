@@ -198,7 +198,8 @@ chord    = (修飾 "-")* キー
 | 種類 | キー名 |
 | --- | --- |
 | 英数字 | `a`–`z`, `0`–`9` |
-| 記号 (JIS/US の VK) | `-` `^` `\` `@` `[` `;` `:` `]` `,` `.` `/` `_` (VK_OEM_102) ほか `Oem1` 形式 |
+| 記号 (JIS 配列のキー) | `-` `^` `\` `@` `[` `;` `:` `]` `,` `.` `/` `Ro` (「ロ」のキー、VK_OEM_102) ほか `Oem1` 形式 |
+| Shift で打つ記号 (JIS 配列) | `!` `"` `#` `$` `%` `&` `'` `(` `)` `=` `~` `\|` `` ` `` `{` `+` `*` `}` `<` `>` `?` `_`。そのキーと Shift の組み合わせを表す (`$` は `S-4`、`C-?` は `C-S-/`) |
 | 制御 | `Enter` `Esc` `Tab` `Space` `Backspace` `Delete` `Insert` `Home` `End` `PageUp` `PageDown` `Up` `Down` `Left` `Right` `CapsLock` `PrintScreen` `ScrollLock` `Pause` `Apps` |
 | ファンクション | `F1`–`F24` |
 | テンキー | `Num0`–`Num9` `NumAdd` `NumSub` `NumMul` `NumDiv` `NumDot` `NumLock` |

@@ -351,11 +351,11 @@ fn ax_symbols() {
     assert_eq!(t.down(":"), eaten("+LShift +7"));
     assert_eq!(t.up(":"), eaten("-7 -LShift"));
     // The ロ key gives _ with or without Shift.
-    assert_eq!(t.down("_"), eaten("+LShift +_"));
-    t.up("_");
+    assert_eq!(t.down("Ro"), eaten("+LShift +Ro"));
+    t.up("Ro");
     t.down("LShift");
-    assert_eq!(t.down("_"), pass());
-    t.up("_");
+    assert_eq!(t.down("Ro"), pass());
+    t.up("Ro");
     // Shifted: Shift stays down when the JIS key needs it, is lifted otherwise.
     assert_eq!(t.down("7"), eaten("+6"));
     t.up("7");

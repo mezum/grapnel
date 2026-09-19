@@ -74,9 +74,19 @@ fn format_round_trips() {
         "sc:0x7B",
         "Zenkaku",
         "WheelDown",
+        "$ C-? M-_ Ro",
     ] {
         assert_eq!(format_seq(&seq(s), &["Mu"]), s);
     }
+}
+
+#[test]
+fn shifted_symbols_are_chords() {
+    assert_eq!(seq("$"), seq("S-4"));
+    assert_eq!(seq("C-?"), seq("C-S-/"));
+    assert_eq!(seq("_").0[0], Chord { mods: Mods::SHIFT, key: Key::Vk(0xE2) });
+    assert_eq!(format_seq(&seq("S-4 S-;"), &[]), "$ +");
+    assert!(parse_key("$").is_err());
 }
 
 #[test]

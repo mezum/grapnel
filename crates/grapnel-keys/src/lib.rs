@@ -177,6 +177,9 @@ pub fn parse_chord(s: &str, user: &[&str]) -> Result<Chord, Msg> {
         mods = mods | m;
         rest = &rest[i + 1..];
     }
+    if let Some((_, key)) = names::SHIFTED.iter().find(|(n, _)| *n == rest) {
+        return Ok(Chord { mods: mods | Mods::SHIFT, key: key.clone() });
+    }
     Ok(Chord { mods, key: parse_key(rest)? })
 }
 
@@ -189,10 +192,12 @@ pub fn format_key(key: &Key) -> String {
     names::name(key)
 }
 
+/// Symbols typed with Shift are written as the symbol (`S-4` → `$`).
 pub fn format_chord(chord: &Chord, user: &[&str]) -> String {
+    let shifted = names::SHIFTED.iter().find(|(_, k)| *k == chord.key).filter(|_| chord.mods.contains(Mods::SHIFT));
     let mut out = String::new();
     for (n, m) in REAL_NAMES {
-        if chord.mods.contains(m) {
+        if chord.mods.contains(m) && !(shifted.is_some() && m == Mods::SHIFT) {
             out += n;
             out.push('-');
         }
@@ -203,7 +208,10 @@ pub fn format_chord(chord: &Chord, user: &[&str]) -> String {
             out.push('-');
         }
     }
-    out + &format_key(&chord.key)
+    match shifted {
+        Some((symbol, _)) => out + symbol,
+        None => out + &format_key(&chord.key),
+    }
 }
 
 pub fn format_seq(seq: &KeySeq, user: &[&str]) -> String {

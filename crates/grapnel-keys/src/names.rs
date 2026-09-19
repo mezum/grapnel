@@ -1,4 +1,5 @@
-//! Key name tables. Symbol names follow the JIS layout.
+//! Key name tables. Symbol names follow the JIS layout: a symbol typed without Shift names its key,
+//! one typed with Shift names that key with Shift (`$` is `S-4`).
 
 use crate::{Key, MouseButton, PadButton, WheelDir};
 
@@ -54,7 +55,7 @@ const NAMED: &[(&str, Key)] = &[
     (",", Key::Vk(0xBC)),
     (".", Key::Vk(0xBE)),
     ("/", Key::Vk(0xBF)),
-    ("_", Key::Vk(0xE2)),
+    ("Ro", Key::Vk(0xE2)),
     ("Oem1", Key::Vk(0xBA)),
     ("OemPlus", Key::Vk(0xBB)),
     ("OemComma", Key::Vk(0xBC)),
@@ -72,6 +73,31 @@ const NAMED: &[(&str, Key)] = &[
     ("WheelDown", Key::Wheel(WheelDir::Down)),
     ("WheelLeft", Key::Wheel(WheelDir::Left)),
     ("WheelRight", Key::Wheel(WheelDir::Right)),
+];
+
+/// Symbols typed with Shift on the JIS layout, and the key typing them.
+pub(crate) const SHIFTED: &[(&str, Key)] = &[
+    ("!", Key::Vk(b'1')),
+    ("\"", Key::Vk(b'2')),
+    ("#", Key::Vk(b'3')),
+    ("$", Key::Vk(b'4')),
+    ("%", Key::Vk(b'5')),
+    ("&", Key::Vk(b'6')),
+    ("'", Key::Vk(b'7')),
+    ("(", Key::Vk(b'8')),
+    (")", Key::Vk(b'9')),
+    ("=", Key::Vk(0xBD)),
+    ("~", Key::Vk(0xDE)),
+    ("|", Key::Vk(0xDC)),
+    ("`", Key::Vk(0xC0)),
+    ("{", Key::Vk(0xDB)),
+    ("+", Key::Vk(0xBB)),
+    ("*", Key::Vk(0xBA)),
+    ("}", Key::Vk(0xDD)),
+    ("<", Key::Vk(0xBC)),
+    (">", Key::Vk(0xBE)),
+    ("?", Key::Vk(0xBF)),
+    ("_", Key::Vk(0xE2)),
 ];
 
 pub(crate) const MOUSE: &[(&str, MouseButton)] = &[
