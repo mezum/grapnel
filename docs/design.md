@@ -82,7 +82,8 @@ pub struct Reaction { pub consume: bool, pub commands: Vec<Command> }
 pub enum Command {
     Key { key: Key, down: bool },          // マウスボタン・ホイールも含む
     Text(String), MouseMove { x: i32, y: i32, absolute: bool },
-    Sleep(u32), Run { program: String, args: Vec<String> },
+    Sleep(u32), Resume(Later),             // Resume: Sleep の後の手順。Sleep が明けたら Engine::resume に戻す
+    Run { program: String, args: Vec<String> },
     InputBox { prompt: String, then: ActionId },
     ModeChanged(String), Control(ControlCmd), Error(String),
 }
@@ -121,8 +122,8 @@ impl Engine {
 | `hook` | LL フックの設置/解除。コールバックで `Event` に変換してスレッドローカルのハンドラを呼び、戻り値で握りつぶす。`dwExtraInfo` が自分の印 (`INJECT_TAG`) なら素通し |
 | `send` | `Command::Key/Text/MouseMove` を `INPUT` 配列に変換して `SendInput`。変換部は純粋関数でテストする |
 | `window` | `SetWinEventHook` (前面切替・タイトル変更・フォーカス) の通知と、前面ウインドウの `WindowInfo` 取得 |
-| `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する |
-| `tray` | `Shell_NotifyIconW`、バルーン、メニュー (メニューはモーダルループを回すので自由関数) |
+| `uia` | UI Automation の問い合わせを MTA のワーカースレッドで行い、結果の準備ができたら通知する。問い合わせには番号を振り、最新の問い合わせへの答えでない結果は使わない (前面やフォーカスが変わると、答えが届くまでは UIA の項目を空にする) |
+| `tray` | `Shell_NotifyIconW`、バルーン、メニュー (メニューはモーダルループを回すので自由関数)。アイコンは exe に埋め込んだリソース (`apps/grapnel/grapnel.rc`: 1 = 通常、2 = 一時停止中のグレー) |
 | `toast` | モニターの左下に短いメッセージを出す (Emacs のエコーエリア風)。フォーカスを奪わず、クリックを透過し、タイマーで消える。`Command::Notice` と実行中のエラーの表示に使う |
 | `inputbox` | Edit を 1 つ持つポップアップ。Enter で確定、Esc で取消。前面化は Alt の注入でロックを外す (`AttachThreadInput` は相手のハングに巻き込まれるので使わない)。閉じたら元の前面ウインドウに戻す |
 | `pipe` | 名前付きパイプのサーバースレッド。最初のインスタンスの作成に失敗したら多重起動とみなす。クライアント側は混雑時に再試行する |
@@ -133,7 +134,7 @@ impl Engine {
 - 他スレッド (パイプ、パッド、ワーカー、ログ) からの仕事は、プロセス内のチャネル (`mpsc::channel`) に送り、`WM_QUEUE` で起こして処理する。メッセージの引数にポインタは載せない (他プロセスから偽装されうるため)。
 - コマンドの実行 (`exec.rs`):
   - 最初の `Sleep` までは呼び出し元 (フック内) で順に送る。後続の物理入力より先に出力を届けるため。
-  - `Sleep` 以降はワーカースレッドで実行する。一時停止・パススルー・再読み込み・終了で世代番号を進め、未実行の分は捨てる。
+  - `Sleep` の後の手順はエンジンがその場では出力を組み立てず `Resume` にまとめる (呼び出し中の手順も内側から順に)。`Sleep` ごとのスレッドで待ってから (重なったアクションもそれぞれの時刻に) `Resume` を実行時の世代番号と一緒にメインスレッドに戻し、`Engine::resume` がその時の修飾キーの状態で組み立てて実行する (ターゲットは始めたときのウインドウで選ぶ)。世代番号が変わったかフックが外れていれば捨てる。一時停止・パススルー・再読み込み・終了で世代番号を進め、未実行の分は捨てる。
   - `Run` は起動用のスレッドを立てて `std::process::Command::spawn` する (フックのスレッドを止めない)。
   - それ以外 (`InputBox`、`ModeChanged`、`Control`、`Error`) はキュー経由でメインスレッドが処理する。入力欄はウインドウを作る際にメッセージが回るので、`App` を借用していない状態で開く。
 - 入力欄が前面にある間は、修飾キー以外の入力を変換しない (修飾キーの状態だけ追跡する)。開く前にエンジンを `reset` し、開いたときの `WindowInfo` で後続のアクションを選ぶ。
@@ -147,7 +148,7 @@ impl Engine {
 ## 8. 設定ツール (grapnel-settings)
 
 - Tauri コマンド: `initial_entry()`, `load(entry) -> Vec<FileDoc>`, `validate(files) -> Vec<String>`, `save(files)` (失敗時は `{ saved, errors }`), `apply()`。`FileDoc = { path, raw: RawConfig }`。
-- `save` は全ファイルを検証してから書く。`apply` はパイプに `reload` を書く。
+- `save` は全ファイルを検証してから書く。`apply` はパイプに `reload <編集中のエントリファイルの絶対パス>` を書く (常駐側が別のファイルで動いていても、編集したファイルが適用される)。
 - フロントエンドは引数を `serde_json` で JSON 文字列にしてから `JSON.parse` で JS のオブジェクトにして渡す (マップを `Map` にせず、`__proto__` のようなキーも失わないため)。
 - UI: 上にエントリのパスと読み込み・保存・保存して適用・言語とテーマの選択、ファイルのタブ、セクションのタブ (インポート / デフォルトキーマップ / モード別キーマップ / キー配列 / カスタム修飾キー / ターゲット / アクション / その他)、検証エラーの一覧。編集のたびに検証し、エラーがあれば保存ボタンを無効にする。
 - キーマップは再帰的なノードエディタで編集する。各キーの種類 (キー・アクション名 / 連続アクション指定 / 設定付き / 子ノード) を切り替えると、残せる内容は残して変換する。モードのタブでは、同じノードエディタでモード専用のキーマップを編集する。

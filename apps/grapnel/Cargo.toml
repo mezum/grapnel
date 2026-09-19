@@ -23,6 +23,9 @@ features = [
     "Win32_UI_WindowsAndMessaging",
 ]
 
+[build-dependencies]
+embed-resource = "3"
+
 [dev-dependencies]
 toml.workspace = true
 regex.workspace = true

@@ -1,0 +1,4 @@
+// Icon 1 is the program's icon (the lowest id is what Explorer shows); 2 is the tray icon while
+// suspended.
+1 ICON "../../assets/icon.ico"
+2 ICON "../../assets/icon-suspended.ico"

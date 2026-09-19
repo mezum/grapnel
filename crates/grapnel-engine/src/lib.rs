@@ -39,6 +39,9 @@ pub enum Command {
         absolute: bool,
     },
     Sleep(u32),
+    /// Steps after a `Sleep`: hand them back to [`Engine::resume`] once it is over, so they are
+    /// planned against the modifier state of that time.
+    Resume(Later),
     Run {
         program: String,
         args: Vec<String>,
@@ -54,6 +57,20 @@ pub enum Command {
     Error(Fault),
     /// A short message for the user (shown briefly, not an error).
     Notice(Notice),
+}
+
+/// Steps left to run after a `Sleep`, innermost call first, and the window they were started for.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Later {
+    frames: Vec<Frame>,
+    win: WindowInfo,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct Frame {
+    steps: Vec<Step>,
+    arg: String,
+    depth: usize,
 }
 
 /// The app puts these into words, so the engine stays language-neutral.
@@ -138,6 +155,8 @@ pub struct Engine {
     count: Option<u32>,
     /// The last binding marked `repeat`: its action and count, for `ControlCmd::Repeat`.
     last: Option<(ActionId, u32)>,
+    /// Set by a `Sleep` step: the steps after it are collected here instead of run.
+    later: Option<Later>,
 }
 
 impl Engine {
@@ -166,6 +185,7 @@ impl Engine {
             gesture_buttons,
             count: None,
             last: None,
+            later: None,
             cfg,
         }
     }
@@ -175,22 +195,26 @@ impl Engine {
     }
 
     pub fn handle(&mut self, ev: Event, win: &WindowInfo, now: u64) -> Reaction {
-        match ev {
+        let mut r = match ev {
             Event::Down(key) => self.on_down(key, win, now),
             Event::Up(key) => self.on_up(key, win, now),
             Event::MouseMove { dx, dy } => {
                 self.track_gesture(dx, dy);
                 Reaction::default()
             }
-        }
+        };
+        self.finish(&mut r.commands);
+        r
     }
 
     /// Fires a chord timeout if one is due.
     pub fn tick(&mut self, now: u64) -> Vec<Command> {
-        match &self.pending {
+        let mut out = match &self.pending {
             Some(p) if p.deadline.is_some_and(|d| d <= now) => self.mismatch(None),
             _ => Vec::new(),
-        }
+        };
+        self.finish(&mut out);
+        out
     }
 
     pub fn next_deadline(&self) -> Option<u64> {
@@ -204,7 +228,25 @@ impl Engine {
         }
         let mut out = Vec::new();
         self.run_action(action, arg, win, 0, &mut out);
+        self.finish(&mut out);
         out
+    }
+
+    /// Runs the steps a `Command::Resume` carried, after its `Sleep`.
+    pub fn resume(&mut self, later: Later) -> Vec<Command> {
+        let mut out = Vec::new();
+        for f in later.frames {
+            self.run_steps(&f.steps, &f.arg, &later.win, f.depth, &mut out);
+        }
+        self.finish(&mut out);
+        out
+    }
+
+    /// Ends output with the steps a `Sleep` put off, if any.
+    fn finish(&mut self, out: &mut Vec<Command>) {
+        if let Some(later) = self.later.take().filter(|l| !l.frames.is_empty()) {
+            out.push(Command::Resume(later));
+        }
     }
 
     /// Runs what an input box's `then` asks for with the confirmed text.

@@ -52,9 +52,12 @@ pub enum Msg {
     Pipe(String),
     Pad(Event),
     Deferred(Command),
+    /// Steps after a `Sleep`, with the executor generation they were planned in.
+    Resume(u64, grapnel_engine::Later),
     /// An error, already in the display language.
     Toast(String),
-    Reloaded(Result<Config, Vec<grapnel_config::Problem>>),
+    /// The config file read and what came of it.
+    Reloaded(PathBuf, Result<Config, Vec<grapnel_config::Problem>>),
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
@@ -139,7 +142,10 @@ fn handle(msg: Msg) {
             "reload" => drop(with_app(App::reload)),
             "suspend" => drop(with_app(App::toggle_suspend)),
             "exit" => unsafe { PostQuitMessage(0) },
-            other => log::warn!("unknown pipe command '{other}'"),
+            other => match other.strip_prefix("reload ") {
+                Some(path) => drop(with_app(|a| a.reload_from(path.into()))),
+                None => log::warn!("unknown pipe command '{other}'"),
+            },
         },
         Msg::Pad(ev) => drop(with_app(|a| a.on_pad(ev))),
         // Opening a window can dispatch messages, so do it without holding the app borrow.
@@ -159,10 +165,11 @@ fn handle(msg: Msg) {
             show_toast(&text(&rust_i18n::locale()), 2500);
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
+        Msg::Resume(generation, later) => drop(with_app(|a| a.resume(generation, later))),
         Msg::Toast(text) => show_toast(&text, 5000),
-        Msg::Reloaded(result) => {
+        Msg::Reloaded(path, result) => {
             inputbox::close(); // its action id belongs to the old config
-            with_app(|a| a.apply_reload(result));
+            with_app(|a| a.apply_reload(path, result));
         }
     }
 }
