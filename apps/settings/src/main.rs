@@ -104,7 +104,7 @@ fn set_theme(theme: &str) {
     let _ = js_sys::Reflect::set(&prop(&js_sys::global(), "localStorage"), &THEME_KEY.into(), &theme.into());
 }
 
-/// The theme after `theme`, and its Material Symbols icon path (24x24).
+/// The theme after `theme`.
 fn next_theme(theme: &str) -> &'static str {
     match theme {
         "auto" => "light",
@@ -113,6 +113,7 @@ fn next_theme(theme: &str) -> &'static str {
     }
 }
 
+/// 24x24 icon path for `theme`, from Google Material Icons (Apache-2.0, see THIRD_PARTY_NOTICES.md).
 fn theme_icon(theme: &str) -> &'static str {
     match theme {
         "light" => {
