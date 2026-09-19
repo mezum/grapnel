@@ -102,6 +102,9 @@ enum Active {
     Hold(Chord),
     /// The original key was injected and is passed through until released.
     Pass(Key),
+    /// A swapped key, held as the chord it stands for. Its repeats put the swap's Shift back, as
+    /// another key released meanwhile may have restored the physical one.
+    Swap(Chord),
     /// A tap action; key repeat re-runs only its last input step (last chord for keys).
     Tap(Option<Step>),
 }

@@ -71,3 +71,42 @@ initial_mode = \"normal\"
     t.down("LShift");
     assert_eq!(t.down("2"), eaten(&"-LShift +x -x +LShift ".repeat(3)));
 }
+
+#[test]
+fn keep_mods_on_a_swapped_chord_ends_with_the_key() {
+    let mut t = t(r#"
+[keyswap]
+":" = "'"
+[keymap]
+"'" = { do = "C-Tab", keep_mods = true }
+"#);
+    // No modifier is physically held, so nothing keeps Ctrl after the key.
+    assert_eq!(t.down(":"), eaten("+LCtrl +Tab"));
+    assert_eq!(t.up(":"), eaten("-Tab -LCtrl"));
+}
+
+#[test]
+fn a_swap_still_held_keeps_its_shift_on_repeat() {
+    let mut t = t("[keyswap]\n\":\" = \"'\"\n\"^\" = \"=\"\n");
+    assert_eq!(t.down(":"), eaten("+LShift +7"));
+    assert_eq!(t.down("^"), eaten("+-"));
+    assert_eq!(t.up(":"), eaten("-7 -LShift"));
+    assert_eq!(t.down("^"), eaten("+LShift +-"), "repeat after the other key is released");
+}
+
+#[test]
+fn a_binding_without_an_implementation_gets_the_real_modifiers() {
+    let mut t = t(r#"
+[keyswap]
+":" = "'"
+[targets.other]
+app = "other.exe"
+[actions]
+x = { other = "b" }
+[keymap]
+a = "x"
+"#);
+    assert_eq!(t.down(":"), eaten("+LShift +7"));
+    assert_eq!(t.down("a"), eaten("-LShift +a"));
+    assert_eq!(t.up("a"), eaten("-a"));
+}

@@ -24,7 +24,7 @@ impl Engine {
     }
 
     /// Physical real modifiers plus active user modifiers.
-    fn current_mods(&self) -> Mods {
+    pub(crate) fn current_mods(&self) -> Mods {
         let real = self.down.iter().filter_map(Key::real_mod).fold(Mods::NONE, |a, m| a | m);
         let user = self.user_mods.iter().enumerate().filter(|(_, s)| **s == UserMod::Active);
         user.fold(real, |a, (i, _)| a | Mods::user(i))
@@ -35,6 +35,30 @@ impl Engine {
         let mods = self.current_mods();
         let to = self.cfg.keyswap.get(&(key.clone(), mods.contains(Mods::SHIFT)))?;
         Some(Chord { mods: Mods(mods.0 & !Mods::SHIFT.0) | to.mods, key: to.key.clone() })
+    }
+
+    /// Real modifiers to send with a swapped chord: Shift is the swap's; the others stay as the OS
+    /// sees them now (see `restore`).
+    pub(crate) fn swap_mods(&self, to: &Chord) -> Mods {
+        let (lifted, kept) = self.real_kept.unwrap_or_default();
+        let others = (self.current_mods().real().0 & !lifted.0) | self.emulated_mods().0 | kept.0;
+        Mods(others & !Mods::SHIFT.0 | to.mods.0 & Mods::SHIFT.0)
+    }
+
+    /// Lets `key` through: a swapped key is injected as its chord, and any other key is injected
+    /// after the real modifiers, if a key still held changed them (a swap's Shift), are restored as
+    /// a keyboard would. False: nothing to fix, so the original event may pass as is.
+    fn inject_if_needed(&mut self, key: &Key, out: &mut Vec<Command>) -> bool {
+        if self.swapped(key).is_none() {
+            let mut fix = vec![];
+            self.restore(&mut fix);
+            if fix.is_empty() {
+                return false;
+            }
+            out.append(&mut fix);
+        }
+        self.inject_pass(key.clone(), out);
+        true
     }
 
     /// The chord `key` makes with the modifiers held now, as the keymap sees it.
@@ -225,12 +249,9 @@ impl Engine {
     /// chord it stands for instead.
     pub(crate) fn inject_pass(&mut self, key: Key, out: &mut Vec<Command>) {
         if let Some(to) = self.swapped(&key) {
-            // Shift is the swap's; other modifiers stay as the OS sees them (see `restore`).
-            let (lifted, kept) = self.real_kept.unwrap_or_default();
-            let others = (to.mods.real().0 & !lifted.0) | self.emulated_mods().0 | kept.0;
-            self.press_mods(Mods(others & !Mods::SHIFT.0 | to.mods.0 & Mods::SHIFT.0), out);
+            self.press_mods(self.swap_mods(&to), out);
             out.push(Command::Key { key: to.key.clone(), down: true });
-            self.active.insert(key, Active::Hold(to));
+            self.active.insert(key, Active::Swap(to));
             return;
         }
         if !matches!(key, Key::Gesture(..)) {
@@ -277,9 +298,8 @@ impl Engine {
             let has_impl =
                 self.cfg.actions[rule.action].impls.iter().any(|m| any_matches(&self.cfg.targets, &m.when, win));
             if seq.len() == 1 && rule.fallback.is_none() && !has_impl {
-                if self.swapped(&key).is_some() {
-                    let mut out = vec![];
-                    self.inject_pass(key, &mut out);
+                let mut out = vec![];
+                if self.inject_if_needed(&key, &mut out) {
                     return consumed(out);
                 }
                 if !instant {
@@ -326,18 +346,10 @@ impl Engine {
             self.swallowed.insert(key);
             return consumed(commands);
         }
-        // A key still held may have changed the modifiers (a swap lifting Shift): undo that
-        // before this key, as a keyboard would.
-        let mut fix = vec![];
-        if self.swapped(&key).is_none() {
-            self.restore(&mut fix);
-        }
-        if self.swapped(&key).is_some() || !fix.is_empty() {
-            commands.append(&mut fix);
-            self.inject_pass(key, &mut commands);
+        if self.inject_if_needed(&key, &mut commands) {
             return consumed(commands);
         }
-        Reaction { consume: block, commands }
+        Reaction { consume: false, commands }
     }
 
     /// `C-x q` is undefined / `C-x` timed out.

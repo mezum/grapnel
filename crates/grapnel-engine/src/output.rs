@@ -85,10 +85,15 @@ impl Engine {
     fn keep(&mut self, seq: &[Chord], mods: Mods) {
         let Some(trigger) = seq.last() else { return };
         let user = trigger.mods.0 >> 4;
-        let kept = Mods(mods.real().0 & !trigger.mods.real().0);
+        // Only modifiers the user holds count: a swap's Shift is never released by them.
+        let held = self.current_mods().real();
+        if user == 0 && held == Mods::NONE {
+            return; // nothing to keep the output modifiers until; they end with the key
+        }
+        let kept = Mods(mods.real().0 & !held.0);
         if user == 0 {
             // Real-modifier trigger (e.g. Alt-Tab → Ctrl-Tab): replace the trigger's modifiers.
-            let lifted = Mods(trigger.mods.real().0 & !mods.real().0);
+            let lifted = Mods(held.0 & !mods.real().0);
             self.real_kept = Some((lifted, kept));
         }
         for i in (0..self.kept.len()).filter(|i| user & (1 << i) != 0) {
@@ -101,6 +106,10 @@ impl Engine {
         let mut out = vec![];
         match a {
             Active::Hold(c) => out.push(key(&c.key, true)),
+            Active::Swap(c) => {
+                self.press_mods(self.swap_mods(c), &mut out);
+                out.push(key(&c.key, true));
+            }
             Active::Pass(k) => out.push(key(k, true)),
             Active::Tap(Some(step)) => self.run_steps(std::slice::from_ref(step), "", win, 0, &mut out),
             Active::Tap(None) => {}
@@ -112,8 +121,9 @@ impl Engine {
     pub(crate) fn release(&mut self, a: Active) -> Vec<Command> {
         let mut out = vec![];
         match a {
-            Active::Hold(c) => {
-                let shared = self.active.values().any(|o| matches!(o, Active::Hold(h) if h.key == c.key));
+            Active::Hold(c) | Active::Swap(c) => {
+                let shared =
+                    self.active.values().any(|o| matches!(o, Active::Hold(h) | Active::Swap(h) if h.key == c.key));
                 if !shared {
                     self.key_up(&c.key, &mut out);
                 }
