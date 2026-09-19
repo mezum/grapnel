@@ -87,6 +87,14 @@ include = "include (glob 可)"
 delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"
 language = "language (表示言語)"
+layout = "layout (記号のキー名のキーボード配列)"
+
+[ui.layout]
+jis = "日本語 (JIS)"
+us = "英語 (US)"
+uk = "英語 (UK)"
+de = "ドイツ語"
+fr = "フランス語"
 
 [ui.name]
 mode = "モード名"
@@ -186,6 +194,7 @@ entry_only = "最初の設定ファイルにだけ書けます"
 duplicate = "%{file} ですでに定義されています"
 too_many_modifiers = "修飾キーが多すぎます (%{count} 個、最大 %{max} 個)"
 unknown_mode = "'%{name}' というモードはありません"
+unknown_layout = "'%{name}' というキーボード配列はありません (jis, us, uk, de, fr のどれか)"
 unknown_target = "'%{name}' というターゲットはありません"
 unknown_action = "'%{name}' というアクションはありません"
 unknown_action_or_key = "'%{name}' というアクションまたはキーはありません"

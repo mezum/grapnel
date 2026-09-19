@@ -74,6 +74,7 @@ search = [{ run = "cmd", args = ["/c", "start", "https://www.google.com/search?q
 | `suspend_hotkey` | なし | 一時停止を切り替えるホットキー |
 | `gesture_threshold` | `30` | px |
 | `language` | なし | 表示言語 (`"ja"`、`"en"` など)。なければ Windows の表示言語。訳のない言語や文言は英語 |
+| `layout` | `"jis"` | 記号のキー名 (2 章) をどのキーボード配列で読むか。`"jis"`、`"us"`、`"uk"`、`"de"`、`"fr"` のどれか。include したファイルにも効く |
 
 モード `default` は定義しなくても存在する。
 
@@ -185,12 +186,12 @@ chord の途中の状態 (`C-x` を押して次を待つ) はモードではな�
 
 ### 1.8 keyswap
 
-キー配列を置き換える。キーは物理的に押すキー (1 つのキーボードのキー。`S-` を付けると Shift を押しているとき)、値はそのキーを何として扱うか (JIS 配列のキーと修飾キー 1 つ)。
+キー配列を置き換える。キーは物理的に押すキー (1 つのキーボードのキー。`S-` を付けると Shift を押しているとき)、値はそのキーを何として扱うか (キーと修飾キー 1 つ。記号は `settings.layout` の配列で読む)。
 
 ```toml
 [keyswap]
 "S-2" = "@"        # Shift+2 で @
-":" = "'"          # : のキーで ' (JIS の S-7)
+":" = "'"          # : のキーで ' (JIS なら S-7)
 "S-;" = ":"
 ```
 
@@ -215,8 +216,8 @@ chord    = (修飾 "-")* キー
 | 種類 | キー名 |
 | --- | --- |
 | 英数字 | `a`–`z`, `0`–`9` |
-| 記号 (JIS 配列のキー) | `-` `^` `\` `@` `[` `;` `:` `]` `,` `.` `/` `Ro` (「ロ」のキー、VK_OEM_102) ほか `Oem1` 形式 |
-| Shift で打つ記号 (JIS 配列) | `!` `"` `#` `$` `%` `&` `'` `(` `)` `=` `~` `\|` `` ` `` `{` `+` `*` `}` `<` `>` `?` `_`。そのキーと Shift の組み合わせを表す (`$` は `S-4`、`C-?` は `C-S-/`) |
+| 記号 | そのキーだけで打つ記号。`settings.layout` の配列で読む (JIS なら `-` `^` `\` `@` `[` `;` `:` `]` `,` `.` `/`、US なら `-` `=` `[` `]` `\` `;` `'` `` ` `` `,` `.` `/`)。配列によらない名前は `Ro` (「ロ」のキー、VK_OEM_102) ほか `Oem1` 形式 |
+| Shift で打つ記号 | Shift と一緒に押して打つ記号 (JIS なら `!` `"` `#` `$` `%` `&` `'` `(` `)` `=` `~` `\|` `` ` `` `{` `+` `*` `}` `<` `>` `?` `_`)。そのキーと Shift の組み合わせを表す (JIS なら `$` は `S-4`、`C-?` は `C-S-/`) |
 | 制御 | `Enter` `Esc` `Tab` `Space` `Backspace` `Delete` `Insert` `Home` `End` `PageUp` `PageDown` `Up` `Down` `Left` `Right` `CapsLock` `PrintScreen` `ScrollLock` `Pause` `Apps` |
 | ファンクション | `F1`–`F24` |
 | テンキー | `Num0`–`Num9` `NumAdd` `NumSub` `NumMul` `NumDiv` `NumDot` `NumLock` |
@@ -226,6 +227,10 @@ chord    = (修飾 "-")* キー
 | マウス | `LButton` `RButton` `MButton` `X1Button` `X2Button` `WheelUp` `WheelDown` `WheelLeft` `WheelRight` |
 | ジェスチャー | `RButton:UL` (ボタン名 `:` 方向 `U`/`D`/`L`/`R` の列) |
 | パッド | `Pad.A` `Pad.B` `Pad.X` `Pad.Y` `Pad.LB` `Pad.RB` `Pad.LT` `Pad.RT` `Pad.Back` `Pad.Start` `Pad.LS` `Pad.RS` `Pad.Up` `Pad.Down` `Pad.Left` `Pad.Right` `Pad.LStickUp` など `Pad.[LR]Stick(Up|Down|Left|Right)` |
+
+- 記号の名前は Windows のその配列で打てる文字 (UK の `£`、DE の `ß` `ü`、FR の `é` `&` など) で、デッドキーも含む。AltGr で打つ記号は名前にならないので `C-M-` を付けて書く (DE の `@` は `C-M-q`)。
+- 同じ記号を打つキーが 2 つあれば、その記号は先のキーを指す (JIS の `\` は ¥ のキー。「ロ」のキーは `Ro`)。
+- `a`–`z` はその文字を打つキー、`0`–`9` は数字の段のキー (FR の `1` は `&` を打つキー)。
 
 - Ctrl/Alt/Shift/Win は chord の修飾としてだけ働き、バインドの入力のキーにはできない。
 - ホイールとジェスチャーは押しっぱなしにならないので、`press = "hold"` でも tap として扱う。

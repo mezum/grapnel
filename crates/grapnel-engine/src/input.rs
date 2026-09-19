@@ -355,11 +355,11 @@ impl Engine {
     /// `C-x q` is undefined / `C-x` timed out.
     fn undefined(&self, pending: &[Chord], current: Option<&Key>) -> Command {
         let names = self.cfg.user_mod_names();
-        let mut keys = grapnel_keys::format_seq(&KeySeq(pending.to_vec()), &names);
+        let mut keys = grapnel_keys::format_seq(&KeySeq(pending.to_vec()), &names, self.cfg.settings.layout);
         match current {
             Some(k) => {
                 let chord = self.chord_of(k);
-                keys = format!("{keys} {}", grapnel_keys::format_chord(&chord, &names));
+                keys = format!("{keys} {}", grapnel_keys::format_chord(&chord, &names, self.cfg.settings.layout));
                 Command::Notice(Notice::Undefined(keys))
             }
             None => Command::Notice(Notice::TimedOut(keys)),

@@ -43,6 +43,9 @@ pub struct RawSettings {
     /// Display language (`"ja"`, `"en"`, ...); unset follows Windows.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    /// Keyboard layout for symbol key names (`"jis"`, `"us"`, ...); unset is JIS.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

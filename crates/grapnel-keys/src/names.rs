@@ -1,7 +1,7 @@
-//! Key name tables. Symbol names follow the JIS layout: a symbol typed without Shift names its key,
-//! one typed with Shift names that key with Shift (`$` is `S-4`).
+//! Key name tables. Symbol names follow the configured layout: a symbol typed without Shift names
+//! its key, one typed with Shift names that key with Shift (`$` is `S-4` on JIS).
 
-use crate::{Key, MouseButton, PadButton, WheelDir};
+use crate::{Key, Layout, MouseButton, PadButton, WheelDir};
 
 /// Named keyboard keys. Scan-code based entries are keys whose VK varies with IME state.
 const NAMED: &[(&str, Key)] = &[
@@ -44,17 +44,6 @@ const NAMED: &[(&str, Key)] = &[
     ("RShift", Key::Vk(0xA1)),
     ("LWin", Key::Vk(0x5B)),
     ("RWin", Key::Vk(0x5C)),
-    ("-", Key::Vk(0xBD)),
-    ("^", Key::Vk(0xDE)),
-    ("\\", Key::Vk(0xDC)),
-    ("@", Key::Vk(0xC0)),
-    ("[", Key::Vk(0xDB)),
-    (";", Key::Vk(0xBB)),
-    (":", Key::Vk(0xBA)),
-    ("]", Key::Vk(0xDD)),
-    (",", Key::Vk(0xBC)),
-    (".", Key::Vk(0xBE)),
-    ("/", Key::Vk(0xBF)),
     ("Ro", Key::Vk(0xE2)),
     ("Oem1", Key::Vk(0xBA)),
     ("OemPlus", Key::Vk(0xBB)),
@@ -73,31 +62,6 @@ const NAMED: &[(&str, Key)] = &[
     ("WheelDown", Key::Wheel(WheelDir::Down)),
     ("WheelLeft", Key::Wheel(WheelDir::Left)),
     ("WheelRight", Key::Wheel(WheelDir::Right)),
-];
-
-/// Symbols typed with Shift on the JIS layout, and the key typing them.
-pub(crate) const SHIFTED: &[(&str, Key)] = &[
-    ("!", Key::Vk(b'1')),
-    ("\"", Key::Vk(b'2')),
-    ("#", Key::Vk(b'3')),
-    ("$", Key::Vk(b'4')),
-    ("%", Key::Vk(b'5')),
-    ("&", Key::Vk(b'6')),
-    ("'", Key::Vk(b'7')),
-    ("(", Key::Vk(b'8')),
-    (")", Key::Vk(b'9')),
-    ("=", Key::Vk(0xBD)),
-    ("~", Key::Vk(0xDE)),
-    ("|", Key::Vk(0xDC)),
-    ("`", Key::Vk(0xC0)),
-    ("{", Key::Vk(0xDB)),
-    ("+", Key::Vk(0xBB)),
-    ("*", Key::Vk(0xBA)),
-    ("}", Key::Vk(0xDD)),
-    ("<", Key::Vk(0xBC)),
-    (">", Key::Vk(0xBE)),
-    ("?", Key::Vk(0xBF)),
-    ("_", Key::Vk(0xE2)),
 ];
 
 pub(crate) const MOUSE: &[(&str, MouseButton)] = &[
@@ -139,8 +103,30 @@ fn hex(s: &str) -> Option<u32> {
     u32::from_str_radix(s.strip_prefix("0x").or(s.strip_prefix("0X"))?, 16).ok()
 }
 
+/// The key typing `symbol` alone (`false`) or with Shift (`true`); the first row wins.
+pub(crate) fn symbol_key(symbol: &str, layout: Layout) -> Option<(Key, bool)> {
+    if symbol.is_empty() {
+        return None;
+    }
+    layout.rows().iter().find_map(|&(vk, plain, shifted)| match symbol {
+        s if s == plain => Some((Key::Vk(vk), false)),
+        s if s == shifted => Some((Key::Vk(vk), true)),
+        _ => None,
+    })
+}
+
+/// The symbol `key` types alone or with Shift, if that symbol names it back.
+pub(crate) fn symbol(key: &Key, shift: bool, layout: Layout) -> Option<&'static str> {
+    let row = layout.rows().iter().find(|r| Key::Vk(r.0) == *key)?;
+    let s = if shift { row.2 } else { row.1 };
+    (symbol_key(s, layout) == Some((key.clone(), shift))).then_some(s)
+}
+
 /// Looks up a single key name (without gesture suffix). Case-insensitive.
-pub(crate) fn lookup(name: &str) -> Option<Key> {
+pub(crate) fn lookup(name: &str, layout: Layout) -> Option<Key> {
+    if let Some((key, false)) = symbol_key(name, layout) {
+        return Some(key);
+    }
     let lower = name.to_ascii_lowercase();
     if let Some(v) = lower.strip_prefix("vk:") {
         return hex(v).filter(|&v| (1..=0xFE).contains(&v)).map(|v| Key::Vk(v as u8));
@@ -175,7 +161,7 @@ pub(crate) fn lookup(name: &str) -> Option<Key> {
 }
 
 /// Canonical name of a key.
-pub(crate) fn name(key: &Key) -> String {
+pub(crate) fn name(key: &Key, layout: Layout) -> String {
     match key {
         Key::Vk(v @ (b'0'..=b'9' | b'A'..=b'Z')) => (*v as char).to_ascii_lowercase().to_string(),
         Key::Vk(v @ 0x70..=0x87) => format!("F{}", v - 0x6F),
@@ -184,10 +170,10 @@ pub(crate) fn name(key: &Key) -> String {
         Key::Pad(b) => format!("Pad.{}", PAD.iter().find(|(_, p)| p == b).unwrap().0),
         Key::Gesture(b, dirs) => {
             let d: String = dirs.iter().map(|d| d.letter()).collect();
-            format!("{}:{d}", name(&Key::Mouse(*b)))
+            format!("{}:{d}", name(&Key::Mouse(*b), layout))
         }
-        k => match NAMED.iter().find(|(_, n)| n == k) {
-            Some((n, _)) => n.to_string(),
+        k => match symbol(k, false, layout).or_else(|| NAMED.iter().find(|(_, n)| n == k).map(|(n, _)| *n)) {
+            Some(n) => n.to_string(),
             None => match k {
                 Key::Vk(v) => format!("vk:0x{v:02X}"),
                 Key::Sc(s) => format!("sc:0x{s:02X}"),

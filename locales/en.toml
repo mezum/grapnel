@@ -89,6 +89,14 @@ include = "include (glob allowed)"
 delete_settings = "Delete settings from this file"
 passthrough = "passthrough (targets)"
 language = "language (display language)"
+layout = "layout (keyboard layout of symbol key names)"
+
+[ui.layout]
+jis = "Japanese (JIS)"
+us = "English (US)"
+uk = "English (UK)"
+de = "German"
+fr = "French"
 
 [ui.name]
 mode = "Mode name"
@@ -188,6 +196,7 @@ entry_only = "only allowed in the entry file"
 duplicate = "already defined in %{file}"
 too_many_modifiers = "too many modifiers (%{count} > %{max})"
 unknown_mode = "unknown mode '%{name}'"
+unknown_layout = "unknown keyboard layout '%{name}' (use jis, us, uk, de or fr)"
 unknown_target = "unknown target '%{name}'"
 unknown_action = "unknown action '%{name}'"
 unknown_action_or_key = "unknown action or key '%{name}'"
