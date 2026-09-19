@@ -343,9 +343,11 @@ fn input_step_without_then_runs_the_typed_action() {
 
 #[test]
 fn input_then_templates_name_the_action_by_the_first_word() {
-    let c = ok("[actions]
-colon = [{ input = \":\", then = \"vim:{arg}\" }]");
+    let c = ok("[actions]\ncolon = [{ input = \":\", then = \"vim:{arg}\" }]\n\"vim:w\" = \"C-s\"");
     let colon = &c.actions[c.action_id("colon").unwrap()].impls[0].steps[0];
+    // {arg} stands for any text, but some action must fit the template.
+    let e = errs(&[("m", "[actions]\ncolon = [{ input = \":\", then = \"vmi:{arg}\" }]\n\"vim:w\" = \"C-s\"")]);
+    assert!(e.contains("actions.colon[0]: unknown action 'vmi:{arg}'"), "{e}");
     assert!(matches!(colon, Step::Input { then: Then::Named(t), .. } if t == "vim:{arg}"));
     assert_eq!(Then::resolve("vim:{arg}", " e  a b.txt "), ("vim:e".into(), "a b.txt".into()));
     assert_eq!(Then::resolve("{arg}", "hello"), ("hello".into(), String::new()));

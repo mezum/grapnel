@@ -314,10 +314,20 @@ pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, 
         RawStep::Mode { mode } => Step::Mode(c.id(at, Kind::Mode, modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
         RawStep::Input { input, then, position } => {
-            // A name with `{arg}` is looked up only once the text is known.
+            // A name with `{arg}` is looked up only once the text is known; until then `{arg}`
+            // stands for any text, and at least one action must fit.
             let then = match then {
                 Some(t) if !t.contains("{arg}") => Then::Action(c.id(at, Kind::Action, actions, t)?),
-                t => Then::Named(t.clone().unwrap_or_else(|| "{arg}".into())),
+                t => {
+                    let template = t.clone().unwrap_or_else(|| "{arg}".into());
+                    let pattern: Vec<String> = template.split("{arg}").map(regex::escape).collect();
+                    let fits = regex::Regex::new(&format!("^{}$", pattern.join(".*"))).unwrap();
+                    if !actions.keys().any(|name| fits.is_match(name)) {
+                        c.err(at, Kind::Action.unknown(&template));
+                        return None;
+                    }
+                    Then::Named(template)
+                }
             };
             Step::Input { prompt: input.clone(), then, position: position.unwrap_or_default() }
         }
