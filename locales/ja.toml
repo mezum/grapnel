@@ -103,9 +103,9 @@ typed_action = "入力した名前のアクション"
 
 [ui.mode]
 block_unmapped = "定義外のキーを握りつぶす"
-count = "数字を回数として受け付ける (例: 3j)"
+count = "数字入力は直後のキーマップの繰り返し回数"
 unmapped_to = "unmapped_to (定義外の入力で移るモード)"
-hold = "hold (モード中に押したままにする修飾キー 例: S)"
+hold = "hold (モード中に押したままにする修飾キー)"
 keymap = "このモード専用のキーマップ"
 
 [ui.modifier]

@@ -138,10 +138,12 @@ pub fn modes() -> impl IntoView {
             let at = format!("modes.{a}");
             let p = Place::<RawMode>::new(store, &at, move |c| c.modes.get(&a), move |c| c.modes.get_mut(&b));
             view! {
-                {check(&t!("ui.mode.block_unmapped"), &p.at(".block_unmapped"), |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
-                {check(&t!("ui.mode.count"), &p.at(".count"), |m| m.count, |m, x| m.count = x)}
-                {opt_text(&t!("ui.mode.unmapped_to"), &p.at(".unmapped_to"), |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x, || t!("ui.hint.none").into_owned())}
-                {opt_text(&t!("ui.mode.hold"), &p.at(".hold"), |m| m.hold.clone(), |m, x| m.hold = x, || t!("ui.hint.none").into_owned())}
+                <div class="stack">
+                    {opt_text(&t!("ui.mode.hold"), &p.at(".hold"), |m| m.hold.clone(), |m, x| m.hold = x, || t!("ui.hint.none").into_owned())}
+                    {opt_text(&t!("ui.mode.unmapped_to"), &p.at(".unmapped_to"), |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x, || t!("ui.hint.none").into_owned())}
+                    {check(&t!("ui.mode.block_unmapped"), &p.at(".block_unmapped"), |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
+                    {check(&t!("ui.mode.count"), &p.at(".count"), |m| m.count, |m, x| m.count = x)}
+                </div>
                 <details class="mode-keymap">
                     <summary>{t!("ui.mode.keymap")}</summary>
                     {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)), true)}

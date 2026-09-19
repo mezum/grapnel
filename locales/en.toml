@@ -105,9 +105,9 @@ typed_action = "the action named by the input"
 
 [ui.mode]
 block_unmapped = "Swallow unmapped keys"
-count = "Take digits as a count (e.g. 3j)"
+count = "Digits are a repeat count for the next binding"
 unmapped_to = "unmapped_to (mode to switch to on unmapped input)"
-hold = "hold (modifiers held in this mode, e.g. S)"
+hold = "hold (modifiers held down in this mode)"
 keymap = "Keymap for this mode only"
 
 [ui.modifier]
