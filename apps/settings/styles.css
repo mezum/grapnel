@@ -173,6 +173,8 @@ section { display: flex; flex-direction: column; gap: 8px; }
   border-left: 2px solid var(--line);
 }
 /* Step fields have a label line; the handle and delete button line up with the inputs below it. */
+/* Fields on a step's second line come after its delete button. */
+.step > .later { order: 1; }
 .step > .del { margin-top: calc(1.4em + 4px); }
 .step > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
 .node { display: flex; flex-direction: column; gap: 6px; }

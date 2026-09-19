@@ -133,10 +133,11 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             "run" => view! {
                 {text("run", &p.at(".run"), |s| if let RawStep::Run { run, .. } = s { run.clone() } else { String::new() },
                     |s, x| if let RawStep::Run { run, .. } = s { *run = x })}
-                {list("args", p.map(".args", 
+                <div class="break later"></div>
+                <div class="later">{list("args", p.map(".args",
                     |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
                     |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
-                ))}
+                ))}</div>
             }
             .into_any(),
             "call" => view! {
@@ -180,14 +181,15 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             _ => view! {
                 {text("prompt", &p.at(".input"), |s| if let RawStep::Input { input, .. } = s { input.clone() } else { String::new() },
                     |s, x| if let RawStep::Input { input, .. } = s { *input = x })}
-                {opt_text(&t!("ui.step.then"), p,
-                    |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
-                    |s, x| if let RawStep::Input { then, .. } = s { *then = x }, || t!("ui.hint.typed_action").into_owned())}
-                {select("position", p, positions(),
+                {select(&t!("ui.step.position"), p, positions(),
                     |s| match s { RawStep::Input { position: Some(InputPosition::Bottom), .. } => "bottom", _ => "" }.into(),
                     |s, x| if let RawStep::Input { position, .. } = s {
                         *position = (x == "bottom").then_some(InputPosition::Bottom)
                     })}
+                <div class="break later"></div>
+                <div class="later">{opt_text(&t!("ui.step.then"), p,
+                    |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
+                    |s, x| if let RawStep::Input { then, .. } = s { *then = x }, || t!("ui.hint.typed_action").into_owned())}</div>
             }
             .into_any(),
         }
