@@ -1,4 +1,4 @@
-//! Form sections for settings, modes, modifiers, targets and the keymap.
+//! Form sections for settings, modes, modifiers, targets, the keymap and keyswap.
 
 use crate::Store;
 use crate::fields::*;
@@ -198,6 +198,41 @@ pub fn keymap() -> impl IntoView {
         <section>
             <p class="hint">{t!("ui.keymap.hint")}</p>
             {node_editor(p, true)}
+        </section>
+    }
+}
+
+pub fn keyswap() -> impl IntoView {
+    let p = Place::<IndexMap<String, String>>::new(store(), "keyswap", |c| Some(&c.keyswap), |c| Some(&mut c.keyswap));
+    let (list, add) = (p.clone(), p.clone());
+    let row = move |key: String| {
+        let (a, b) = (key.clone(), key.clone());
+        let vp = p.map(&format!(".\"{key}\""), move |m| m.get(&a), move |m| m.get_mut(&b));
+        let (r, d, del, bad) = (p.clone(), p.clone(), key.clone(), vp.clone());
+        view! {
+            <div class="binding">
+                {name_row(
+                    None,
+                    key,
+                    move || bad.key_problem(),
+                    move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
+                    move || d.edit(|m| drop(m.shift_remove(&del))),
+                )}
+                {keys(&t!("ui.keyswap.to"), &vp, |v| v.clone(), |v, x| *v = x, false)}
+            </div>
+        }
+    };
+    // An empty key is reported by validation until the user types it.
+    let add_row = move |_| {
+        add.edit(|m| {
+            m.entry(String::new()).or_default();
+        })
+    };
+    view! {
+        <section>
+            <p class="hint">{t!("ui.keyswap.hint")}</p>
+            <For each=move || list.read(|m| m.keys().cloned().collect::<Vec<_>>()) key=|k| k.clone() let:k>{row(k)}</For>
+            <button class="add" on:click=add_row>{t!("ui.keyswap.add")}</button>
         </section>
     }
 }

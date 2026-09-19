@@ -68,6 +68,7 @@ modes = "Modes"
 modifiers = "Modifiers"
 targets = "Targets"
 keymap = "Keymap"
+keyswap = "Key layout"
 actions = "Actions"
 
 [ui.general]
@@ -117,6 +118,11 @@ repeat = "repeat (remember as the last change to repeat)"
 targets = "targets (conditions to catch the input)"
 options = "Node options (inherited by descendants)"
 add_key = "Add key"
+
+[ui.keyswap]
+hint = "Treat a key as another (a layout swap). Left: the key pressed (S- for with Shift). Right: what it types on the JIS layout (e.g. S-2 → @). The keymap sees the swapped key."
+to = "Types"
+add = "Add key"
 
 [ui.step]
 text = "Type text"

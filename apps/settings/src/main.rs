@@ -267,6 +267,7 @@ fn App() -> impl IntoView {
         [t!("ui.tab.general"), t!("ui.tab.modes"), t!("ui.tab.modifiers")].into_iter().chain([
             t!("ui.tab.targets"),
             t!("ui.tab.keymap"),
+            t!("ui.tab.keyswap"),
             t!("ui.tab.actions"),
         ])
     };
@@ -328,6 +329,7 @@ fn App() -> impl IntoView {
                     2 => sections::modifiers().into_any(),
                     3 => sections::targets().into_any(),
                     4 => sections::keymap().into_any(),
+                    5 => sections::keyswap().into_any(),
                     _ => actions::actions().into_any(),
                 }}
             </main>

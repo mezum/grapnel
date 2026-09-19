@@ -66,6 +66,7 @@ modes = "モード"
 modifiers = "修飾キー"
 targets = "ターゲット"
 keymap = "キーマップ"
+keyswap = "キー配列"
 actions = "アクション"
 
 [ui.general]
@@ -115,6 +116,11 @@ repeat = "repeat (「直前の変更の繰り返し」の対象にする)"
 targets = "targets (入力を捕まえる条件)"
 options = "節の設定 (子孫に引き継ぐ)"
 add_key = "キーを追加"
+
+[ui.keyswap]
+hint = "押したキーを別のキーとして扱う (キー配列の置き換え)。左は押すキー (S- を付けると Shift を押しているとき)、右は JIS 配列で何を打ったことにするか (例: S-2 → @)。キーマップは置き換えた後のキーで探す。"
+to = "扱うキー"
+add = "キーを追加"
 
 [ui.step]
 text = "文字入力"
