@@ -1,5 +1,7 @@
 # grapnel
 
+[English](README.en.md)
+
 キーボード・マウス・ゲームパッドの入力を別の入力に変換する Windows 11 用の常駐ツールです。
 
 - Emacs 風の chord (`C-x t 0`)、Vim 風のモード、tap/hold 兼用のユーザー定義修飾キー
