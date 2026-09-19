@@ -68,7 +68,7 @@ fn to_toml(raw: &RawConfig) -> Result<String, String> {
     let mut doc = toml_edit::ser::to_document(raw).map_err(|e| e.to_string())?;
     for (key, item) in doc.as_table_mut().iter_mut() {
         match key.get() {
-            "settings" | "actions" => {
+            "settings" | "keyswap" | "actions" => {
                 table(item);
             }
             "targets" | "modifiers" => {

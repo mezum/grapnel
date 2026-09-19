@@ -25,7 +25,7 @@ e = "forward_word"
 b = "backward_word"
 0 = "beginning_of_line"
 "^" = "beginning_of_line"
-S-4 = "end_of_line"
+"$" = "end_of_line"
 S-g = "end_of_buffer"
 C-f = "scroll_up"
 C-d = "scroll_up"
@@ -50,7 +50,7 @@ S-o = ["beginning_of_line", "newline", "previous_line", { mode = "input" }]
 v = [{ mode = "visual" }, "select_forward_char"]
 S-v = ["beginning_of_line", { mode = "visual" }, "select_next_line"]
 "/" = ["search_forward", { mode = "search" }]
-"S-/" = ["search_forward", { mode = "search" }]
+"?" = ["search_forward", { mode = "search" }]
 n = "search_next"
 S-n = "search_previous"
 Esc = "Esc"
@@ -76,7 +76,7 @@ w = { do = "kill_word", repeat = true }
 e = { do = "kill_word", repeat = true }
 b = { do = "backward_kill_word", repeat = true }
 0 = { do = ["select_beginning_of_line", "kill_region"], repeat = true }
-S-4 = { do = "kill_line", repeat = true }
+"$" = { do = "kill_line", repeat = true }
 
 [modes.normal.keymap.y]
 y = "copy_whole_line"
@@ -84,7 +84,7 @@ w = ["select_forward_word", "kill_ring_save", "backward_char"]
 e = ["select_forward_word", "kill_ring_save", "backward_char"]
 b = ["select_backward_word", "kill_ring_save", "backward_char"]
 0 = ["select_beginning_of_line", "kill_ring_save", "backward_char"]
-S-4 = ["select_end_of_line", "kill_ring_save", "backward_char"]
+"$" = ["select_end_of_line", "kill_ring_save", "backward_char"]
 
 [modes.normal.keymap.c]
 c = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]
@@ -92,7 +92,7 @@ w = ["kill_word", { mode = "input" }]
 e = ["kill_word", { mode = "input" }]
 b = ["backward_kill_word", { mode = "input" }]
 0 = ["select_beginning_of_line", "kill_region", { mode = "input" }]
-S-4 = ["kill_line", { mode = "input" }]
+"$" = ["kill_line", { mode = "input" }]
 
 [modes.search.keymap]
 Enter = ["Enter Esc", { mode = "normal" }]
@@ -114,7 +114,7 @@ e = "select_forward_word"
 b = "select_backward_word"
 0 = "select_beginning_of_line"
 "^" = "select_beginning_of_line"
-S-4 = "select_end_of_line"
+"$" = "select_end_of_line"
 S-g = "select_end_of_buffer"
 "g g" = "select_beginning_of_buffer"
 y = [{ mode = "normal" }, "kill_ring_save", "backward_char"]

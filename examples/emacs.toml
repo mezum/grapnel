@@ -26,7 +26,7 @@ C-k = ["deactivate_mark", "kill_line"]
 C-h = ["deactivate_mark", "delete_backward_char"]
 C-d = ["deactivate_mark", "delete_char"]
 "C-/" = ["deactivate_mark", "undo"]
-"C-S-/" = ["deactivate_mark", "redo"]
+"C-?" = ["deactivate_mark", "redo"]
 
 [keymap]
 C-f = "forward_char"
@@ -42,7 +42,7 @@ C-w = "kill_region"
 M-w = "kill_ring_save"
 C-y = "yank"
 "C-/" = "undo"
-"C-S-/" = "redo"
+"C-?" = "redo"
 C-Space = "set_mark"
 M-x = { do = "execute_extended_command", targets = ["non_emacs_app"] }
 

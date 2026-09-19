@@ -47,7 +47,7 @@ key = "Muhenkan"          # 無変換: 単独なら無変換、押しながら�
 "C-x C-s" = "C-s"         # 続けて押すキー列 (C-x を押してから C-s)
 ```
 
-書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を、F19 を macOS の Cmd キーのように使う例は [examples/mac-cmd.toml](examples/mac-cmd.toml) を、Vim 風のモード (normal / input / visual / command / search) の例は [examples/vim.toml](examples/vim.toml) を、JIS 配列のキーボードで AX 配列の記号を打つ例は [examples/ax.toml](examples/ax.toml) を参照してください。ax.toml 以外は共通のアクションを [examples/default-actions.toml](examples/default-actions.toml) から読み込みます。
+書き方の詳細は [仕様書](docs/spec.md) を、Emacs 風キーバインドの例は [examples/emacs.toml](examples/emacs.toml) を、F19 を macOS の Cmd キーのように使う例は [examples/mac-cmd.toml](examples/mac-cmd.toml) を、Vim 風のモード (normal / input / visual / command / search) の例は [examples/vim.toml](examples/vim.toml) を、JIS 配列のキーボードを AX 配列として使う例 (keyswap。他の設定と一緒に include すると、キーバインドも AX 配列の記号の位置で働く) は [examples/ax.toml](examples/ax.toml) を参照してください。ax.toml 以外は共通のアクションを [examples/default-actions.toml](examples/default-actions.toml) から読み込みます。
 
 ## 制限
 

@@ -362,7 +362,35 @@ fn ax_symbols() {
     assert_eq!(t.down("2"), eaten("-LShift +@"));
     assert_eq!(t.up("2"), eaten("-@ +LShift"));
     t.up("LShift");
-    // Other modifiers are left alone.
+    // Other modifiers keep the AX position: Ctrl on the AX [ key is C-[.
     t.down("LCtrl");
-    assert_eq!(t.down("@"), pass());
+    assert_eq!(t.down("@"), eaten("+["));
+}
+
+/// ax.toml's keyswap under vim.toml's bindings, as a user config would include both.
+#[test]
+fn ax_with_vim_binds_by_symbol() {
+    let dir = std::env::temp_dir().join(format!("grapnel-ax-vim-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ex = examples().canonicalize().unwrap();
+    let text = format!("include = [{:?}, {:?}]", ex.join("vim.toml"), ex.join("ax.toml"));
+    std::fs::write(dir.join("config.toml"), text).unwrap();
+    let mut t = t_file(&dir.join("config.toml"));
+    t.app("notepad.exe");
+    t.win.uia_type = "Edit".into();
+    t.tap("Esc");
+    // `^` is S-6 on AX; the JIS ^ key (AX =) is not bound.
+    t.down("LShift");
+    assert_eq!(t.down("6"), eaten("-LShift +Home"));
+    t.up("6");
+    // `:` is S-; on AX.
+    assert_eq!(mode(&t.down(";")), Some("command"));
+    t.up(";");
+    t.up("LShift");
+    // C-[ (the AX [ key) leaves input mode.
+    t.tap("Esc");
+    t.tap("i");
+    assert_eq!(t.e.mode_name(), "input");
+    t.down("LCtrl");
+    assert_eq!(mode(&t.down("@")), Some("normal"));
 }

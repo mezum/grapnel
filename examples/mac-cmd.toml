@@ -6,8 +6,8 @@ tap = ""
 as = "C"
 
 [keymap]
-"Cmd-S-]" = "next_tab"
-"Cmd-S-[" = "previous_tab"
+"Cmd-}" = "next_tab"
+"Cmd-{" = "previous_tab"
 C-Left = "previous_desktop"
 C-Right = "next_desktop"
 Cmd-Tab = { do = "switch_app", keep_mods = true }
