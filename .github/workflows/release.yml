@@ -14,20 +14,26 @@ jobs:
       TAG: ${{ github.ref_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Check that the tag matches the version
         shell: pwsh
         run: |
           $meta = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
           $version = ($meta.packages | Where-Object name -eq grapnel).version
           if ("v$version" -ne $env:TAG) { throw "tag $env:TAG does not match version $version in Cargo.toml" }
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
+      - uses: actions/cache@v6
         with:
-          tool: trunk,tauri-cli
-      - run: cargo build --release -p grapnel
-      - run: cargo tauri build --no-bundle
-        working-directory: apps/settings
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: cargo-
+      # Third party, so pinned to a commit.
+      - uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
+        with:
+          tool: just,trunk,tauri-cli
+      - run: just build
       - name: Package
         shell: pwsh
         run: |

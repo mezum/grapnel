@@ -1,5 +1,9 @@
 set windows-shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
 
+# Build both exes in release (target/release/grapnel.exe and grapnel-settings.exe)
+build: settings
+    cargo build --release -p grapnel
+
 # Stop grapnel, rebuild the settings tool, then run grapnel again
 restart: stop settings run
 
