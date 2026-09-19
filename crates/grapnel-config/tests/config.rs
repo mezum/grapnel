@@ -63,7 +63,7 @@ fn compiles_base() {
     let down = &c.actions[c.action_id("down").unwrap()];
     assert_eq!(down.impls.len(), 2);
     assert_eq!(down.impls[0].when, [0]);
-    assert_eq!(down.impls[0].steps[1], Step::Call { action: 0, arg: None });
+    assert_eq!(down.impls[0].steps[1], Step::Call { action: 0, arg: String::new() });
     assert_eq!(down.impls[1].when, [] as [usize; 0]);
 }
 
@@ -319,14 +319,17 @@ fn step_strings_call_actions_when_named() {
     let c = ok("[keymap]\na = [\"undo\", \"C-s\", { keys = \"C-z\" }]\n[actions]\nundo = \"C-z\"\nundo2 = \"undo\"");
     let undo = c.action_id("undo").unwrap();
     let steps = &c.actions[c.rules[0].action].impls[0].steps;
-    assert_eq!(steps[0], Step::Call { action: undo, arg: None });
+    assert_eq!(steps[0], Step::Call { action: undo, arg: String::new() });
     assert_eq!(steps[1], Step::Keys(seq("C-s", &[])));
     // `{ keys = ... }` always means keys.
     assert!(
         errs(&[("m", "[keymap]\na = [{ keys = \"undo\" }]\n[actions]\nundo = \"C-z\"")]).contains("unknown key 'undo'")
     );
     // An action's own string may name another action.
-    assert_eq!(c.actions[c.action_id("undo2").unwrap()].impls[0].steps, [Step::Call { action: undo, arg: None }]);
+    assert_eq!(
+        c.actions[c.action_id("undo2").unwrap()].impls[0].steps,
+        [Step::Call { action: undo, arg: String::new() }]
+    );
 }
 
 #[test]

@@ -232,6 +232,7 @@ pub enum RawStep {
     },
     Call {
         call: String,
+        /// Argument for the called action; `{arg}` stands for the current one. Unset is empty.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         arg: Option<String>,
     },

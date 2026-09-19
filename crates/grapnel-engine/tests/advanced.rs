@@ -120,7 +120,7 @@ fn wheel_with_modifier() {
 fn call_input_and_control() {
     let cfg = "[keymap]\na = \"x\"\n\
                [actions]\nx = [{ call = \"y\", arg = \"1{arg}\" }, { input = \"?\", then = \"y\" }, { control = \"exit\" }]\n\
-               y = [{ text = \"<{arg}>\" }, { call = \"z\" }]\n\
+               y = [{ text = \"<{arg}>\" }, { call = \"z\", arg = \"{arg}\" }]\n\
                z = [{ text = \"{arg}\" }]";
     let mut t = t(cfg);
     let y = 1;
@@ -302,9 +302,12 @@ d = { do = "Home S-Down C-x", repeat = true }
 }
 
 #[test]
-fn empty_call_arg_is_not_the_current_one() {
-    let cfg = "[actions]\nx = [{ call = \"z\", arg = \"\" }, { call = \"z\" }]\nz = [{ text = \"<{arg}>\" }]";
+fn a_call_passes_only_the_argument_it_names() {
+    let cfg = "[actions]\nx = [{ call = \"z\" }, { call = \"z\", arg = \"\" }, { call = \"z\", arg = \"{arg}!\" }, \"z\"]\n\
+               z = [{ text = \"<{arg}>\" }]";
     let mut t = t(cfg);
-    let x = t.e.invoke_named("x", "a", &t.win.clone());
-    assert_eq!(x, [Command::Text("<>".into()), Command::Text("<a>".into())]);
+    let out = t.e.invoke_named("x", "a", &t.win.clone());
+    let text = |s: &str| Command::Text(s.into());
+    // Only `{arg}` passes the current argument on; an omitted `arg` is empty, like the shorthand.
+    assert_eq!(out, [text("<>"), text("<>"), text("<a!>"), text("<>")]);
 }
