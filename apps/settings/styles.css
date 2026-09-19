@@ -110,7 +110,7 @@ header .lang { margin-left: 8px; }
 
 /* Section tabs */
 nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.status { margin-left: auto; color: var(--accent); font-size: 12px; }
+.status { margin-left: auto; color: var(--accent); }
 nav.tabs { gap: 0; border-bottom: 1px solid var(--line); }
 nav.tabs button {
   background: none;
@@ -147,16 +147,16 @@ section { display: flex; flex-direction: column; gap: 8px; }
   box-shadow: var(--shadow);
 }
 .impl { flex-basis: 100%; background: var(--surface-2); box-shadow: none; }
-.name { display: flex; gap: 2px; align-items: center; }
+.name { display: flex; gap: 4px; align-items: center; }
 .name input { font-weight: 600; min-width: 140px; }
 .binding > .name input { font-family: Consolas, monospace; }
-.field { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
-.field span { font-size: 12px; color: var(--muted); }
-.field .item { display: flex; gap: 2px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.field span { color: var(--muted); }
+.field .item { display: flex; gap: 4px; align-items: center; }
 .field .item input { flex: 1; }
 .field.check { flex-direction: row; align-items: center; gap: 6px; min-width: 0; min-height: 30px; }
-.field.check span { font-size: 14px; color: var(--fg); }
-.error { color: var(--error); font-size: 12px; min-height: 1em; }
+.field.check span { color: var(--fg); }
+.error { color: var(--error); min-height: 1em; }
 .field:has(.error:empty) .error { display: none; }
 
 /* Nested editors take a whole line. */
@@ -172,12 +172,12 @@ section { display: flex; flex-direction: column; gap: 8px; }
 }
 .node { display: flex; flex-direction: column; gap: 6px; }
 .node .node { margin-left: 4px; padding-left: 12px; border-left: 2px solid var(--line); }
-details > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 0; }
+details > summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
 summary input.extended { margin: 0 0 0 8px; vertical-align: middle; }
 details.options fieldset { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-end; border: 0; margin: 0; padding: 0; min-width: 0; }
 fieldset:disabled { opacity: 0.6; }
 details[open] > summary { margin-bottom: 6px; }
-.hint { color: var(--muted); margin: 0; font-size: 12px; }
+.hint { color: var(--muted); margin: 0; }
 main > .hint { margin-bottom: 4px; }
 .swap input { font-family: Consolas, monospace; }
 
