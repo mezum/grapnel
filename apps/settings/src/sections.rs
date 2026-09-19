@@ -142,7 +142,7 @@ pub fn modes() -> impl IntoView {
                 </div>
                 <details class="mode-keymap">
                     <summary>{t!("ui.mode.keymap")}</summary>
-                    {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)), true)}
+                    {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)), true, false.into())}
                 </details>
             }
         },
@@ -208,7 +208,7 @@ pub fn keymap() -> impl IntoView {
     let p = Place::<RawNode>::new(store, "keymap", |c| Some(&c.keymap), |c| Some(&mut c.keymap));
     view! {
         <section>
-            {node_editor(p, true)}
+            {node_editor(p, true, false.into())}
         </section>
     }
 }
