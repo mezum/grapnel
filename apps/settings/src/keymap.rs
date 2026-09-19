@@ -104,11 +104,11 @@ fn leaf_options(
                 {select(&t!("ui.keymap.press"), &p, press(),
                     |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
                     |l, x| l.press = match x.as_str() { "hold" => Some(Press::Hold), "tap" => Some(Press::Tap), _ => None })}
+                {check(&t!("ui.keymap.fallback_none"), &p.at(".fallback"), |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
                 // Sending nothing leaves no keys to type.
                 {move || no_fallback.read(|l| l.fallback.as_deref() != Some("")).then(|| {
                     opt_keys(&t!("ui.keymap.fallback"), &fallback.at(".fallback"), |l| l.fallback.clone(), |l, x| l.fallback = x, || t!("ui.hint.original_input").into_owned())
                 })}
-                {check(&t!("ui.keymap.fallback_none"), &p.at(".fallback"), |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
                 {check(&t!("ui.keymap.keep_mods"), &p.at(".keep_mods"), |l| l.keep_mods, |l, x| l.keep_mods = x)}
                 {check(&t!("ui.keymap.repeat"), &p.at(".repeat"), |l| l.repeat, |l, x| l.repeat = x)}
                 {list(&t!("ui.keymap.targets"), p.map(".targets", |l| Some(&l.targets), |l| Some(&mut l.targets)))}
