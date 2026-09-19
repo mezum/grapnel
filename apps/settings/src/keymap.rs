@@ -28,7 +28,11 @@ fn press() -> Options {
 
 /// `root`: nothing to inherit, so unset means the built-in `replay`.
 fn mismatch(root: bool) -> Options {
-    let own = ["replay", "discard", "fallback"].map(|m| (m.into(), m.into()));
+    let own = [
+        ("replay".into(), t!("ui.keymap.mismatch_replay")),
+        ("discard".into(), t!("ui.keymap.mismatch_discard")),
+        ("fallback".into(), t!("ui.keymap.mismatch_fallback")),
+    ];
     let unset = if root { t!("ui.keymap.mismatch_default") } else { t!("ui.keymap.inherit") };
     std::iter::once(("".into(), unset)).chain(own).collect()
 }
@@ -94,7 +98,7 @@ fn leaf_options(
 ) -> impl IntoView {
     let no_fallback = p.clone();
     view! {
-        <details class="options leaf-options">
+        <details class="options">
             <summary><span class="summary-row">{t!("ui.keymap.extended")}{switch}</span></summary>
             <fieldset disabled=off>
                 {select(&t!("ui.keymap.press"), &p, press(),
@@ -117,19 +121,23 @@ fn leaf_options(
 fn options_editor(p: Place<RawNode>, root: bool) -> AnyView {
     let hint = move |top: &'static str| move || if root { t!(top) } else { t!("ui.hint.inherit") }.into_owned();
     let o = p.map(".options", |n| n.options.as_ref(), |n| Some(n.options.get_or_insert_default()));
+    let fb = o.clone();
     view! {
         <details class="options">
             <summary>{t!("ui.keymap.options")}</summary>
             <fieldset>
-            {select("on_mismatch", &o, mismatch(root),
+            {select(&t!("ui.keymap.on_mismatch"), &o, mismatch(root),
                 |o| match o.on_mismatch {
                     None => "", Some(Mismatch::Replay) => "replay", Some(Mismatch::Discard) => "discard", Some(Mismatch::Fallback) => "fallback",
                 }.into(),
                 |o, x| o.on_mismatch = match x.as_str() {
                     "replay" => Some(Mismatch::Replay), "discard" => Some(Mismatch::Discard), "fallback" => Some(Mismatch::Fallback), _ => None,
                 })}
-            {num("timeout_ms", &o.at(".timeout_ms"), |o| o.timeout_ms, |o, x| o.timeout_ms = x, hint("ui.hint.unlimited"))}
-            {opt_keys("fallback", &o.at(".fallback"), |o| o.fallback.clone(), |o, x| o.fallback = x, hint("ui.hint.replay"))}
+            // Only used by `fallback`; still shown when set, so a value is never hidden.
+            {move || fb.read(|o| o.on_mismatch == Some(Mismatch::Fallback) || o.fallback.is_some()).then(|| {
+                opt_keys("fallback", &fb.at(".fallback"), |o| o.fallback.clone(), |o, x| o.fallback = x, hint("ui.hint.replay"))
+            })}
+            {num(&t!("ui.keymap.timeout_ms"), &o.at(".timeout_ms"), |o| o.timeout_ms, |o, x| o.timeout_ms = x, hint("ui.hint.unlimited"))}
             </fieldset>
         </details>
     }
