@@ -264,11 +264,12 @@ fn App() -> impl IntoView {
         lang.set(l);
     };
     let tabs = || {
-        [t!("ui.tab.general"), t!("ui.tab.modes"), t!("ui.tab.modifiers")].into_iter().chain([
-            t!("ui.tab.targets"),
-            t!("ui.tab.keymap"),
+        [t!("ui.tab.imports"), t!("ui.tab.keymap"), t!("ui.tab.modes")].into_iter().chain([
             t!("ui.tab.keyswap"),
+            t!("ui.tab.modifiers"),
+            t!("ui.tab.targets"),
             t!("ui.tab.actions"),
+            t!("ui.tab.others"),
         ])
     };
 
@@ -324,13 +325,14 @@ fn App() -> impl IntoView {
         <Show when=move || !store.docs.with(Vec::is_empty)>
             <main>
                 {move || match tab.get() {
-                    0 => sections::settings().into_any(),
-                    1 => sections::modes().into_any(),
-                    2 => sections::modifiers().into_any(),
-                    3 => sections::targets().into_any(),
-                    4 => sections::keymap().into_any(),
-                    5 => sections::keyswap().into_any(),
-                    _ => actions::actions().into_any(),
+                    0 => sections::imports().into_any(),
+                    1 => sections::keymap().into_any(),
+                    2 => sections::modes().into_any(),
+                    3 => sections::keyswap().into_any(),
+                    4 => sections::modifiers().into_any(),
+                    5 => sections::targets().into_any(),
+                    6 => actions::actions().into_any(),
+                    _ => sections::others().into_any(),
                 }}
             </main>
         </Show>

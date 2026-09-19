@@ -1,4 +1,4 @@
-//! Form sections for settings, modes, modifiers, targets, the keymap and keyswap.
+//! Form sections: imports, keymaps, keyswap, modifiers, targets and other settings.
 
 use crate::Store;
 use crate::fields::*;
@@ -89,9 +89,18 @@ fn language_options() -> Options {
     std::iter::once(("".into(), t!("ui.language_auto"))).chain(own).collect()
 }
 
-pub fn settings() -> impl IntoView {
+pub fn imports() -> impl IntoView {
+    let top = Place::<RawConfig>::new(store(), "", |c| Some(c), |c| Some(c));
+    view! {
+        <section>
+            {list(&t!("ui.general.include"), top.map(".include", |c| Some(&c.include), |c| Some(&mut c.include)))}
+        </section>
+    }
+}
+
+/// `[settings]`: only in the entry file.
+pub fn others() -> impl IntoView {
     let store = store();
-    let top = Place::<RawConfig>::new(store, "", |c| Some(c), |c| Some(c));
     let s = Place::<RawSettings>::new(
         store,
         "settings",
@@ -100,7 +109,6 @@ pub fn settings() -> impl IntoView {
     );
     view! {
         <section>
-            {list(&t!("ui.general.include"), top.map(".include", |c| Some(&c.include), |c| Some(&mut c.include)))}
             <Show when=move || store.cur.get() == 0 fallback=move || view! {
                 <p>{t!("ui.general.entry_only")}</p>
                 <Show when=move || store.read(|c| c.settings.is_some())>

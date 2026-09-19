@@ -63,13 +63,14 @@ applied = "Saved and told grapnel to reload"
 apply_failed = "Cannot reach grapnel (is it running?): %{error}"
 
 [ui.tab]
-general = "General"
-modes = "Modes"
-modifiers = "Modifiers"
-targets = "Targets"
-keymap = "Keymap"
+imports = "Imports"
+keymap = "Default keymap"
+modes = "Mode keymaps"
 keyswap = "Key layout"
+modifiers = "Custom modifiers"
+targets = "Targets"
 actions = "Actions"
+others = "Other"
 
 [ui.general]
 include = "include (glob allowed)"

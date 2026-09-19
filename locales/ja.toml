@@ -61,13 +61,14 @@ applied = "保存して grapnel に再読み込みを指示しました"
 apply_failed = "grapnel に接続できません (起動していますか？): %{error}"
 
 [ui.tab]
-general = "全般"
-modes = "モード"
-modifiers = "修飾キー"
-targets = "ターゲット"
-keymap = "キーマップ"
+imports = "インポート"
+keymap = "デフォルトキーマップ"
+modes = "モード別キーマップ"
 keyswap = "キー配列"
+modifiers = "カスタム修飾キー"
+targets = "ターゲット"
 actions = "アクション"
+others = "その他"
 
 [ui.general]
 include = "include (glob 可)"
