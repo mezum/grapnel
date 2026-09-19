@@ -387,7 +387,7 @@ pub fn keys_or_action<V>(
     let store = p.store;
     let check: Check = Arc::new(move |s: &str| {
         let named = store.docs.with(|d| d.iter().any(|f| f.raw.actions.contains_key(s)));
-        (!named && grapnel_keys::parse_seq(s, &[]).is_err())
+        (!named && grapnel_keys::parse_seq(s, &[], store.layout()).is_err())
             .then(|| t!("config.unknown_action_or_key", name = s).into_owned())
     });
     input(label, p, get, set, |s| s, |s| s, Some(check), None)
@@ -398,7 +398,7 @@ fn key_check(store: Store, user_mods: bool) -> Option<Check> {
     Some(Arc::new(move |s: &str| {
         let names = if user_mods { store.user_mods() } else { vec![] };
         let names: Vec<&str> = names.iter().map(String::as_str).collect();
-        grapnel_keys::parse_seq(s, &names).err().map(|e| e.text(&rust_i18n::locale()))
+        grapnel_keys::parse_seq(s, &names, store.layout()).err().map(|e| e.text(&rust_i18n::locale()))
     }))
 }
 

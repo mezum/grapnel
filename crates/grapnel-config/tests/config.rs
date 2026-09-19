@@ -19,7 +19,7 @@ fn errs(list: &[(&str, &str)]) -> String {
 }
 
 fn seq(s: &str, user: &[&str]) -> KeySeq {
-    parse_seq(s, user).unwrap()
+    parse_seq(s, user, Default::default()).unwrap()
 }
 
 const BASE: &str = r#"
@@ -408,4 +408,18 @@ fn keyswap_compiles_and_checks_keys() {
     assert!(e.contains("keyswap.\"Muhenkan\""), "{e}");
     assert!(e.contains("keyswap.\"x\""), "{e}");
     assert!(e.contains("b.toml: keyswap.\"S-4\""), "{e}");
+}
+
+#[test]
+fn layout_resolves_symbol_names() {
+    let c = ok("[settings]\nlayout = \"us\"\n[keymap]\n\";\" = \"@\"\n[keyswap]\n\"'\" = \"S-;\"");
+    assert_eq!(c.rules[0].keys.0[0].key, Key::Vk(0xBA));
+    // `@` is S-2 on US.
+    let at_sign = KeySeq(vec![grapnel_keys::Chord { mods: Mods::SHIFT, key: Key::Vk(b'2') }]);
+    assert!(matches!(&c.actions[c.rules[0].action].impls[0].steps[..], [Step::Keys(k)] if *k == at_sign));
+    assert_eq!(c.keyswap[&(Key::Vk(0xDE), false)].key, Key::Vk(0xBA));
+    // JIS stays the default.
+    assert_eq!(ok("[keymap]\n\";\" = \"a\"").rules[0].keys.0[0].key, Key::Vk(0xBB));
+    let e = errs(&[("main.toml", "[settings]\nlayout = \"dvorak\"")]);
+    assert!(e.contains("settings.layout") && e.contains("dvorak"), "{e}");
 }

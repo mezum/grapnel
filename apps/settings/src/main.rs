@@ -188,6 +188,11 @@ impl Store {
     pub fn user_mods(&self) -> Vec<String> {
         self.docs.with(|d| d.iter().flat_map(|f| f.raw.modifiers.keys().cloned()).collect())
     }
+    /// The entry file's keyboard layout; an unknown name falls back to JIS like an unset one.
+    pub fn layout(&self) -> grapnel_keys::Layout {
+        let name = self.docs.with(|d| d.first().and_then(|f| f.raw.settings.as_ref()?.layout.clone()));
+        name.and_then(|n| grapnel_keys::Layout::from_name(&n)).unwrap_or_default()
+    }
 }
 
 #[component]

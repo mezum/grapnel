@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn mouse_messages() {
-        let k = |s| grapnel_keys::parse_key(s).unwrap();
+        let k = |s| grapnel_keys::parse_key(s, Default::default()).unwrap();
         assert_eq!(mouse_event(WM_RBUTTONDOWN, 0, (0, 0), None), Some(Event::Down(k("RButton"))));
         assert_eq!(mouse_event(WM_XBUTTONUP, 2 << 16, (0, 0), None), Some(Event::Up(k("X2Button"))));
         assert_eq!(

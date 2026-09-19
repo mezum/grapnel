@@ -44,6 +44,8 @@ pub struct Settings {
     pub suspend_hotkey: Option<Chord>,
     pub gesture_threshold: u32,
     pub language: Option<String>,
+    /// Layout that symbol key names are resolved against.
+    pub layout: grapnel_keys::Layout,
 }
 
 #[derive(Clone, Debug)]

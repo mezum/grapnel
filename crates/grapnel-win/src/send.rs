@@ -148,7 +148,7 @@ mod tests {
     }
 
     fn key(k: &str, down: bool) -> Command {
-        Command::Key { key: grapnel_keys::parse_key(k).unwrap(), down }
+        Command::Key { key: grapnel_keys::parse_key(k, Default::default()).unwrap(), down }
     }
 
     /// What MapVirtualKeyW really returns for navigation keys: the numpad scan code, no 0xE0.
@@ -174,7 +174,7 @@ mod tests {
     }
 
     fn parse(name: &str) -> u16 {
-        match grapnel_keys::parse_key(name).unwrap() {
+        match grapnel_keys::parse_key(name, Default::default()).unwrap() {
             grapnel_keys::Key::Vk(v) => v as u16,
             _ => unreachable!(),
         }
