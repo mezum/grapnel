@@ -117,8 +117,9 @@ fn leaf_options(
     }
 }
 
-/// `root`: the top of a keymap, which inherits nothing.
-fn options_editor(p: Place<RawNode>, root: bool) -> AnyView {
+/// `root`: the top of a keymap, which inherits nothing. `fallback`: this node's `on_mismatch`, own or
+/// inherited, is `fallback`.
+fn options_editor(p: Place<RawNode>, root: bool, fallback: Signal<bool>) -> AnyView {
     let hint = move |top: &'static str| move || if root { t!(top) } else { t!("ui.hint.inherit") }.into_owned();
     let o = p.map(".options", |n| n.options.as_ref(), |n| Some(n.options.get_or_insert_default()));
     let fb = o.clone();
@@ -133,8 +134,8 @@ fn options_editor(p: Place<RawNode>, root: bool) -> AnyView {
                 |o, x| o.on_mismatch = match x.as_str() {
                     "replay" => Some(Mismatch::Replay), "discard" => Some(Mismatch::Discard), "fallback" => Some(Mismatch::Fallback), _ => None,
                 })}
-            // Only used by `fallback`; still shown when set, so a value is never hidden.
-            {move || fb.read(|o| o.on_mismatch == Some(Mismatch::Fallback) || o.fallback.is_some()).then(|| {
+            // Only used by `fallback` (also when inherited); still shown when set, so a value is never hidden.
+            {move || (fallback.get() || fb.read(|o| o.fallback.is_some())).then(|| {
                 opt_keys("fallback", &fb.at(".fallback"), |o| o.fallback.clone(), |o, x| o.fallback = x, hint("ui.hint.replay"))
             })}
             {num(&t!("ui.keymap.timeout_ms"), &o.at(".timeout_ms"), |o| o.timeout_ms, |o, x| o.timeout_ms = x, hint("ui.hint.unlimited"))}
@@ -144,7 +145,8 @@ fn options_editor(p: Place<RawNode>, root: bool) -> AnyView {
     .into_any()
 }
 
-fn binding_editor(p: Place<RawBinding>) -> AnyView {
+/// `fallback`: the enclosing node's `on_mismatch` is `fallback`, for a subtree to inherit.
+fn binding_editor(p: Place<RawBinding>, fallback: Signal<bool>) -> AnyView {
     let k = {
         let p = p.clone();
         Memo::new(move |_| p.read(binding_kind))
@@ -199,6 +201,7 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
                     |b| if let RawBinding::Node(n) = b { Some(n) } else { None },
                 ),
                 false,
+                fallback,
             ),
         }
     };
@@ -222,9 +225,14 @@ fn binding_editor(p: Place<RawBinding>) -> AnyView {
         .into_any()
 }
 
-/// A keymap node: its options and one row per chord, recursively.
-pub fn node_editor(p: Place<RawNode>, root: bool) -> AnyView {
-    let (list, add, opts) = (p.clone(), p.clone(), p.clone());
+/// A keymap node: its options and one row per chord, recursively. `inherited`: the parent's
+/// `on_mismatch` is `fallback`.
+pub fn node_editor(p: Place<RawNode>, root: bool, inherited: Signal<bool>) -> AnyView {
+    let (list, add, opts, own) = (p.clone(), p.clone(), p.clone(), p.clone());
+    let fallback = Signal::derive(move || {
+        let set = own.read(|n| n.options.as_ref().and_then(|o| o.on_mismatch));
+        set.map_or_else(|| inherited.get(), |m| m == Mismatch::Fallback)
+    });
     let drag = RwSignal::new(None);
     let row = move |key: String| {
         let (a, b) = (key.clone(), key.clone());
@@ -238,7 +246,7 @@ pub fn node_editor(p: Place<RawNode>, root: bool) -> AnyView {
                 move |old, new| { let mut ok = false; r.edit(|n| ok = rename_key(&mut n.children, old, new)); ok },
                 move || d.edit(|n| drop(n.children.shift_remove(&del))),
             )}
-            {binding_editor(bp)}
+            {binding_editor(bp, fallback)}
         };
         let len = |n: &RawNode| n.children.len();
         let mv = |n: &mut RawNode, from, to| n.children.move_index(from, to);
@@ -252,7 +260,7 @@ pub fn node_editor(p: Place<RawNode>, root: bool) -> AnyView {
     };
     view! {
         <div class="node">
-            {options_editor(opts, root)}
+            {options_editor(opts, root, fallback)}
             <For each=move || list.read(|n| n.children.keys().cloned().collect::<Vec<_>>()) key=|k| k.clone() let:k>
                 {row(k)}
             </For>

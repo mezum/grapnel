@@ -176,19 +176,24 @@ impl App {
     }
 
     pub fn window_changed(&mut self, kind: usize) {
-        let uia = (self.win.uia_id.clone(), self.win.uia_name.clone(), self.win.uia_type.clone());
-        self.win = window::foreground_info();
-        (self.win.uia_id, self.win.uia_name, self.win.uia_type) = uia;
+        let focus_moved = kind != window::CHANGED_TITLE;
+        let mut win = window::foreground_info();
+        if !focus_moved {
+            let old = std::mem::take(&mut self.win);
+            (win.uia_id, win.uia_name, win.uia_type) = (old.uia_id, old.uia_name, old.uia_type);
+        }
+        self.win = win;
         match &self.uia {
-            // Passthrough is re-evaluated when the fresh UIA result arrives.
-            Some(u) if kind != window::CHANGED_TITLE => u.refresh(),
+            // The focused element is unknown until the fresh UIA result arrives, which also
+            // re-evaluates passthrough; the previous element's must not match meanwhile.
+            Some(u) if focus_moved => u.refresh(),
             _ => self.update_hooks(),
         }
     }
 
     pub fn uia_changed(&mut self) {
-        if let Some(u) = &self.uia {
-            let f = u.latest();
+        // `None`: a newer refresh is pending, and its result will come.
+        if let Some(f) = self.uia.as_ref().and_then(Uia::latest) {
             (self.win.uia_id, self.win.uia_name, self.win.uia_type) = (f.id, f.name, f.control_type);
             self.update_hooks();
         }
@@ -224,13 +229,21 @@ impl App {
 
     /// Loads the config on a worker thread (file I/O must not stall the hook thread).
     pub fn reload(&mut self) {
-        let path = self.config_path.clone();
-        std::thread::spawn(move || crate::post(crate::Msg::Reloaded(load(&path))));
+        self.reload_from(self.config_path.clone());
     }
 
-    pub fn apply_reload(&mut self, result: Result<Config, Vec<Problem>>) {
+    /// Reloads from `path`, which becomes the config path if it loads (the settings tool's file).
+    pub fn reload_from(&mut self, path: PathBuf) {
+        std::thread::spawn(move || crate::post(crate::Msg::Reloaded(path.clone(), load(&path))));
+    }
+
+    pub fn apply_reload(&mut self, path: PathBuf, result: Result<Config, Vec<Problem>>) {
         match result {
             Ok(cfg) => {
+                if path != self.config_path {
+                    log::info!("config path is now {}", path.display());
+                    self.config_path = path;
+                }
                 self.exec.cancel();
                 let cmds = self.engine.reset();
                 self.exec.run(cmds);
@@ -281,6 +294,14 @@ impl App {
             Command::Error(Fault::UnknownAction(name)) => report!("error.unknown_action", name = name),
             Command::Error(Fault::TooDeep(name)) => report!("error.too_deep", name = name),
             other => self.exec.run(vec![other]),
+        }
+    }
+
+    /// Runs the steps after a `Sleep`, unless cancelled meanwhile (suspend, passthrough, reload).
+    pub fn resume(&mut self, generation: u64, later: grapnel_engine::Later) {
+        if self.exec.is_current(generation) && self.hooks.is_some() {
+            let cmds = self.engine.resume(later);
+            self.exec.run(cmds);
         }
     }
 

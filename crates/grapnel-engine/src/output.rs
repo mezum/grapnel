@@ -1,6 +1,6 @@
 //! Turning rules and action steps into commands, with modifier neutralization.
 
-use crate::{Active, Command, Engine, Fault};
+use crate::{Active, Command, Engine, Fault, Frame, Later};
 use grapnel_config::{ActionId, ControlCmd, Press, Step, WindowInfo, any_matches};
 use grapnel_keys::{Chord, Key, KeySeq, Mods};
 
@@ -162,9 +162,20 @@ impl Engine {
         }
     }
 
-    fn run_steps(&mut self, steps: &[Step], arg: &str, win: &WindowInfo, depth: usize, out: &mut Vec<Command>) {
+    pub(crate) fn run_steps(
+        &mut self,
+        steps: &[Step],
+        arg: &str,
+        win: &WindowInfo,
+        depth: usize,
+        out: &mut Vec<Command>,
+    ) {
         let subst = |s: &str| s.replace("{arg}", arg);
-        for step in steps {
+        for (i, step) in steps.iter().enumerate() {
+            if let Some(later) = &mut self.later {
+                later.frames.push(Frame { steps: steps[i..].to_vec(), arg: arg.to_string(), depth });
+                return;
+            }
             match step {
                 Step::Keys(seq) => self.tap_seq(&seq.0, out),
                 Step::Text(t) => {
@@ -175,7 +186,10 @@ impl Engine {
                 Step::MouseMove { x, y, absolute } => {
                     out.push(Command::MouseMove { x: *x, y: *y, absolute: *absolute })
                 }
-                Step::Sleep(ms) => out.push(Command::Sleep(*ms)),
+                Step::Sleep(ms) => {
+                    out.push(Command::Sleep(*ms));
+                    self.later = Some(Later { frames: Vec::new(), win: win.clone() });
+                }
                 Step::Run { program, args } => {
                     out.push(Command::Run { program: subst(program), args: args.iter().map(|a| subst(a)).collect() })
                 }
