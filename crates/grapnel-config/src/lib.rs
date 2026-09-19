@@ -47,6 +47,8 @@ pub struct Settings {
 pub struct Mode {
     pub name: String,
     pub block_unmapped: bool,
+    /// Digits typed before a binding repeat it.
+    pub count: bool,
     /// Switch to this mode when an input matches no rule.
     pub unmapped_to: Option<ModeId>,
     /// Real modifiers kept pressed while in this mode.
@@ -76,6 +78,8 @@ pub struct Rule {
     pub fallback: Option<KeySeq>,
     /// Output modifiers stay pressed until the modifiers of the last chord in `keys` are released.
     pub keep_mods: bool,
+    /// Remembered for `ControlCmd::Repeat`.
+    pub repeat: bool,
 }
 
 /// How to wait after a prefix: options of a keymap node, already merged with its ancestors'.

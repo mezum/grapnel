@@ -14,6 +14,7 @@ passthrough = " (passthrough)"
 undefined = "%{keys} is undefined"
 timed_out = "%{keys} timed out"
 mode = "Mode: %{mode}"
+count = "Count: %{count}"
 
 [error]
 unknown_action = "No action named '%{name}'"

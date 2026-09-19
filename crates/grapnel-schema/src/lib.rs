@@ -48,6 +48,9 @@ pub struct RawSettings {
 pub struct RawMode {
     #[serde(default, skip_serializing_if = "is_false")]
     pub block_unmapped: bool,
+    /// Digits typed before a binding repeat it (Vim's `3j`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub count: bool,
     /// Mode to switch to when an input matches no rule in this mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unmapped_to: Option<String>,
@@ -163,6 +166,9 @@ pub struct RawLeaf {
     pub fallback: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub keep_mods: bool,
+    /// Remembered for `{ control = "repeat" }` (Vim's `.`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub repeat: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<String>,
     /// Unknown options, kept so they round-trip and the compiler can report them. Being flattened
@@ -193,6 +199,8 @@ pub enum ControlCmd {
     Suspend,
     Reload,
     Exit,
+    /// Runs the last binding marked `repeat` again, as many times as then.
+    Repeat,
 }
 
 /// One action step. A bare string is shorthand for `{ keys = "..." }`.

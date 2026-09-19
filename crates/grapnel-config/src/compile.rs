@@ -3,7 +3,7 @@
 use crate::keymap::{Walker, check_conflicts, compile_action};
 use crate::*;
 use grapnel_keys::{Mods, Msg, msg, parse_chord, parse_key, parse_seq};
-use grapnel_schema::{RawAction, RawModifier, RawStep, RawTarget};
+use grapnel_schema::{RawAction, RawMode, RawModifier, RawStep, RawTarget};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -74,9 +74,14 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         return Err(vec![Problem { file: None, at: String::new(), on_key: false, msg: msg!("config.no_files") }]);
     }
     let mut errors = Vec::new();
-    let mode =
-        |name: &str, block_unmapped| Mode { name: name.into(), block_unmapped, unmapped_to: None, hold: Mods::NONE };
-    let mut modes = vec![mode(DEFAULT_MODE, false)];
+    let mode = |name: &str, m: &RawMode| Mode {
+        name: name.into(),
+        block_unmapped: m.block_unmapped,
+        count: m.count,
+        unmapped_to: None,
+        hold: Mods::NONE,
+    };
+    let mut modes = vec![mode(DEFAULT_MODE, &RawMode::default())];
     let mut raw_mods: Vec<(&Path, &str, &RawModifier)> = Vec::new();
     let mut raw_targets: Vec<(&Path, &str, &RawTarget)> = Vec::new();
     let mut raw_actions: Vec<(&Path, &str, &RawAction)> = Vec::new();
@@ -96,8 +101,8 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         }
         for (name, m) in &raw.modes {
             match modes.iter_mut().find(|x| x.name == *name) {
-                Some(x) => x.block_unmapped = m.block_unmapped,
-                None => modes.push(mode(name, m.block_unmapped)),
+                Some(x) => (x.block_unmapped, x.count) = (m.block_unmapped, m.count),
+                None => modes.push(mode(name, m)),
             }
         }
         raw_mods.extend(raw.modifiers.iter().map(|(n, m)| (path.as_path(), n.as_str(), m)));

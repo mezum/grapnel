@@ -152,6 +152,7 @@ fn handle(msg: Msg) {
             let text = |locale: &str| match &n {
                 Notice::Undefined(keys) => t!("notice.undefined", locale = locale, keys = keys),
                 Notice::TimedOut(keys) => t!("notice.timed_out", locale = locale, keys = keys),
+                Notice::Count(n) => t!("notice.count", locale = locale, count = n),
             };
             log::info!("{}", text("en"));
             show_toast(&text(&rust_i18n::locale()), 2500);

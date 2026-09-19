@@ -253,3 +253,50 @@ fn replay_and_timeout_notices() {
     t2.tap("x");
     assert_eq!(t2.e.tick(100), vec![timed_out("C-x")]);
 }
+
+#[test]
+fn counts_repeat_bindings_and_repeat_runs_the_last_change_again() {
+    let cfg = r#"
+[settings]
+initial_mode = "n"
+[modes.n]
+count = true
+[modes.n.keymap]
+j = "Down"
+"0" = "Home"
+x = { do = "Delete", repeat = true }
+"." = [{ control = "repeat" }]
+[modes.n.keymap.d]
+d = { do = "Home S-Down C-x", repeat = true }
+"#;
+    let mut t = t(cfg);
+    let notice = |n| Reaction { consume: true, commands: vec![Command::Notice(grapnel_engine::Notice::Count(n))] };
+    // 3j: the digit is swallowed and shown, then j runs three times.
+    assert_eq!(t.down("3"), notice(3));
+    t.up("3");
+    assert_eq!(t.down("j"), eaten("+Down -Down +Down -Down +Down -Down"));
+    t.up("j");
+    // Without a count, 0 is a binding; after a digit it continues the count.
+    assert_eq!(t.down("0"), eaten("+Home"));
+    t.up("0");
+    t.tap("1");
+    assert_eq!(t.down("0"), notice(10));
+    t.up("0");
+    // Anything unbound drops the count.
+    t.tap("F5");
+    assert_eq!(t.down("j"), eaten("+Down"));
+    t.up("j");
+    // 2x deletes twice; `.` repeats that change with its count.
+    t.tap("2");
+    assert_eq!(t.down("x"), eaten("+Delete -Delete +Delete -Delete"));
+    t.up("x");
+    assert_eq!(t.down("."), eaten("+Delete -Delete +Delete -Delete"));
+    t.up(".");
+    // The count also covers multi-chord bindings (2dd), which become the change to repeat.
+    t.tap("2");
+    t.tap("d");
+    let cut = |r: Reaction| r.commands.iter().filter(|c| **c == Command::Key { key: k("x"), down: true }).count();
+    assert_eq!(cut(t.down("d")), 2);
+    t.up("d");
+    assert_eq!(cut(t.down(".")), 2);
+}

@@ -39,7 +39,8 @@ fn binding_kind(b: &RawBinding) -> String {
 }
 
 fn leaf(action: RawAction) -> RawLeaf {
-    RawLeaf { action, press: None, fallback: None, keep_mods: false, targets: vec![], unknown: IndexMap::new() }
+    let unknown = IndexMap::new();
+    RawLeaf { action, press: None, fallback: None, keep_mods: false, repeat: false, targets: vec![], unknown }
 }
 
 /// Without extended options: the bare action where it can stand alone (target-keyed steps cannot).

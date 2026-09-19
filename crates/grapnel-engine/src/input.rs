@@ -219,7 +219,28 @@ impl Engine {
         }
     }
 
+    /// In a `count` mode, a plain digit before any chord adds to the count (`0` only continues one).
+    fn take_digit(&mut self, key: &Key) -> Option<Reaction> {
+        let Key::Vk(vk @ 0x30..=0x39) = *key else { return None };
+        let digit = (vk - 0x30) as u32;
+        let wanted = self.cfg.modes[self.mode].count
+            && self.pending.is_none()
+            && self.current_mods() == Mods::NONE
+            && (digit > 0 || self.count.is_some());
+        if !wanted {
+            return None;
+        }
+        // ponytail: capped so a stray long number cannot flood the target app.
+        let n = (self.count.unwrap_or(0) * 10 + digit).min(MAX_COUNT);
+        self.count = Some(n);
+        self.swallowed.insert(key.clone());
+        Some(consumed(vec![Command::Notice(Notice::Count(n))]))
+    }
+
     fn match_fresh(&mut self, key: Key, win: &WindowInfo, now: u64) -> Reaction {
+        if let Some(r) = self.take_digit(&key) {
+            return r;
+        }
         let chord = Chord { mods: self.current_mods(), key: key.clone() };
         let mut seq = self.pending.as_ref().map(|p| p.chords.clone()).unwrap_or_default();
         seq.push(chord);
@@ -255,6 +276,7 @@ impl Engine {
             }
             return consumed(vec![]);
         }
+        self.count = None; // a count ends with the binding it is for
         if self.pending.is_some() {
             return consumed(self.mismatch(Some(key)));
         }
@@ -296,6 +318,7 @@ impl Engine {
     /// Resolves pending chords that cannot complete. `current` is the key that broke the sequence.
     pub(crate) fn mismatch(&mut self, current: Option<Key>) -> Vec<Command> {
         let p = self.pending.take().expect("mismatch without pending chords");
+        self.count = None;
         let policy = p.policy;
         let mut out = vec![];
         if policy.on_mismatch != Mismatch::Replay {

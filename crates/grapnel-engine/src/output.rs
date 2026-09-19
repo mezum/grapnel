@@ -1,7 +1,7 @@
 //! Turning rules and action steps into commands, with modifier neutralization.
 
 use crate::{Active, Command, Engine, Fault};
-use grapnel_config::{ActionId, Press, Step, WindowInfo, any_matches};
+use grapnel_config::{ActionId, ControlCmd, Press, Step, WindowInfo, any_matches};
 use grapnel_keys::{Chord, Key, KeySeq, Mods};
 
 const MAX_CALL_DEPTH: usize = 8;
@@ -25,6 +25,10 @@ impl Engine {
         let rule = &cfg.rules[i];
         let imp = cfg.actions[rule.action].impls.iter().find(|m| any_matches(&cfg.targets, &m.when, win));
         let mut out = vec![];
+        let count = self.count.take();
+        if rule.repeat {
+            self.last = Some((rule.action, count.unwrap_or(1)));
+        }
         let Some(imp) = imp else {
             match &rule.fallback {
                 Some(f) => self.tap_seq(&f.0, &mut out),
@@ -41,6 +45,16 @@ impl Engine {
             [Step::Keys(s)] => s.0.split_last().filter(|(last, _)| !instant(&last.key)),
             _ => None,
         };
+        // With a count, the steps run that many times (as a tap).
+        if let Some(n) = count {
+            for _ in 0..n {
+                self.run_steps(&imp.steps, "", win, 0, &mut out);
+            }
+            if !instant(&trigger) {
+                self.active.insert(trigger, Active::Tap(None));
+            }
+            return out;
+        }
         match held.filter(|_| rule.press == Press::Hold && !instant(&trigger)) {
             Some((last, before)) => {
                 self.tap_chords(before, &mut out);
@@ -163,6 +177,13 @@ impl Engine {
                     self.mode = *m;
                     out.push(Command::ModeChanged(self.cfg.modes[*m].name.clone()));
                     self.restore(out); // press/release the modes' `hold` modifiers
+                }
+                Step::Control(ControlCmd::Repeat) => {
+                    if let Some((action, n)) = self.last {
+                        for _ in 0..n {
+                            self.run_action(action, "", win, depth + 1, out);
+                        }
+                    }
                 }
                 Step::Control(c) => out.push(Command::Control(*c)),
                 Step::Input { prompt, then, position } => {

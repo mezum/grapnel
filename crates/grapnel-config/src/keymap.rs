@@ -113,6 +113,7 @@ impl Walker<'_> {
                 .and_then(|l| l.fallback.as_ref())
                 .map(|f| c.output(&format!("{at}.fallback"), f).unwrap_or_default()),
             keep_mods,
+            repeat: l.is_some_and(|l| l.repeat),
         });
         self.locations.push((c.file.to_path_buf(), at.to_string()));
     }

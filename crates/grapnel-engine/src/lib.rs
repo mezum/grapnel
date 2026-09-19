@@ -11,6 +11,9 @@ use grapnel_keys::{Chord, Dir, Key, KeySeq, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+/// Largest count typed before a binding.
+const MAX_COUNT: u32 = 999;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
     /// Wheel and gesture keys only ever arrive as `Down`.
@@ -60,6 +63,8 @@ pub enum Notice {
     Undefined(String),
     /// This key sequence was left unfinished.
     TimedOut(String),
+    /// A count is being typed (Vim's `3` before `j`).
+    Count(u32),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -126,6 +131,10 @@ pub struct Engine {
     passing: HashSet<Key>,
     gesture: Option<Gesture>,
     gesture_buttons: Vec<MouseButton>,
+    /// Digits typed so far in a `count` mode.
+    count: Option<u32>,
+    /// The last binding marked `repeat`: its action and count, for `ControlCmd::Repeat`.
+    last: Option<(ActionId, u32)>,
 }
 
 impl Engine {
@@ -152,6 +161,8 @@ impl Engine {
             passing: HashSet::new(),
             gesture: None,
             gesture_buttons,
+            count: None,
+            last: None,
             cfg,
         }
     }
@@ -229,7 +240,9 @@ impl Engine {
         self.mode = mode;
         self.restore(&mut out);
         let mods = std::mem::take(&mut self.down);
-        *self = Engine { mode, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };
+        // The last change survives (the input box resets the engine before `:w`, then `.`).
+        let last = self.last.take();
+        *self = Engine { mode, last, os_mods: mods.iter().cloned().collect(), ..Engine::new(self.cfg.clone()) };
         self.down = mods;
         out
     }
