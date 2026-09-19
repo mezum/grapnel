@@ -8,9 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-/// Paths the backend loaded; `save` refuses to write anywhere else.
+/// Files the backend loaded, as last read or written. `save` refuses to write anywhere else and
+/// skips files whose content did not change.
 #[derive(Default)]
-struct Loaded(Mutex<Vec<PathBuf>>);
+struct Loaded(Mutex<Vec<(PathBuf, RawConfig)>>);
 
 /// One config file as edited in the UI.
 #[derive(Serialize, Deserialize)]
@@ -75,7 +76,7 @@ fn load(entry: String, lang: String, loaded: tauri::State<Loaded>) -> Result<Str
         true => grapnel_config::load(&path).map_err(|e| shown(e, &lang))?,
         false => vec![(path, RawConfig::default())],
     };
-    *loaded.0.lock().unwrap() = files.iter().map(|(p, _)| p.clone()).collect();
+    *loaded.0.lock().unwrap() = files.clone();
     let docs: Vec<FileDoc> = files.into_iter().map(|(p, raw)| FileDoc { path: p.display().to_string(), raw }).collect();
     serde_json::to_string(&docs).map_err(|e| shown(problem(None, msg!("config.internal", error = e)), &lang))
 }
@@ -87,23 +88,32 @@ fn validate(files: String, lang: String) -> Vec<Shown> {
     shown(problems.unwrap_or_default(), &lang)
 }
 
-/// Validates, then writes every file (each atomically). Nothing is written when invalid.
+/// Validates, then writes every changed file (each atomically), so unchanged ones keep their
+/// comments. Nothing is written when invalid.
 /// Afterwards the files are re-read from disk and checked again, which catches `include` edits
 /// that change which files belong to the configuration.
 #[tauri::command]
 fn save(files: String, lang: String, loaded: tauri::State<Loaded>) -> Result<(), SaveError> {
     let fail = |saved, errors| SaveError { saved, errors: shown(errors, &lang) };
     let pairs = to_pairs(&files).map_err(|e| fail(false, e))?;
-    let known = loaded.0.lock().unwrap().clone();
-    if let Some((p, _)) = pairs.iter().find(|(p, _)| !known.contains(p)) {
+    let mut known = loaded.0.lock().unwrap();
+    if let Some((p, _)) = pairs.iter().find(|(p, _)| !known.iter().any(|(k, _)| k == p)) {
         return Err(fail(false, problem(Some(p.clone()), msg!("config.not_loaded"))));
     }
     grapnel_config::compile(&pairs).map_err(|e| fail(false, e))?;
     // ponytail: files are replaced one by one; a failure midway leaves earlier files saved.
-    for (i, (path, raw)) in pairs.iter().enumerate() {
+    let mut wrote = false;
+    for (path, raw) in &pairs {
+        let before = known.iter_mut().find(|(k, _)| k == path).map(|(_, r)| r).unwrap();
+        if before == raw && path.exists() {
+            continue;
+        }
         let error = |e: std::io::Error| problem(Some(path.clone()), msg!("config.write", error = e));
-        grapnel_config::save(path, raw).map_err(|e| fail(i > 0, error(e)))?;
+        grapnel_config::save(path, raw).map_err(|e| fail(wrote, error(e)))?;
+        *before = raw.clone();
+        wrote = true;
     }
+    drop(known);
     let reread = grapnel_config::load(&pairs[0].0).and_then(|f| grapnel_config::compile(&f));
     reread.map(drop).map_err(|e| fail(true, e))
 }
