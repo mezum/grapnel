@@ -131,8 +131,10 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
             "run" => view! {
                 {text("run", p, |s| if let RawStep::Run { run, .. } = s { run.clone() } else { String::new() },
                     |s, x| if let RawStep::Run { run, .. } = s { *run = x })}
-                {list("args", p, |s| if let RawStep::Run { args, .. } = s { args.clone() } else { vec![] },
-                    |s, x| if let RawStep::Run { args, .. } = s { *args = x })}
+                {list("args", p.map(
+                    |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
+                    |s| if let RawStep::Run { args, .. } = s { Some(args) } else { None },
+                ))}
             }
             .into_any(),
             "call" => view! {
@@ -188,17 +190,16 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
     }
 }
 
-/// An ordered list of steps with add/remove.
+/// An ordered list of steps with add/move/remove.
 pub fn steps_editor(p: Place<Vec<RawStep>>) -> AnyView {
     let (list, add) = (p.clone(), p.clone());
     let step = move |j: usize| {
         let sp = p.map(move |v| v.get(j), move |v| v.get_mut(j));
-        let del = p.clone();
         view! {
             <div class="step">
                 {select(&t!("ui.kind"), &sp, kinds(), kind, set_kind)}
                 {step_fields(sp.clone())}
-                <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete") on:click=move |_| del.edit(|v| drop(v.remove(j)))>"✕"</button>
+                {item_buttons(&p, j)}
             </div>
         }
     };
@@ -312,9 +313,10 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
     let row = move |t: String| {
         let (a, b) = (t.clone(), t.clone());
         let sp = p.map(move |m| m.get(&a), move |m| m.get_mut(&b));
-        let (r, d, del) = (p.clone(), p.clone(), t.clone());
+        let (r, d, del, key) = (p.clone(), p.clone(), t.clone(), t.clone());
         view! {
             <div class="impl">
+                {move_buttons(&p, move |m| m.get_index_of(&key), IndexMap::len, IndexMap::swap_indices)}
                 {name_row(
                     t,
                     move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },

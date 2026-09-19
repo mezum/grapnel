@@ -133,15 +133,60 @@ pub fn opt_text<V>(
     input(label, p, get, set, Option::unwrap_or_default, |s| (!s.is_empty()).then_some(s), None)
 }
 
-/// Comma-separated list.
-pub fn list<V>(
-    label: &str,
+/// One input per item (so items may hold commas), each with move/delete buttons, and an add button.
+pub fn list(label: &str, p: Place<Vec<String>>) -> impl IntoView + use<> {
+    let label = label.to_owned();
+    let (items, add) = (p.clone(), p.clone());
+    let row = {
+        let label = label.clone();
+        move |j: usize| {
+            let (get, set) = (p.clone(), p.clone());
+            view! {
+                <div class="item">
+                    <input aria-label=label.clone()
+                        prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
+                        on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
+                    {item_buttons(&p, j)}
+                </div>
+            }
+        }
+    };
+    view! {
+        <div class="field">
+            <span>{label}</span>
+            <For each=move || indices(items.read(|v| v.len())) key=|j| *j let:j>{row(j)}</For>
+            <button class="add" on:click=move |_| add.edit(|v| v.push(String::new()))>{t!("ui.add")}</button>
+        </div>
+    }
+}
+
+/// Up/down buttons that swap the entry at `pos` with its neighbour.
+pub fn move_buttons<V: 'static, P: Fn(&V) -> Option<usize> + Clone + Send + Sync + 'static>(
     p: &Place<V>,
-    get: fn(&V) -> Vec<String>,
-    set: fn(&mut V, Vec<String>),
-) -> impl IntoView + use<V> {
-    let split = |s: String| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect();
-    input(label, p, get, set, |v| v.join(", "), split, None)
+    pos: P,
+    len: fn(&V) -> usize,
+    swap: fn(&mut V, usize, usize),
+) -> impl IntoView + use<V, P> {
+    let (a, b, c, d) = (p.clone(), p.clone(), p.clone(), p.clone());
+    let (pa, pb, pc, pd) = (pos.clone(), pos.clone(), pos.clone(), pos);
+    view! {
+        <button class="move" title=t!("ui.move_up") aria-label=t!("ui.move_up")
+            disabled=move || a.read(|v| pa(v).is_none_or(|i| i == 0))
+            on:click=move |_| b.edit(|v| if let Some(i) = pb(v).filter(|&i| i > 0) { swap(v, i - 1, i) })>"↑"</button>
+        <button class="move" title=t!("ui.move_down") aria-label=t!("ui.move_down")
+            disabled=move || c.read(|v| pc(v).is_none_or(|i| i + 1 >= len(v)))
+            on:click=move |_| d.edit(|v| if let Some(i) = pd(v).filter(|&i| i + 1 < len(v)) { swap(v, i, i + 1) })>"↓"</button>
+    }
+}
+
+/// Move and delete buttons for item `j` of a list.
+pub fn item_buttons<T: 'static>(p: &Place<Vec<T>>, j: usize) -> impl IntoView + use<T> {
+    let del = p.clone();
+    view! {
+        {move_buttons(p, move |_| Some(j), Vec::len, |v, a, b| v.swap(a, b))}
+        <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete")
+            on:click=move |_| del.edit(|v| if j < v.len() { drop(v.remove(j)) })>"✕"</button>
+    }
 }
 
 pub fn num<V>(

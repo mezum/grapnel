@@ -72,7 +72,7 @@ fn leaf_editor(p: Place<RawLeaf>) -> AnyView {
             {opt_keys(&t!("ui.keymap.fallback"), &p, |l| l.fallback.clone(), |l, x| l.fallback = x)}
             {check(&t!("ui.keymap.fallback_none"), &p, |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
             {check(&t!("ui.keymap.keep_mods"), &p, |l| l.keep_mods, |l, x| l.keep_mods = x)}
-            {list(&t!("ui.keymap.targets"), &p, |l| l.targets.clone(), |l, x| l.targets = x)}
+            {list(&t!("ui.keymap.targets"), p.map(|l| Some(&l.targets), |l| Some(&mut l.targets)))}
         </div>
     }
     .into_any()

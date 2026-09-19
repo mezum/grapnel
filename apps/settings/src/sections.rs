@@ -83,7 +83,7 @@ pub fn settings() -> impl IntoView {
     let s = Place::<RawSettings>::new(store, |c| c.settings.as_ref(), |c| Some(c.settings.get_or_insert_default()));
     view! {
         <section>
-            {list(&t!("ui.general.include"), &top, |c| c.include.clone(), |c, x| c.include = x)}
+            {list(&t!("ui.general.include"), top.map(|c| Some(&c.include), |c| Some(&mut c.include)))}
             <Show when=move || store.cur.get() == 0 fallback=move || view! {
                 <p>{t!("ui.general.entry_only")}</p>
                 <Show when=move || store.read(|c| c.settings.is_some())>
@@ -91,7 +91,7 @@ pub fn settings() -> impl IntoView {
                 </Show>
             }>
                 {opt_text("initial_mode", &s, |s| s.initial_mode.clone(), |s, x| s.initial_mode = x)}
-                {list(&t!("ui.general.passthrough"), &s, |s| s.passthrough.clone(), |s, x| s.passthrough = x)}
+                {list(&t!("ui.general.passthrough"), s.map(|s| Some(&s.passthrough), |s| Some(&mut s.passthrough)))}
                 {opt_keys("suspend_hotkey", &s, |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x)}
                 {num("gesture_threshold (px)", &s, |s| s.gesture_threshold, |s, x| s.gesture_threshold = x)}
                 {select(&t!("ui.general.language"), &s, language_options(),
@@ -159,8 +159,8 @@ pub fn targets() -> impl IntoView {
                 {opt_text("uia_name", &p, |t| t.uia_name.clone(), |t, x| t.uia_name = x)}
                 {opt_text("uia_type", &p, |t| t.uia_type.clone(), |t, x| t.uia_type = x)}
                 {opt_text("not", &p, |t| t.not.clone(), |t, x| t.not = x)}
-                {list("any", &p, |t| t.any.clone(), |t, x| t.any = x)}
-                {list("all", &p, |t| t.all.clone(), |t, x| t.all = x)}
+                {list("any", p.map(|t| Some(&t.any), |t| Some(&mut t.any)))}
+                {list("all", p.map(|t| Some(&t.all), |t| Some(&mut t.all)))}
             }
         },
     )
