@@ -51,6 +51,8 @@ pub enum Msg {
     Pipe(String),
     Pad(Event),
     Deferred(Command),
+    /// Steps after a `Sleep`, with the executor generation they were planned in.
+    Resume(u64, grapnel_engine::Later),
     /// An error, already in the display language.
     Toast(String),
     Reloaded(Result<Config, Vec<grapnel_config::Problem>>),
@@ -158,6 +160,7 @@ fn handle(msg: Msg) {
             show_toast(&text(&rust_i18n::locale()), 2500);
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
+        Msg::Resume(generation, later) => drop(with_app(|a| a.resume(generation, later))),
         Msg::Toast(text) => show_toast(&text, 5000),
         Msg::Reloaded(result) => {
             inputbox::close(); // its action id belongs to the old config

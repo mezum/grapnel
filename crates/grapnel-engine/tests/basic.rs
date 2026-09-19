@@ -97,9 +97,11 @@ fn text_run_and_mouse_steps() {
         Command::MouseMove { x: 1, y: 2, absolute: false },
         Command::MouseMove { x: 3, y: 4, absolute: true },
         Command::Sleep(5),
-        Command::Run { program: "p".into(), args: vec!["x".into()] },
     ]);
-    assert_eq!(r.commands, expected);
+    let (later, before) = r.commands.split_last().unwrap();
+    assert_eq!(before, expected);
+    let Command::Resume(later) = later.clone() else { panic!("{later:?}") };
+    assert_eq!(t.e.resume(later), [Command::Run { program: "p".into(), args: vec!["x".into()] }]);
     // Repeat does not re-run programs.
     assert_eq!(t.down("a"), eaten(""));
 }
@@ -145,4 +147,32 @@ fn fallback_when_no_impl_matches() {
 fn scancode_keys() {
     let mut t = t(&rule("Zenkaku", "\"Esc\"", "", ""));
     assert_eq!(t.down("sc:0x29"), eaten("+Esc"));
+}
+
+#[test]
+fn steps_after_sleep_see_modifiers_changed_meanwhile() {
+    let mut t =
+        t(&rule("C-a", r#""b", { sleep = 5 }, "c", { call = "d" }"#, "", "[actions]\nd = [{ sleep = 1 }, \"e\"]"));
+    t.down("LCtrl");
+    let r = t.down("a");
+    assert_eq!(r.commands[..4], keys("-LCtrl +b -b +LCtrl"));
+    let Some(Command::Resume(later)) = r.commands.last().cloned() else { panic!("{:?}", r.commands) };
+    // Ctrl is released during the sleep, so `c` needs no Ctrl dance and Ctrl is not pressed again.
+    t.up("LCtrl");
+    let mut out = t.e.resume(later);
+    let Some(Command::Resume(later)) = out.pop() else { panic!("{out:?}") };
+    let mut expected = keys("+c -c");
+    expected.push(Command::Sleep(1));
+    assert_eq!(out, expected);
+    assert_eq!(t.e.resume(later), keys("+e -e"));
+}
+
+#[test]
+fn steps_after_sleep_keep_the_window_they_started_for() {
+    let extra = "[targets.code]\napp = \"code.exe\"\n[actions]\nd = { code = \"x\", \"*\" = \"y\" }";
+    let mut t = t(&rule("a", r#"{ sleep = 5 }, { call = "d" }"#, "", extra));
+    t.app("code.exe");
+    let Some(Command::Resume(later)) = t.down("a").commands.last().cloned() else { panic!() };
+    t.app("other.exe");
+    assert_eq!(t.e.resume(later), keys("+x -x"));
 }
