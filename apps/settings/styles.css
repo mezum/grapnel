@@ -147,6 +147,8 @@ section { display: flex; flex-direction: column; gap: 8px; }
   box-shadow: var(--shadow);
 }
 .impl { flex-basis: 100%; background: var(--surface-2); box-shadow: none; }
+/* Top-aligned so an error or an added argument below a field does not move its neighbours. */
+.binding { align-items: flex-start; }
 .name { display: flex; gap: 4px; align-items: center; }
 .name input { font-weight: 600; min-width: 140px; }
 .binding > .name input { font-family: Consolas, monospace; }
@@ -166,10 +168,13 @@ section { display: flex; flex-direction: column; gap: 8px; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px 12px;
-  align-items: flex-end;
+  align-items: flex-start;
   padding-left: 10px;
   border-left: 2px solid var(--line);
 }
+/* Step fields have a label line; the handle and delete button line up with the inputs below it. */
+.step > .del { margin-top: calc(1.4em + 4px); }
+.step > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
 .node { display: flex; flex-direction: column; gap: 6px; }
 .node .node { margin-left: 4px; padding-left: 12px; border-left: 2px solid var(--line); }
 details > summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
