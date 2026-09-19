@@ -48,6 +48,7 @@ const MENU_REHOOK: u32 = 5;
 static MAIN: AtomicIsize = AtomicIsize::new(0);
 
 /// Work handed to the main thread from hooks, workers and other threads.
+#[allow(clippy::large_enum_variant, reason = "a few messages per second at most; boxing buys nothing")]
 pub enum Msg {
     Pipe(String),
     Pad(Event),
