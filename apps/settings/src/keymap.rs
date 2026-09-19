@@ -96,7 +96,7 @@ fn leaf_options(
     switch: impl IntoView + 'static,
     off: impl Fn() -> bool + Send + Sync + 'static,
 ) -> impl IntoView {
-    let no_fallback = p.clone();
+    let (no_fallback, fallback) = (p.clone(), p.clone());
     view! {
         <details class="options">
             <summary><span class="summary-row">{t!("ui.keymap.extended")}{switch}</span></summary>
@@ -105,9 +105,9 @@ fn leaf_options(
                     |l| match l.press { None => "", Some(Press::Hold) => "hold", Some(Press::Tap) => "tap" }.into(),
                     |l, x| l.press = match x.as_str() { "hold" => Some(Press::Hold), "tap" => Some(Press::Tap), _ => None })}
                 // Sending nothing leaves no keys to type.
-                <fieldset class="group" disabled=move || no_fallback.read(|l| l.fallback.as_deref() == Some(""))>
-                    {opt_keys(&t!("ui.keymap.fallback"), &p.at(".fallback"), |l| l.fallback.clone(), |l, x| l.fallback = x, || t!("ui.hint.original_input").into_owned())}
-                </fieldset>
+                {move || no_fallback.read(|l| l.fallback.as_deref() != Some("")).then(|| {
+                    opt_keys(&t!("ui.keymap.fallback"), &fallback.at(".fallback"), |l| l.fallback.clone(), |l, x| l.fallback = x, || t!("ui.hint.original_input").into_owned())
+                })}
                 {check(&t!("ui.keymap.fallback_none"), &p.at(".fallback"), |l| l.fallback.as_deref() == Some(""), |l, x| l.fallback = x.then(String::new))}
                 {check(&t!("ui.keymap.keep_mods"), &p.at(".keep_mods"), |l| l.keep_mods, |l, x| l.keep_mods = x)}
                 {check(&t!("ui.keymap.repeat"), &p.at(".repeat"), |l| l.repeat, |l, x| l.repeat = x)}
