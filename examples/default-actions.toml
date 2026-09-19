@@ -1,22 +1,13 @@
-# 共通のアクション。emacs.toml や mac-cmd.toml から include して名前で使う。
-# アプリごとに出力を変えたいときは、ここのアクションにターゲットごとの出力を足す。
-
-# 正規表現はシングルクォート ('...') で書くと、バックスラッシュをエスケープせずに 1 本で書ける。
-
-# Emacs 本体やターミナルでは Ctrl キーをそのまま使いたいので、Emacs 風の編集操作は
-# non_emacs_app のときだけ働く。どれにも合わないアプリでは、元のキーがそのまま届く。
 [targets.emacs_like_app]
 app = 're:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\.exe$'
 
 [targets.non_emacs_app]
 not = "emacs_like_app"
 
-# redo が Ctrl+Y ではなく Ctrl+Shift+Z のアプリ。
 [targets.redo_with_ctrl_shift_z]
 app = 're:(?i)^(Photoshop|Illustrator|AfterFX|blender|gimp-[\d.]+|inkscape|Figma|idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)\.exe$'
 
 [actions]
-# ---- カーソル移動と削除 ----
 forward_char = { non_emacs_app = "Right" }
 backward_char = { non_emacs_app = "Left" }
 next_line = { non_emacs_app = "Down" }
@@ -29,15 +20,10 @@ forward_word = { non_emacs_app = "C-Right" }
 backward_word = { non_emacs_app = "C-Left" }
 beginning_of_buffer = { non_emacs_app = "C-Home" }
 end_of_buffer = { non_emacs_app = "C-End" }
-scroll_up = { non_emacs_app = "PageDown" }       # Emacs の名前どおり、画面の内容が上へ動く (先へ進む)
+scroll_up = { non_emacs_app = "PageDown" }
 scroll_down = { non_emacs_app = "PageUp" }
 newline = { non_emacs_app = "Enter" }
-
-# ---- 切り取り・コピー・貼り付け・元に戻す ----
-# Windows にはキルリングやマークが無いので、選択範囲とクリップボードで代用する。
-# kill_line は行末まで選択して切り取る。行末で押すと選択が空になり、VS Code などは行全体を切り取る。
 kill_line = { non_emacs_app = "S-End C-x" }
-# 行全体 (改行を含む) は、行頭から次の行頭まで選んで扱う。copy_whole_line はコピー後に選択を解除する。
 kill_whole_line = { non_emacs_app = "Home S-Down C-x" }
 copy_whole_line = { non_emacs_app = "Home S-Down C-c Left" }
 kill_word = { non_emacs_app = "C-S-Right C-x" }
@@ -46,10 +32,7 @@ kill_region = { non_emacs_app = "C-x" }
 kill_ring_save = { non_emacs_app = "C-c" }
 yank = { non_emacs_app = "C-v" }
 undo = { non_emacs_app = "C-z" }
-# redo は Windows の標準が Ctrl+Y だが、Adobe 系・Blender・JetBrains 系などは Ctrl+Shift+Z。
 redo = { redo_with_ctrl_shift_z = "C-S-z", non_emacs_app = "C-y" }
-
-# ---- 選択範囲を広げる移動 ----
 select_forward_char = { non_emacs_app = "S-Right" }
 select_backward_char = { non_emacs_app = "S-Left" }
 select_next_line = { non_emacs_app = "S-Down" }
@@ -60,39 +43,23 @@ select_forward_word = { non_emacs_app = "C-S-Right" }
 select_backward_word = { non_emacs_app = "C-S-Left" }
 select_beginning_of_buffer = { non_emacs_app = "C-S-Home" }
 select_end_of_buffer = { non_emacs_app = "C-S-End" }
-
-# ---- ファイル・ウインドウ操作 ----
 select_all = "C-a"
 save = "C-s"
 save_as = "C-S-s"
 close_document = "C-w"
 open_file = "C-o"
 quit_app = "M-F4"
-
-# ---- 検索 ----
-# アプリの検索欄を開く / 次を検索 / 前を検索。
 search_forward = "C-f"
 search_next = "F3"
 search_previous = "S-F3"
-
-# ---- タブ・アプリの切り替え ----
 new_tab = "C-t"
 next_tab = "C-Tab"
 previous_tab = "C-S-Tab"
 switch_app = "M-Tab"
 switch_app_back = "M-S-Tab"
-
-# ---- コマンド ----
-# 画面下に 1 行の入力欄を出し、入力した名前のアクションを実行する (Emacs の M-x)。
 execute_extended_command = [{ input = "M-x", position = "bottom" }]
-
-# ---- 仮想デスクトップ ----
 previous_desktop = "W-C-Left"
 next_desktop = "W-C-Right"
 task_view = "W-Tab"
 show_desktop = "W-d"
-
-# ---- 画面キャプチャ ----
-# Snipping Tool のキャプチャバーを開く。バーで静止画と録画を切り替えられる。
-# 最初から録画にしたい場合は "W-S-r" にする。
 screenshot = "W-S-s"

@@ -1,76 +1,109 @@
-# Emacs 風のカーソル移動・削除・切り取りと貼り付け・マーク。
-# 使い方: grapnel.exe --config examples\emacs.toml
-# または %APPDATA%\grapnel\config.toml から include = ["...\\emacs.toml"] で読み込む。
-# アクションの中身は default-actions.toml にある。
 include = ["default-actions.toml"]
 
-# 押している間は出力も押したまま (hold) なので、C-f を押し続ければ Right がキーリピートされる。
-[keymap]
-"C-f" = "forward_char"
-"C-b" = "backward_char"
-"C-n" = "next_line"
-"C-p" = "previous_line"
-"C-a" = "beginning_of_line"
-"C-e" = "end_of_line"
-"C-h" = "delete_backward_char"
-"C-d" = "delete_char"
-"C-k" = "kill_line"
-"C-w" = "kill_region"
-"M-w" = "kill_ring_save"
-"C-y" = "yank"
-"C-/" = "undo"
-"C-S-/" = "redo"
-"C-Space" = "set_mark"
-# 入力した名前のアクションを実行する。Emacs 本体やターミナルでは M-x をそのまま使う。
-"M-x" = { do = "execute_extended_command", targets = ["non_emacs_app"] }
-
-# C-x に続けて押すコマンド。Emacs 本体やターミナルでは C-x 自体を捕まえない (targets)。
-[keymap."C-x"]
-h = { do = "select_all", targets = ["non_emacs_app"] }
-"C-s" = { do = "save", targets = ["non_emacs_app"] }
-"C-w" = { do = "save_as", targets = ["non_emacs_app"] }
-k = { do = "close_document", targets = ["non_emacs_app"] }
-u = { do = "undo", targets = ["non_emacs_app"] }
-"C-f" = { do = "open_file", targets = ["non_emacs_app"] }
-"C-c" = { do = "quit_app", targets = ["non_emacs_app"] }
-
-# C-x の後に上に無いキーが来たら捨てる (送り直すと C-x が切り取りになるため)。
-[keymap."C-x".options]
-on_mismatch = "discard"
-
-# マーク中は Shift を押したままにするので、移動すると選択範囲が広がる
-# (キーマップに無い Ctrl+→ や PageDown なども同様)。
-# キーマップに無い入力 (文字入力・クリックなど) が来たら、Shift を離してからその入力を送り、マークを解除する。
 [modes.mark]
 unmapped_to = "default"
 hold = "S"
 
 [modes.mark.keymap]
-"C-Space" = "deactivate_mark"
-"C-g" = "deactivate_mark"
-"C-f" = "select_forward_char"
+C-Space = "deactivate_mark"
+C-g = "deactivate_mark"
+C-f = "select_forward_char"
 Right = "select_forward_char"
-"C-b" = "select_backward_char"
+C-b = "select_backward_char"
 Left = "select_backward_char"
-"C-n" = "select_next_line"
+C-n = "select_next_line"
 Down = "select_next_line"
-"C-p" = "select_previous_line"
+C-p = "select_previous_line"
 Up = "select_previous_line"
-"C-a" = "select_beginning_of_line"
+C-a = "select_beginning_of_line"
 Home = "select_beginning_of_line"
-"C-e" = "select_end_of_line"
+C-e = "select_end_of_line"
 End = "select_end_of_line"
-# 編集系はマークを解除してからいつもの動作をする (配列の文字列はアクション名なら呼び出し)。
-"C-w" = ["deactivate_mark", "kill_region"]
-"M-w" = ["deactivate_mark", "kill_ring_save"]
-"C-y" = ["deactivate_mark", "yank"]
-"C-k" = ["deactivate_mark", "kill_line"]
-"C-h" = ["deactivate_mark", "delete_backward_char"]
-"C-d" = ["deactivate_mark", "delete_char"]
-"C-/" = ["deactivate_mark", "undo"]
-"C-S-/" = ["deactivate_mark", "redo"]
+C-w = [
+    "deactivate_mark",
+    "kill_region",
+]
+M-w = [
+    "deactivate_mark",
+    "kill_ring_save",
+]
+C-y = [
+    "deactivate_mark",
+    "yank",
+]
+C-k = [
+    "deactivate_mark",
+    "kill_line",
+]
+C-h = [
+    "deactivate_mark",
+    "delete_backward_char",
+]
+C-d = [
+    "deactivate_mark",
+    "delete_char",
+]
+"C-/" = [
+    "deactivate_mark",
+    "undo",
+]
+"C-S-/" = [
+    "deactivate_mark",
+    "redo",
+]
 
-# mark モードを使うアクションは、モードを定義しているこのファイルに置く。
+[keymap]
+C-f = "forward_char"
+C-b = "backward_char"
+C-n = "next_line"
+C-p = "previous_line"
+C-a = "beginning_of_line"
+C-e = "end_of_line"
+C-h = "delete_backward_char"
+C-d = "delete_char"
+C-k = "kill_line"
+C-w = "kill_region"
+M-w = "kill_ring_save"
+C-y = "yank"
+"C-/" = "undo"
+"C-S-/" = "redo"
+C-Space = "set_mark"
+
+[keymap.M-x]
+do = "execute_extended_command"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.options]
+on_mismatch = "discard"
+
+[keymap.C-x.h]
+do = "select_all"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.C-s]
+do = "save"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.C-w]
+do = "save_as"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.k]
+do = "close_document"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.u]
+do = "undo"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.C-f]
+do = "open_file"
+targets = ["non_emacs_app"]
+
+[keymap.C-x.C-c]
+do = "quit_app"
+targets = ["non_emacs_app"]
+
 [actions]
 set_mark = { non_emacs_app = [{ mode = "mark" }] }
 deactivate_mark = [{ mode = "default" }]

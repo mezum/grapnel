@@ -359,3 +359,27 @@ fn problems_tell_names_from_values() {
     assert!(e.iter().any(|p| p.at == "keymap.\"Foo\"" && p.on_key), "{e:?}");
     assert!(e.iter().any(|p| p.at == "keymap.\"b\"" && !p.on_key), "{e:?}");
 }
+
+/// The examples are kept exactly as grapnel-settings writes them, so saving them there changes
+/// nothing. `GRAPNEL_BLESS=1 cargo test -p grapnel-config examples_are_in_saved_form` rewrites them.
+#[test]
+fn examples_are_in_saved_form() {
+    let bless = std::env::var_os("GRAPNEL_BLESS").is_some();
+    let out = temp_dir("saved");
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    for entry in std::fs::read_dir(examples).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "toml") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap().replace("\r\n", "\n");
+        let saved = out.join(path.file_name().unwrap());
+        save(&saved, &toml::from_str(&text).unwrap()).unwrap();
+        let want = std::fs::read_to_string(&saved).unwrap();
+        if bless {
+            std::fs::write(&path, &want).unwrap();
+        } else {
+            assert_eq!(text, want, "{} is not in saved form; see the comment above", path.display());
+        }
+    }
+}
