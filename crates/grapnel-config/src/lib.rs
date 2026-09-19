@@ -120,28 +120,32 @@ pub struct ActionImpl {
 pub enum Step {
     Keys(KeySeq),
     Text(String),
-    MouseMove {
-        x: i32,
-        y: i32,
-        absolute: bool,
-    },
+    MouseMove { x: i32, y: i32, absolute: bool },
     Sleep(u32),
-    Run {
-        program: String,
-        args: Vec<String>,
-    },
-    Call {
-        action: ActionId,
-        arg: Option<String>,
-    },
+    Run { program: String, args: Vec<String> },
+    Call { action: ActionId, arg: Option<String> },
     Mode(ModeId),
     Control(ControlCmd),
-    /// `then: None` runs the action named by the text.
-    Input {
-        prompt: String,
-        then: Option<ActionId>,
-        position: InputPosition,
-    },
+    Input { prompt: String, then: Then, position: InputPosition },
+}
+
+/// What an input box does with the confirmed text.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Then {
+    /// Runs this action with the text as its argument.
+    Action(ActionId),
+    /// Runs the action named by this template with `{arg}` replaced by the text's first word,
+    /// passing the rest of the text as the argument (`"{arg}"`: the text names the action).
+    Named(String),
+}
+
+impl Then {
+    /// The action name and argument for the confirmed `text`, for `Named`.
+    pub fn resolve(template: &str, text: &str) -> (String, String) {
+        let text = text.trim();
+        let (word, rest) = text.split_once(char::is_whitespace).unwrap_or((text, ""));
+        (template.replace("{arg}", word), rest.trim_start().to_string())
+    }
 }
 
 impl Config {

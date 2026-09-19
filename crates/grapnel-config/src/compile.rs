@@ -314,9 +314,10 @@ pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, 
         RawStep::Mode { mode } => Step::Mode(c.id(at, Kind::Mode, modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
         RawStep::Input { input, then, position } => {
+            // A name with `{arg}` is looked up only once the text is known.
             let then = match then {
-                Some(t) => Some(c.id(at, Kind::Action, actions, t)?),
-                None => None,
+                Some(t) if !t.contains("{arg}") => Then::Action(c.id(at, Kind::Action, actions, t)?),
+                t => Then::Named(t.clone().unwrap_or_else(|| "{arg}".into())),
             };
             Step::Input { prompt: input.clone(), then, position: position.unwrap_or_default() }
         }

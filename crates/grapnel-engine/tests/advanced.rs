@@ -129,7 +129,11 @@ fn call_input_and_control() {
         vec![
             Command::Text("<1>".into()),
             Command::Text("1".into()),
-            Command::InputBox { prompt: "?".into(), then: Some(y), position: grapnel_config::InputPosition::Center },
+            Command::InputBox {
+                prompt: "?".into(),
+                then: grapnel_config::Then::Action(y),
+                position: grapnel_config::InputPosition::Center,
+            },
             Command::Control(ControlCmd::Exit),
         ]
     );
@@ -220,7 +224,11 @@ fn input_box_without_then_and_invoking_by_name() {
     let out = t.down("x").commands;
     assert_eq!(
         out,
-        vec![Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom }]
+        vec![Command::InputBox {
+            prompt: "M-x".into(),
+            then: grapnel_config::Then::Named("{arg}".into()),
+            position: grapnel_config::InputPosition::Bottom,
+        }]
     );
     t.up("x");
     t.up("LAlt");

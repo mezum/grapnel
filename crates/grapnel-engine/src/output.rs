@@ -166,7 +166,7 @@ impl Engine {
                 }
                 Step::Control(c) => out.push(Command::Control(*c)),
                 Step::Input { prompt, then, position } => {
-                    out.push(Command::InputBox { prompt: prompt.clone(), then: *then, position: *position })
+                    out.push(Command::InputBox { prompt: prompt.clone(), then: then.clone(), position: *position })
                 }
             }
         }

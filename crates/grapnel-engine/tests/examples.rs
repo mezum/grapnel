@@ -234,8 +234,8 @@ fn emacs_meta_x_opens_a_bottom_prompt() {
     let mut t = example("emacs.toml");
     t.app("notepad.exe");
     t.down("LAlt");
-    let prompt =
-        Command::InputBox { prompt: "M-x".into(), then: None, position: grapnel_config::InputPosition::Bottom };
+    let then = grapnel_config::Then::Named("{arg}".into());
+    let prompt = Command::InputBox { prompt: "M-x".into(), then, position: grapnel_config::InputPosition::Bottom };
     assert_eq!(t.down("x").commands, vec![prompt]);
     t.up("x");
     t.app("emacs.exe");

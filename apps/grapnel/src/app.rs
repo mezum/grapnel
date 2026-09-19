@@ -1,7 +1,7 @@
 //! Main-thread state: engine, hooks, foreground window, suspend/passthrough and reload.
 
 use crate::exec::Executor;
-use grapnel_config::{Config, ControlCmd, Field, Problem, WindowInfo, any_matches};
+use grapnel_config::{Config, ControlCmd, Field, Problem, Then, WindowInfo, any_matches};
 use grapnel_engine::{Command, Engine, Event, Fault};
 use grapnel_keys::{Key, Mods};
 use grapnel_win::{hook, inputbox, uia::Uia, window};
@@ -56,7 +56,7 @@ pub struct App {
     /// Window the open input box was started from; its follow-up action runs against this.
     prompt_win: WindowInfo,
     /// Action to run with the input box text; `None` runs the action the text names.
-    prompt_then: Option<usize>,
+    prompt_then: Then,
 }
 
 impl App {
@@ -74,7 +74,7 @@ impl App {
             exec: Executor::new(),
             start: Instant::now(),
             prompt_win: WindowInfo::default(),
-            prompt_then: None,
+            prompt_then: Then::Named("{arg}".into()),
         };
         app.configure();
         app.window_changed(window::CHANGED_FOREGROUND);
@@ -255,7 +255,7 @@ impl App {
     }
 
     /// Called before the input box opens: release held output and remember where we came from.
-    pub fn before_prompt(&mut self, then: Option<usize>) {
+    pub fn before_prompt(&mut self, then: Then) {
         let cmds = self.engine.reset();
         self.exec.run(cmds);
         self.prompt_win = self.win.clone();
@@ -264,10 +264,7 @@ impl App {
 
     /// Input box confirmed: run its follow-up action with the text.
     pub fn input_done(&mut self, text: &str) {
-        let cmds = match self.prompt_then {
-            Some(then) => self.engine.invoke(then, text, &self.prompt_win),
-            None => self.engine.invoke_named(text.trim(), "", &self.prompt_win),
-        };
+        let cmds = self.engine.invoke_input(&self.prompt_then, text, &self.prompt_win);
         self.exec.run(cmds);
     }
 

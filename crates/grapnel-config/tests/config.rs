@@ -329,10 +329,20 @@ fn input_step_without_then_runs_the_typed_action() {
     let mx = c.action_id("mx").unwrap();
     assert_eq!(
         c.actions[mx].impls[0].steps[0],
-        Step::Input { prompt: "M-x".into(), then: None, position: InputPosition::Bottom }
+        Step::Input { prompt: "M-x".into(), then: Then::Named("{arg}".into()), position: InputPosition::Bottom }
     );
     let q = &c.actions[c.action_id("q").unwrap()].impls[0].steps[0];
-    assert_eq!(q, &Step::Input { prompt: "?".into(), then: Some(mx), position: InputPosition::Center });
+    assert_eq!(q, &Step::Input { prompt: "?".into(), then: Then::Action(mx), position: InputPosition::Center });
+}
+
+#[test]
+fn input_then_templates_name_the_action_by_the_first_word() {
+    let c = ok("[actions]
+colon = [{ input = \":\", then = \"vim:{arg}\" }]");
+    let colon = &c.actions[c.action_id("colon").unwrap()].impls[0].steps[0];
+    assert!(matches!(colon, Step::Input { then: Then::Named(t), .. } if t == "vim:{arg}"));
+    assert_eq!(Then::resolve("vim:{arg}", " e  a b.txt "), ("vim:e".into(), "a b.txt".into()));
+    assert_eq!(Then::resolve("{arg}", "hello"), ("hello".into(), String::new()));
 }
 
 #[test]

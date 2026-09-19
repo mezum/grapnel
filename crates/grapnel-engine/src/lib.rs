@@ -5,7 +5,7 @@ mod input;
 mod output;
 
 use grapnel_config::{
-    ActionId, Config, ControlCmd, InputPosition, Mismatch, ModeId, Policy, Step, WindowInfo, any_matches,
+    ActionId, Config, ControlCmd, InputPosition, Mismatch, ModeId, Policy, Step, Then, WindowInfo, any_matches,
 };
 use grapnel_keys::{Chord, Dir, Key, KeySeq, Mods, MouseButton};
 use std::collections::{HashMap, HashSet};
@@ -40,10 +40,9 @@ pub enum Command {
         program: String,
         args: Vec<String>,
     },
-    /// `then: None`: the text is the name of the action to run.
     InputBox {
         prompt: String,
-        then: Option<ActionId>,
+        then: Then,
         position: InputPosition,
     },
     ModeChanged(String),
@@ -192,6 +191,17 @@ impl Engine {
         let mut out = Vec::new();
         self.run_action(action, arg, win, 0, &mut out);
         out
+    }
+
+    /// Runs what an input box's `then` asks for with the confirmed text.
+    pub fn invoke_input(&mut self, then: &Then, text: &str, win: &WindowInfo) -> Vec<Command> {
+        match then {
+            Then::Action(id) => self.invoke(*id, text, win),
+            Then::Named(template) => {
+                let (name, arg) = Then::resolve(template, text);
+                self.invoke_named(&name, &arg, win)
+            }
+        }
     }
 
     /// Runs the action with this name (e.g. typed into an M-x prompt).
