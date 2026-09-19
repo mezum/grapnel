@@ -13,20 +13,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  check:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # rustup installs the toolchain, components and targets from rust-toolchain.toml.
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      # The whole run: the examples check spans crates.
-      - run: cargo test
-      - uses: taiki-e/install-action@v2
+      - uses: actions/cache@v6
         with:
-          tool: trunk,tauri-cli
-      - run: cargo clippy -p grapnel-settings-ui --target wasm32-unknown-unknown -- -D warnings
-      - run: cargo tauri build --no-bundle
-        working-directory: apps/settings
-      - run: cargo clippy -p grapnel-settings -- -D warnings
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: cargo-
+      # Third party, so pinned to a commit.
+      - uses: taiki-e/install-action@9114bf4d891761788c546334fd37538eae1bf8b3 # v2.87.16
+        with:
+          tool: just,trunk,tauri-cli
+      - run: just lint
+      - run: just test
+      # Builds the settings tool, which compiles its back end too.
+      - run: just settings

@@ -1,5 +1,15 @@
 set windows-shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
 
+# Check formatting and lint everything (CI runs this)
+lint:
+    cargo fmt --check
+    cargo clippy --all-targets -- -D warnings
+    cargo clippy -p grapnel-settings-ui --target wasm32-unknown-unknown -- -D warnings
+
+# Run every test (the whole run: the examples check spans crates)
+test:
+    cargo test
+
 # Stop grapnel, rebuild the settings tool, then run grapnel again
 restart: stop settings run
 
