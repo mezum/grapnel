@@ -1596,6 +1596,7 @@ dependencies = [
 name = "grapnel"
 version = "0.1.0"
 dependencies = [
+ "embed-resource",
  "grapnel-config",
  "grapnel-engine",
  "grapnel-keys",
