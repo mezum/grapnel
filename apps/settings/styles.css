@@ -71,8 +71,19 @@ button.del svg { display: block; width: 18px; height: 18px; fill: currentColor; 
 .grip:focus-visible { outline: 2px solid var(--accent); }
 .grip svg { width: 18px; height: 18px; fill: currentColor; }
 .dragging { opacity: 0.4; }
-.drop-before { box-shadow: 0 -2px 0 var(--accent); }
-.drop-after { box-shadow: 0 2px 0 var(--accent); }
+/* The drop line sits in the gap between rows, apart from the row's own border and shadow. */
+.sortable { position: relative; }
+.drop-before::before, .drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.drop-before::before { top: -4px; }
+.drop-after::after { bottom: -4px; }
 button.add { background: none; border-style: dashed; color: var(--muted); align-self: flex-start; }
 button.add:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 input, select {
