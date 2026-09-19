@@ -341,3 +341,28 @@ fn vim_counts_and_dot() {
     assert_eq!(t.down("."), eaten("+Delete -Delete +Delete -Delete"));
     t.up(".");
 }
+
+#[test]
+fn ax_symbols() {
+    let mut t = example("ax.toml");
+    // Plain keys: typed as the JIS key that carries the AX symbol.
+    assert_eq!(t.down("@"), eaten("+["));
+    assert_eq!(t.up("@"), eaten("-["));
+    assert_eq!(t.down(":"), eaten("+LShift +7"));
+    assert_eq!(t.up(":"), eaten("-7 -LShift"));
+    // The ロ key gives _ with or without Shift.
+    assert_eq!(t.down("_"), eaten("+LShift +_"));
+    t.up("_");
+    t.down("LShift");
+    assert_eq!(t.down("_"), pass());
+    t.up("_");
+    // Shifted: Shift stays down when the JIS key needs it, is lifted otherwise.
+    assert_eq!(t.down("7"), eaten("+6"));
+    t.up("7");
+    assert_eq!(t.down("2"), eaten("-LShift +@"));
+    assert_eq!(t.up("2"), eaten("-@ +LShift"));
+    t.up("LShift");
+    // Other modifiers are left alone.
+    t.down("LCtrl");
+    assert_eq!(t.down("@"), pass());
+}
