@@ -241,3 +241,83 @@ fn emacs_meta_x_opens_a_bottom_prompt() {
     t.app("emacs.exe");
     assert_eq!(t.down("x"), pass());
 }
+
+/// vim.toml in a text field of notepad.
+fn vim() -> T {
+    let mut t = example("vim.toml");
+    t.app("notepad.exe");
+    t.win.uia_type = "Edit".into();
+    t
+}
+
+fn mode(r: &grapnel_engine::Reaction) -> Option<&str> {
+    r.commands.iter().find_map(|c| if let Command::ModeChanged(m) = c { Some(m.as_str()) } else { None })
+}
+
+#[test]
+fn vim_enters_normal_only_in_text_fields() {
+    let mut t = vim();
+    t.win.uia_type = "Button".into();
+    assert_eq!(t.down("Esc"), pass());
+    t.up("Esc");
+    t.win.uia_type = "Edit".into();
+    t.app("WindowsTerminal.exe");
+    assert_eq!(t.down("Esc"), pass());
+    t.up("Esc");
+    t.app("notepad.exe");
+    assert_eq!(mode(&t.down("Esc")), Some("normal"));
+    t.up("Esc");
+}
+
+#[test]
+fn vim_normal_mode() {
+    let mut t = vim();
+    t.tap("Esc");
+    assert_eq!(t.down("j"), eaten("+Down"));
+    assert_eq!(t.up("j"), eaten("-Down"));
+    // Unassigned letters do nothing; d then an unknown key is dropped.
+    assert!(t.down("q").commands.is_empty());
+    t.up("q");
+    t.tap("d");
+    assert!(t.down("q").consume);
+    t.up("q");
+    assert_eq!(t.down("x"), eaten("+Delete"));
+    t.up("x");
+    // i types again; Esc returns.
+    assert_eq!(mode(&t.down("i")), Some("input"));
+    t.up("i");
+    assert_eq!(t.down("j"), pass());
+    t.up("j");
+    t.tap("Esc");
+    assert_eq!(t.e.mode_name(), "normal");
+    // Anything else (here F5) goes through and leaves normal mode.
+    let r = t.down("F5");
+    assert_eq!((r.consume, mode(&r)), (false, Some("input")));
+}
+
+#[test]
+fn vim_visual_command_and_search() {
+    let mut t = vim();
+    t.tap("Esc");
+    // visual holds Shift; y copies and returns to normal.
+    assert_eq!(mode(&t.down("v")), Some("visual"));
+    t.up("v");
+    assert_eq!(t.down("l"), eaten("+Right"));
+    t.up("l");
+    assert_eq!(mode(&t.down("y")), Some("normal"));
+    t.up("y");
+    // :w saves.
+    t.tap(":");
+    assert_eq!(t.e.mode_name(), "command");
+    t.tap("w");
+    let r = t.down("Enter");
+    assert_eq!(mode(&r), Some("normal"));
+    assert!(r.commands.ends_with(&keys("+LCtrl +s -s -LCtrl")), "{:?}", r.commands);
+    t.up("Enter");
+    // / opens the app's search; typing goes there; Enter searches and returns.
+    t.tap("/");
+    assert_eq!(t.e.mode_name(), "search");
+    assert_eq!(t.down("a"), pass());
+    t.up("a");
+    assert_eq!(mode(&t.down("Enter")), Some("normal"));
+}

@@ -1,0 +1,194 @@
+# Vim 風のモード (normal / input / visual / command / search)。キーは JIS 配列を前提にしている。
+# 使い方: grapnel.exe --config examples\vim.toml
+# または %APPDATA%\grapnel\config.toml から include = ["...\\vim.toml"] で読み込む。
+#
+# 起動時は default モード (input と同じく何もしない)。テキスト入力欄で Esc を押すと normal モードに入る。
+# 最初から normal にしたい場合は、エントリファイルの [settings] に initial_mode = "normal" を書く。
+#
+# モードは全アプリ共通なので、normal でキーマップに無い入力 (Alt-Tab、Win キー、クリックなど) が
+# 来たら、その入力を通して input モードに戻る。別のアプリに移ったら、また Esc で normal に入る。
+# Windows のショートカットで代用しているので、数の前置 (3j など)、レジスタ、. による繰り返しは無い。
+include = ["default-actions.toml"]
+
+# normal モードに入れる場所: テキスト入力欄で、Vim 本体やターミナルではないとき。
+[targets.vim_text_field]
+uia_type = 're:^(Edit|Document)$'
+
+[targets.vim_own_keys]
+app = 're:(?i)^(gvim|vim|nvim|nvim-qt|neovide|WindowsTerminal|wezterm-gui|alacritty|mintty)\.exe$'
+
+[targets.vim_not_own_keys]
+not = "vim_own_keys"
+
+[targets.vim_text]
+all = ["vim_text_field", "vim_not_own_keys"]
+
+# どのモードのキーマップにも無いときだけ使う (default モード用)。
+[keymap]
+Esc = { do = [{ mode = "normal" }], targets = ["vim_text"] }
+
+# ---- input (挿入) ----
+[modes.input.keymap]
+Esc = [{ mode = "normal" }]
+"C-[" = [{ mode = "normal" }]
+
+# ---- normal ----
+[modes.normal]
+unmapped_to = "input"
+
+[modes.normal.keymap]
+# 移動。押している間は出力も押したまま (hold) なので、押し続ければキーリピートする。
+h = "Left"
+j = "Down"
+k = "Up"
+l = "Right"
+Backspace = "Left"
+Space = "Right"
+Enter = "Down Home"
+w = "C-Right"
+e = "C-Right"
+b = "C-Left"
+"0" = "Home"
+"^" = "Home"
+"S-4" = "End"                                  # $
+"S-g" = "C-End"                                # G
+"C-f" = "PageDown"
+"C-d" = "PageDown"
+"C-b" = "PageUp"
+"C-u" = "PageUp"
+# 削除・変更・コピー・貼り付け。行の操作は Home から次の行頭まで (改行を含めて) 選んで行う。
+x = "Delete"
+"S-x" = "Backspace"
+"S-d" = "S-End C-x"
+"S-c" = ["S-End C-x", { mode = "input" }]
+s = ["S-Right C-x", { mode = "input" }]
+"S-s" = ["Home S-End C-x", { mode = "input" }]
+"S-y" = "Home S-Down C-c Left"
+p = "C-v"
+"S-p" = "C-v"
+u = "undo"
+"C-r" = "redo"
+# input モードへ。
+i = [{ mode = "input" }]
+a = ["Right", { mode = "input" }]
+"S-i" = ["Home", { mode = "input" }]
+"S-a" = ["End", { mode = "input" }]
+o = ["End Enter", { mode = "input" }]
+"S-o" = ["Home Enter Up", { mode = "input" }]
+# visual モードへ。v は今の 1 文字、V は今の行を選んだ状態で始める。
+v = [{ mode = "visual" }, "S-Right"]
+"S-v" = ["Home", { mode = "visual" }, "S-Down"]
+# アプリの検索欄を開いて search モードへ。n / N は次 / 前を検索 (F3 / Shift+F3)。
+"/" = ["C-f", { mode = "search" }]
+"S-/" = ["C-f", { mode = "search" }]           # ?
+n = "F3"
+"S-n" = "S-F3"
+":" = [{ mode = "command" }]                    # US 配列では "S-:"
+# Esc はそのまま送る (ダイアログを閉じるなど)。
+Esc = "Esc"
+# 割り当てていない英字と数字は何もしない (文字として入力されないように)。
+f = []
+m = []
+q = []
+r = []
+t = []
+z = []
+"1" = []
+"2" = []
+"3" = []
+"4" = []
+"5" = []
+"6" = []
+"7" = []
+"8" = []
+"9" = []
+
+[modes.normal.keymap.g]
+g = "C-Home"                                   # gg
+
+[modes.normal.keymap.d]
+d = "Home S-Down C-x"                          # dd
+w = "C-S-Right C-x"
+e = "C-S-Right C-x"
+b = "C-S-Left C-x"
+"0" = "S-Home C-x"
+"S-4" = "S-End C-x"
+
+[modes.normal.keymap.y]
+y = "Home S-Down C-c Left"                     # yy
+w = "C-S-Right C-c Left"
+e = "C-S-Right C-c Left"
+b = "C-S-Left C-c Right"
+"0" = "S-Home C-c Right"
+"S-4" = "S-End C-c Left"
+
+[modes.normal.keymap.c]
+c = ["Home S-End C-x", { mode = "input" }]     # cc
+w = ["C-S-Right C-x", { mode = "input" }]
+e = ["C-S-Right C-x", { mode = "input" }]
+b = ["C-S-Left C-x", { mode = "input" }]
+"0" = ["S-Home C-x", { mode = "input" }]
+"S-4" = ["S-End C-x", { mode = "input" }]
+
+# g / d / y / c の後に上に無いキーが来たら捨てる (送り直すと文字が入力されるため)。
+[modes.normal.keymap.options]
+on_mismatch = "discard"
+
+# ---- visual ----
+# Shift を押したままにするので、移動すると選択範囲が広がる。キーマップに無いキーは捨てて normal に戻る
+# (クリックはそのまま通して normal に戻る)。
+[modes.visual]
+hold = "S"
+block_unmapped = true
+unmapped_to = "normal"
+
+[modes.visual.keymap]
+h = "S-Left"
+j = "S-Down"
+k = "S-Up"
+l = "S-Right"
+w = "C-S-Right"
+e = "C-S-Right"
+b = "C-S-Left"
+"0" = "S-Home"
+"^" = "S-Home"
+"S-4" = "S-End"
+"S-g" = "C-S-End"
+"g g" = "C-S-Home"
+# 選択範囲への操作は、先に normal (Shift を離す) に戻ってから行う。
+y = [{ mode = "normal" }, "C-c", "Left"]
+d = [{ mode = "normal" }, "C-x"]
+x = [{ mode = "normal" }, "C-x"]
+c = [{ mode = "input" }, "C-x"]
+s = [{ mode = "input" }, "C-x"]
+p = [{ mode = "normal" }, "C-v"]
+Esc = [{ mode = "normal" }, "Left"]
+v = [{ mode = "normal" }, "Left"]
+"S-v" = [{ mode = "normal" }, "Left"]
+
+[modes.visual.keymap.options]
+on_mismatch = "discard"
+
+# ---- command (: の後) ----
+# 入力は画面に出ない。キーマップに無いキーを押すと捨てて normal に戻る。
+[modes.command]
+block_unmapped = true
+unmapped_to = "normal"
+
+[modes.command.keymap]
+"w Enter" = [{ mode = "normal" }, "save"]                        # :w
+"q Enter" = [{ mode = "normal" }, "close_document"]              # :q
+"q S-1 Enter" = [{ mode = "normal" }, "close_document"]          # :q! (保存しないかはアプリの確認に任せる)
+"w q Enter" = [{ mode = "normal" }, "save", "close_document"]    # :wq
+"x Enter" = [{ mode = "normal" }, "save", "close_document"]      # :x
+Esc = [{ mode = "normal" }]
+Backspace = [{ mode = "normal" }]
+
+[modes.command.keymap.options]
+on_mismatch = "discard"
+
+# ---- search (/ や ? の後) ----
+# 文字はそのままアプリの検索欄に入る。Enter で検索して検索欄を閉じ、Esc でやめて normal に戻る。
+[modes.search.keymap]
+Enter = ["Enter Esc", { mode = "normal" }]
+Esc = ["Esc", { mode = "normal" }]
