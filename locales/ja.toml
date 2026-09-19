@@ -40,7 +40,6 @@ more = "(他 %{count} 件)"
 
 [ui]
 title = "grapnel 設定"
-open = "開く…"
 file = "編集するファイル"
 save = "上書き保存"
 save_apply = "上書き保存して適用"
@@ -180,10 +179,30 @@ add_target = "ターゲットを追加"
 add = "アクションを追加"
 
 [ui.theme]
-label = "テーマ: %{name} (クリックで切り替え)"
 auto = "自動"
 light = "ライト"
 dark = "ダーク"
+
+[ui.menu]
+file = "ファイル(&F)"
+open = "開く(&O)…"
+reload = "ディスクから読み直す(&R)"
+save = "上書き保存(&S)"
+save_apply = "上書き保存して適用(&A)"
+exit = "終了(&X)"
+view = "表示(&V)"
+theme = "テーマ(&T)"
+language = "言語(&L)"
+help = "ヘルプ(&H)"
+docs = "設定の書き方(&C)"
+about = "grapnel-settings について(&A)"
+about_text = "grapnel-settings %{version}\ngrapnel の設定ツール"
+
+[ui.bar]
+unsaved = "未保存の変更あり"
+errors = "エラー %{count} 件"
+running = "grapnel 起動中"
+not_running = "grapnel は起動していません"
 
 [keys]
 unknown = "'%{key}' というキーはありません"

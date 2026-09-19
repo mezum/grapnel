@@ -19,6 +19,15 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"], catch)]
     async fn invoke(cmd: &str, args: JsValue) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "event"])]
+    fn listen(event: &str, handler: &Closure<dyn FnMut(JsValue)>) -> js_sys::Promise;
+}
+
+/// Calls `f` with the payload of every `menu` event (the id of the chosen menu item).
+fn on_menu(f: impl Fn(String) + 'static) {
+    let handler = Closure::<dyn FnMut(JsValue)>::new(move |ev| f(prop(&ev, "payload").as_string().unwrap_or_default()));
+    let _ = listen("menu", &handler);
+    handler.forget(); // listens for the page's lifetime
 }
 
 /// Calls a Tauri command. Arguments go through JSON text so every map key (even `__proto__`)
@@ -49,6 +58,11 @@ impl Files {
     fn of(docs: &[FileDoc]) -> Files {
         Files { files: serde_json::to_string(docs).unwrap(), lang: rust_i18n::locale().to_string() }
     }
+}
+
+#[derive(Serialize)]
+struct Lang {
+    lang: String,
 }
 
 #[derive(Serialize)]
@@ -132,27 +146,16 @@ fn set_theme(theme: &str) {
     let _ = js_sys::Reflect::set(&prop(&js_sys::global(), "localStorage"), &THEME_KEY.into(), &theme.into());
 }
 
-/// The theme after `theme`.
-fn next_theme(theme: &str) -> &'static str {
-    match theme {
-        "auto" => "light",
-        "light" => "dark",
-        _ => "auto",
-    }
+/// The files as JSON, which keeps map order (unlike `RawConfig`'s equality).
+fn snapshot(docs: &[FileDoc]) -> String {
+    serde_json::to_string(docs).unwrap()
 }
 
-/// 24x24 icon path for `theme`, from Google Material Icons (Apache-2.0, see THIRD_PARTY_NOTICES.md).
-fn theme_icon(theme: &str) -> &'static str {
-    match theme {
-        "light" => {
-            "M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
-        }
-        "dark" => {
-            "M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"
-        }
-        _ => {
-            "M10.85 12.65h2.3L12 9l-1.15 3.65zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM14.3 16l-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9h-1.9z"
-        }
+/// Blurs the focused element, so a field being edited commits its text (`change`) first.
+fn blur_focused() {
+    let el = prop(&prop(&js_sys::global(), "document"), "activeElement");
+    if let Ok(blur) = prop(&el, "blur").dyn_into::<js_sys::Function>() {
+        let _ = blur.call0(&el);
     }
 }
 
@@ -203,6 +206,9 @@ fn App() -> impl IntoView {
     let tab = RwSignal::new(0usize);
     let errors = store.errors;
     let status = RwSignal::new(String::new());
+    // The files as last loaded or saved, serialized, to tell unsaved changes (reordering included).
+    let saved = RwSignal::new(String::new());
+    let running = RwSignal::new(true);
     let lang = RwSignal::new(initial_language());
     set_language(&lang.get_untracked());
     let theme = RwSignal::new(saved_theme());
@@ -214,6 +220,7 @@ fn App() -> impl IntoView {
                 Ok(json) => {
                     let docs: Vec<FileDoc> = serde_json::from_str(&json).unwrap();
                     store.cur.set(0);
+                    saved.set(snapshot(&docs));
                     store.docs.set(docs);
                     status.set(t!("ui.status.loaded").into());
                 }
@@ -245,12 +252,13 @@ fn App() -> impl IntoView {
     });
     let save = move |apply: bool| {
         spawn_local(async move {
-            let files = Files::of(&store.docs.get_untracked());
-            if let Err(e) = call::<_, (), SaveError>("save", &files).await {
+            let docs = store.docs.get_untracked();
+            if let Err(e) = call::<_, (), SaveError>("save", &Files::of(&docs)).await {
                 errors.set(e.errors);
                 let text = if e.saved { t!("ui.status.saved_with_errors") } else { t!("ui.status.save_failed") };
                 return status.set(text.into());
             }
+            saved.set(snapshot(&docs));
             status.set(t!("ui.status.saved").into());
             if apply {
                 match call::<_, (), String>("apply", &()).await {
@@ -262,12 +270,54 @@ fn App() -> impl IntoView {
     };
     let cannot_save = move || !errors.with(Vec::is_empty) || store.docs.with(Vec::is_empty);
 
-    let change_language = move |ev| {
-        let l = event_target_value(&ev);
+    let change_language = move |l: String| {
         set_language(&l);
         status.set(String::new());
+        let menu = Lang { lang: l.clone() };
+        spawn_local(async move {
+            if let Err(e) = call::<_, (), String>("set_menu", &menu).await {
+                web_sys_log(&e);
+            }
+        });
         lang.set(l);
     };
+    change_language(lang.get_untracked());
+    // Menu items and their shortcuts. A field commits its text on `change`, which blurring fires,
+    // so that happens first; saving an invalid state is refused by the backend with its errors.
+    let command = move |id: &str| {
+        blur_focused();
+        match id {
+            "open" => open(),
+            "reload" => load(),
+            "save" | "save_apply" if !store.docs.with(Vec::is_empty) => save(id == "save_apply"),
+            id => {
+                if let Some(t) = id.strip_prefix("theme:") {
+                    theme.set(t.into());
+                    set_theme(t);
+                } else if let Some(l) = id.strip_prefix("lang:") {
+                    change_language(l.into());
+                }
+            }
+        }
+    };
+    on_menu(move |id| command(&id));
+    // The menu only shows these shortcuts; the keys reach the web view, so they are handled here.
+    let _ = window_event_listener(leptos::ev::keydown, move |ev| {
+        let id = match (ev.ctrl_key(), ev.shift_key(), ev.key().to_ascii_lowercase().as_str()) {
+            (true, false, "o") => "open",
+            (true, false, "s") => "save",
+            (true, true, "s") => "save_apply",
+            _ => return,
+        };
+        ev.prevent_default();
+        command(id);
+    });
+    let poll = move || {
+        spawn_local(async move { running.set(call::<_, bool, ()>("grapnel_running", &()).await.unwrap_or(false)) })
+    };
+    poll();
+    let _ = set_interval_with_handle(poll, std::time::Duration::from_secs(3));
+    let dirty = Memo::new(move |_| store.docs.with(|d| snapshot(d)) != saved.get());
     let tabs = || {
         TABS.iter().map(|k| {
             let key = format!("ui.tab.{k}");
@@ -280,8 +330,6 @@ fn App() -> impl IntoView {
         lang.track();
         view! {
         <header>
-            <span class="brand">"grapnel"</span>
-            <button on:click=move |_| open()>{t!("ui.open")}</button>
             <select class="files" title=t!("ui.file") aria-label=t!("ui.file")
                 prop:value=move || store.cur.get().to_string()
                 on:change=move |ev| store.cur.set(event_target_value(&ev).parse().unwrap_or(0))>
@@ -293,33 +341,12 @@ fn App() -> impl IntoView {
             </select>
             <button on:click=move |_| save(false) disabled=cannot_save>{t!("ui.save")}</button>
             <button class="primary" on:click=move |_| save(true) disabled=cannot_save>{t!("ui.save_apply")}</button>
-            <select class="lang" title="Language" prop:value=move || lang.get() on:change=change_language>
-                {languages().into_iter().map(|l| {
-                    let name = t!("language_name", locale = &l).into_owned();
-                    view! { <option value=l.into_owned()>{name}</option> }
-                }).collect_view()}
-            </select>
-            {move || {
-                let name = match theme.get().as_str() {
-                    "light" => t!("ui.theme.light"),
-                    "dark" => t!("ui.theme.dark"),
-                    _ => t!("ui.theme.auto"),
-                };
-                let label = t!("ui.theme.label", name = name).into_owned();
-                view! {
-                    <button class="icon" title=label.clone() aria-label=label
-                        on:click=move |_| theme.update(|t| { *t = next_theme(t).into(); set_theme(t) })>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d=theme_icon(&theme.get()) /></svg>
-                    </button>
-                }
-            }}
         </header>
         <div class="content">
         <nav class="tabs">
             {tabs().enumerate().map(|(i, name)| view! {
                 <button class:active=move || tab.get() == i on:click=move |_| tab.set(i)>{name}</button>
             }).collect_view()}
-            <span class="status">{move || status.get()}</span>
         </nav>
         <ul class="errors">
             {move || errors.get().into_iter().map(|e| view! { <li>{e.to_string()}</li> }).collect_view()}
@@ -340,6 +367,17 @@ fn App() -> impl IntoView {
             </main>
         </Show>
         </div>
+        <footer class="statusbar">
+            <span class="path">{move || entry.get()}</span>
+            <Show when=move || dirty.get()><span>{t!("ui.bar.unsaved")}</span></Show>
+            <Show when=move || !errors.with(Vec::is_empty)>
+                <span class="bad">{move || t!("ui.bar.errors", count = errors.with(Vec::len)).into_owned()}</span>
+            </Show>
+            <span class="message">{move || status.get()}</span>
+            <span class:bad=move || !running.get()>
+                {move || if running.get() { t!("ui.bar.running") } else { t!("ui.bar.not_running") }}
+            </span>
+        </footer>
         }
         .into_any()
     }

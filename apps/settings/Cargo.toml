@@ -10,10 +10,10 @@ leptos = { version = "0.8", features = ["csr"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 serde-wasm-bindgen = "0.6"
-serde_json = { version = "1", features = ["preserve_order"] }
+serde_json.workspace = true
 js-sys = "0.3"
 serde.workspace = true
 grapnel-keys.workspace = true
 grapnel-schema.workspace = true
-rust-i18n = "4.2.2"
+rust-i18n.workspace = true
 web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "DomRect", "Element", "HtmlElement", "KeyboardEvent", "NodeList"] }
