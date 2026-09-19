@@ -178,6 +178,7 @@ details.options fieldset { display: flex; flex-wrap: wrap; gap: 6px 12px; align-
 fieldset:disabled { opacity: 0.6; }
 details[open] > summary { margin-bottom: 6px; }
 .hint { color: var(--muted); margin: 0; font-size: 12px; }
+main > .hint { margin-bottom: 4px; }
 .swap input { font-family: Consolas, monospace; }
 
 /* Keymap rows: the kind and value explain themselves, so their labels are for screen readers only. */
