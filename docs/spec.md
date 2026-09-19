@@ -20,7 +20,7 @@ app = "code.exe"
 [targets.games]
 any = ["steam_game", "emulator"]
 
-# 全モード共通のキーマップ。キーは chord、値は出力・アクション名・手順・子の節。
+# 全モード共通のキーマップ。キーは chord、値は出力・アクション名・その場で書くアクション・子の節。
 [keymap]
 "C-f" = "Right"                    # 出力のキー
 "C-/" = "undo"                     # アクション名 (下の [actions])
