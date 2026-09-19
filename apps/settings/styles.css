@@ -182,8 +182,7 @@ section { display: flex; flex-direction: column; gap: 8px; }
 .item > .sortable-body { gap: 4px; align-items: center; }
 .impl > .sortable-body, .row > .sortable-body { align-items: flex-end; }
 /* A row's first line is a labelled field; the handle lines up with its input. */
-.row > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
-.impl > .grip { align-self: flex-start; margin-top: 6px; }
+.row > .grip, .impl > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
 .step { display: flex; gap: 12px; align-items: flex-start; padding-left: 10px; border-left: 2px solid var(--line); }
 .step > .sortable-body { align-items: flex-start; }
 /* Fields on a step's second line come after its delete button. */

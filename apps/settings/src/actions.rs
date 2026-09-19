@@ -326,7 +326,7 @@ pub fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
         let (r, d, del, key, bad) = (p.clone(), p.clone(), t.clone(), t.clone(), sp.clone());
         let body = view! {
             {name_row(
-                None,
+                Some(t!("ui.name.target").into_owned()),
                 t,
                 move || bad.key_problem(),
                 move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
