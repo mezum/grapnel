@@ -19,38 +19,14 @@ C-a = "select_beginning_of_line"
 Home = "select_beginning_of_line"
 C-e = "select_end_of_line"
 End = "select_end_of_line"
-C-w = [
-    "deactivate_mark",
-    "kill_region",
-]
-M-w = [
-    "deactivate_mark",
-    "kill_ring_save",
-]
-C-y = [
-    "deactivate_mark",
-    "yank",
-]
-C-k = [
-    "deactivate_mark",
-    "kill_line",
-]
-C-h = [
-    "deactivate_mark",
-    "delete_backward_char",
-]
-C-d = [
-    "deactivate_mark",
-    "delete_char",
-]
-"C-/" = [
-    "deactivate_mark",
-    "undo",
-]
-"C-S-/" = [
-    "deactivate_mark",
-    "redo",
-]
+C-w = ["deactivate_mark", "kill_region"]
+M-w = ["deactivate_mark", "kill_ring_save"]
+C-y = ["deactivate_mark", "yank"]
+C-k = ["deactivate_mark", "kill_line"]
+C-h = ["deactivate_mark", "delete_backward_char"]
+C-d = ["deactivate_mark", "delete_char"]
+"C-/" = ["deactivate_mark", "undo"]
+"C-S-/" = ["deactivate_mark", "redo"]
 
 [keymap]
 C-f = "forward_char"
@@ -68,41 +44,19 @@ C-y = "yank"
 "C-/" = "undo"
 "C-S-/" = "redo"
 C-Space = "set_mark"
+M-x = { do = "execute_extended_command", targets = ["non_emacs_app"] }
 
-[keymap.M-x]
-do = "execute_extended_command"
-targets = ["non_emacs_app"]
+[keymap.C-x]
+h = { do = "select_all", targets = ["non_emacs_app"] }
+C-s = { do = "save", targets = ["non_emacs_app"] }
+C-w = { do = "save_as", targets = ["non_emacs_app"] }
+k = { do = "close_document", targets = ["non_emacs_app"] }
+u = { do = "undo", targets = ["non_emacs_app"] }
+C-f = { do = "open_file", targets = ["non_emacs_app"] }
+C-c = { do = "quit_app", targets = ["non_emacs_app"] }
 
 [keymap.C-x.options]
 on_mismatch = "discard"
-
-[keymap.C-x.h]
-do = "select_all"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.C-s]
-do = "save"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.C-w]
-do = "save_as"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.k]
-do = "close_document"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.u]
-do = "undo"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.C-f]
-do = "open_file"
-targets = ["non_emacs_app"]
-
-[keymap.C-x.C-c]
-do = "quit_app"
-targets = ["non_emacs_app"]
 
 [actions]
 set_mark = { non_emacs_app = [{ mode = "mark" }] }

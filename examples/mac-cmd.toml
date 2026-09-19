@@ -10,31 +10,10 @@ as = "C"
 "Cmd-S-[" = "previous_tab"
 C-Left = "previous_desktop"
 C-Right = "next_desktop"
-
-[keymap.Cmd-Tab]
-do = "switch_app"
-keep_mods = true
-
-[keymap.Cmd-S-Tab]
-do = "switch_app_back"
-keep_mods = true
-
-[keymap.M-Tab]
-do = "next_tab"
-keep_mods = true
-
-[keymap.M-S-Tab]
-do = "previous_tab"
-keep_mods = true
-
-[keymap.C-Up]
-do = "task_view"
-press = "tap"
-
-[keymap.C-Down]
-do = "show_desktop"
-press = "tap"
-
-[keymap.Cmd-S-5]
-do = "screenshot"
-press = "tap"
+Cmd-Tab = { do = "switch_app", keep_mods = true }
+Cmd-S-Tab = { do = "switch_app_back", keep_mods = true }
+M-Tab = { do = "next_tab", keep_mods = true }
+M-S-Tab = { do = "previous_tab", keep_mods = true }
+C-Up = { do = "task_view", press = "tap" }
+C-Down = { do = "show_desktop", press = "tap" }
+Cmd-S-5 = { do = "screenshot", press = "tap" }

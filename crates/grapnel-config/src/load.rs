@@ -60,22 +60,59 @@ fn expand(pattern: &Path) -> Result<Vec<PathBuf>, Msg> {
     Ok(paths)
 }
 
-/// Serializes a file readably. Each action is then rewritten inline: as a table, TOML would list
-/// scalar entries before sub-tables and so reorder target-keyed implementations, whose order matters.
+/// Serializes a file readably: sections, named definitions and keymap nodes as tables; step
+/// lists, bindings with `do` and actions inline. Inline values keep their order, which matters
+/// for target-keyed implementations (as sub-tables, TOML would list them after the plain entries).
 fn to_toml(raw: &RawConfig) -> Result<String, String> {
-    let text = toml::to_string_pretty(raw).map_err(|e| e.to_string())?;
-    if raw.actions.is_empty() {
-        return Ok(text);
+    // Everything starts inline; only what reads better as a table is expanded.
+    let mut doc = toml_edit::ser::to_document(raw).map_err(|e| e.to_string())?;
+    for (key, item) in doc.as_table_mut().iter_mut() {
+        match key.get() {
+            "settings" | "actions" => {
+                table(item);
+            }
+            "targets" | "modifiers" => {
+                for (_, named) in table(item).into_iter().flat_map(|t| t.iter_mut()) {
+                    table(named);
+                }
+            }
+            "modes" => {
+                for (_, mode) in table(item).into_iter().flat_map(|t| t.iter_mut()) {
+                    if let Some(keymap) = table(mode).and_then(|m| m.get_mut("keymap")) {
+                        node(keymap);
+                    }
+                }
+            }
+            "keymap" => node(item),
+            _ => {}
+        }
     }
-    let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e: toml_edit::TomlError| e.to_string())?;
-    let inline = toml_edit::ser::to_document(&raw.actions).map_err(|e| e.to_string())?;
-    let mut actions = toml_edit::Table::new();
-    for (name, item) in inline.iter() {
-        let value = item.clone().into_value().map_err(|_| format!("action '{name}' is not a value"))?;
-        actions.insert(name, toml_edit::Item::Value(value));
-    }
-    doc["actions"] = toml_edit::Item::Table(actions);
+    implicit(doc.as_table_mut());
     Ok(doc.to_string())
+}
+
+/// Turns an inline table into a `[table]`.
+fn table(item: &mut toml_edit::Item) -> Option<&mut toml_edit::Table> {
+    if item.is_inline_table() {
+        *item = std::mem::take(item).into_table().map(toml_edit::Item::Table).unwrap_or_else(|i| i);
+    }
+    item.as_table_mut()
+}
+
+/// A keymap node and its sub-nodes (and `options`) as tables; bindings with `do` stay inline.
+fn node(item: &mut toml_edit::Item) {
+    for (_, child) in table(item).into_iter().flat_map(|t| t.iter_mut()) {
+        if child.as_inline_table().is_some_and(|t| !t.contains_key("do")) {
+            node(child);
+        }
+    }
+}
+
+/// No header for tables that only hold tables (`[modes]` above `[modes.x]`).
+fn implicit(table: &mut toml_edit::Table) {
+    let only_tables = !table.is_empty() && table.iter().all(|(_, i)| i.is_table());
+    table.set_implicit(only_tables);
+    table.iter_mut().filter_map(|(_, i)| i.as_table_mut()).for_each(implicit);
 }
 
 /// Writes one file by replacing it atomically, so a failed write never truncates the original.

@@ -4,11 +4,9 @@ include = ["default-actions.toml"]
 block_unmapped = true
 unmapped_to = "normal"
 
-[[modes.input.keymap.Esc]]
-mode = "normal"
-
-[[modes.input.keymap."C-["]]
-mode = "normal"
+[modes.input.keymap]
+Esc = [{ mode = "normal" }]
+"C-[" = [{ mode = "normal" }]
 
 [modes.normal]
 unmapped_to = "input"
@@ -20,10 +18,7 @@ k = "previous_line"
 l = "forward_char"
 Backspace = "backward_char"
 Space = "forward_char"
-Enter = [
-    "next_line",
-    "beginning_of_line",
-]
+Enter = ["next_line", "beginning_of_line"]
 w = "forward_word"
 e = "forward_word"
 b = "backward_word"
@@ -38,66 +33,23 @@ C-u = "scroll_down"
 x = "delete_char"
 S-x = "delete_backward_char"
 S-d = "kill_line"
-S-c = [
-    "kill_line",
-    { mode = "input" },
-]
-s = [
-    "select_forward_char",
-    "kill_region",
-    { mode = "input" },
-]
-S-s = [
-    "beginning_of_line",
-    "select_end_of_line",
-    "kill_region",
-    { mode = "input" },
-]
+S-c = ["kill_line", { mode = "input" }]
+s = ["select_forward_char", "kill_region", { mode = "input" }]
+S-s = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]
 S-y = "copy_whole_line"
 p = "yank"
 S-p = "yank"
 u = "undo"
 C-r = "redo"
-a = [
-    "forward_char",
-    { mode = "input" },
-]
-S-i = [
-    "beginning_of_line",
-    { mode = "input" },
-]
-S-a = [
-    "end_of_line",
-    { mode = "input" },
-]
-o = [
-    "end_of_line",
-    "newline",
-    { mode = "input" },
-]
-S-o = [
-    "beginning_of_line",
-    "newline",
-    "previous_line",
-    { mode = "input" },
-]
-v = [
-    { mode = "visual" },
-    "select_forward_char",
-]
-S-v = [
-    "beginning_of_line",
-    { mode = "visual" },
-    "select_next_line",
-]
-"/" = [
-    "search_forward",
-    { mode = "search" },
-]
-"S-/" = [
-    "search_forward",
-    { mode = "search" },
-]
+a = ["forward_char", { mode = "input" }]
+S-i = ["beginning_of_line", { mode = "input" }]
+S-a = ["end_of_line", { mode = "input" }]
+o = ["end_of_line", "newline", { mode = "input" }]
+S-o = ["beginning_of_line", "newline", "previous_line", { mode = "input" }]
+v = [{ mode = "visual" }, "select_forward_char"]
+S-v = ["beginning_of_line", { mode = "visual" }, "select_next_line"]
+"/" = ["search_forward", { mode = "search" }]
+"S-/" = ["search_forward", { mode = "search" }]
 n = "search_next"
 S-n = "search_previous"
 Esc = "Esc"
@@ -116,20 +68,11 @@ z = []
 7 = []
 8 = []
 9 = []
+i = [{ mode = "input" }]
+":" = [{ mode = "command" }, { input = ":", then = "vim:{arg}", position = "bottom" }]
 
 [modes.normal.keymap.options]
 on_mismatch = "discard"
-
-[[modes.normal.keymap.i]]
-mode = "input"
-
-[[modes.normal.keymap.":"]]
-mode = "command"
-
-[[modes.normal.keymap.":"]]
-input = ":"
-then = "vim:{arg}"
-position = "bottom"
 
 [modes.normal.keymap.g]
 g = "beginning_of_buffer"
@@ -139,78 +82,28 @@ d = "kill_whole_line"
 w = "kill_word"
 e = "kill_word"
 b = "backward_kill_word"
-0 = [
-    "select_beginning_of_line",
-    "kill_region",
-]
+0 = ["select_beginning_of_line", "kill_region"]
 S-4 = "kill_line"
 
 [modes.normal.keymap.y]
 y = "copy_whole_line"
-w = [
-    "select_forward_word",
-    "kill_ring_save",
-    "backward_char",
-]
-e = [
-    "select_forward_word",
-    "kill_ring_save",
-    "backward_char",
-]
-b = [
-    "select_backward_word",
-    "kill_ring_save",
-    "backward_char",
-]
-0 = [
-    "select_beginning_of_line",
-    "kill_ring_save",
-    "backward_char",
-]
-S-4 = [
-    "select_end_of_line",
-    "kill_ring_save",
-    "backward_char",
-]
+w = ["select_forward_word", "kill_ring_save", "backward_char"]
+e = ["select_forward_word", "kill_ring_save", "backward_char"]
+b = ["select_backward_word", "kill_ring_save", "backward_char"]
+0 = ["select_beginning_of_line", "kill_ring_save", "backward_char"]
+S-4 = ["select_end_of_line", "kill_ring_save", "backward_char"]
 
 [modes.normal.keymap.c]
-c = [
-    "beginning_of_line",
-    "select_end_of_line",
-    "kill_region",
-    { mode = "input" },
-]
-w = [
-    "kill_word",
-    { mode = "input" },
-]
-e = [
-    "kill_word",
-    { mode = "input" },
-]
-b = [
-    "backward_kill_word",
-    { mode = "input" },
-]
-0 = [
-    "select_beginning_of_line",
-    "kill_region",
-    { mode = "input" },
-]
-S-4 = [
-    "kill_line",
-    { mode = "input" },
-]
+c = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]
+w = ["kill_word", { mode = "input" }]
+e = ["kill_word", { mode = "input" }]
+b = ["backward_kill_word", { mode = "input" }]
+0 = ["select_beginning_of_line", "kill_region", { mode = "input" }]
+S-4 = ["kill_line", { mode = "input" }]
 
 [modes.search.keymap]
-Enter = [
-    "Enter Esc",
-    { mode = "normal" },
-]
-Esc = [
-    "Esc",
-    { mode = "normal" },
-]
+Enter = ["Enter Esc", { mode = "normal" }]
+Esc = ["Esc", { mode = "normal" }]
 
 [modes.visual]
 block_unmapped = true
@@ -230,43 +123,15 @@ b = "select_backward_word"
 S-4 = "select_end_of_line"
 S-g = "select_end_of_buffer"
 "g g" = "select_beginning_of_buffer"
-y = [
-    { mode = "normal" },
-    "kill_ring_save",
-    "backward_char",
-]
-d = [
-    { mode = "normal" },
-    "kill_region",
-]
-x = [
-    { mode = "normal" },
-    "kill_region",
-]
-c = [
-    { mode = "input" },
-    "kill_region",
-]
-s = [
-    { mode = "input" },
-    "kill_region",
-]
-p = [
-    { mode = "normal" },
-    "yank",
-]
-Esc = [
-    { mode = "normal" },
-    "backward_char",
-]
-v = [
-    { mode = "normal" },
-    "backward_char",
-]
-S-v = [
-    { mode = "normal" },
-    "backward_char",
-]
+y = [{ mode = "normal" }, "kill_ring_save", "backward_char"]
+d = [{ mode = "normal" }, "kill_region"]
+x = [{ mode = "normal" }, "kill_region"]
+c = [{ mode = "input" }, "kill_region"]
+s = [{ mode = "input" }, "kill_region"]
+p = [{ mode = "normal" }, "yank"]
+Esc = [{ mode = "normal" }, "backward_char"]
+v = [{ mode = "normal" }, "backward_char"]
+S-v = [{ mode = "normal" }, "backward_char"]
 
 [modes.visual.keymap.options]
 on_mismatch = "discard"
@@ -278,19 +143,13 @@ not = "vim_own_keys"
 app = 're:(?i)^(gvim|vim|nvim|nvim-qt|neovide|WindowsTerminal|wezterm-gui|alacritty|mintty)\.exe$'
 
 [targets.vim_text]
-all = [
-    "vim_text_field",
-    "vim_not_own_keys",
-]
+all = ["vim_text_field", "vim_not_own_keys"]
 
 [targets.vim_text_field]
 uia_type = "re:^(Edit|Document)$"
 
-[keymap.Esc]
-targets = ["vim_text"]
-
-[[keymap.Esc.do]]
-mode = "normal"
+[keymap]
+Esc = { do = [{ mode = "normal" }], targets = ["vim_text"] }
 
 [actions]
 "vim:w" = [{ mode = "normal" }, "save"]

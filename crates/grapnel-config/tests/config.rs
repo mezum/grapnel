@@ -272,14 +272,20 @@ fn modes_unmapped_to_and_hold() {
 fn save_keeps_target_order_with_step_lists() {
     let d = temp_dir("order");
     let raw: RawConfig = toml::from_str(
-        "[targets.editor]\n[actions]\ntest = { editor = [{ text = \"E\" }], \"*\" = \"Esc\" }\n[keymap]\na = \"test\"",
+        "[targets.editor]\n[actions]\ntest = { editor = [{ text = \"E\" }], \"*\" = \"Esc\" }\n[keymap]\na = \"test\"\n\
+         b = { do = { editor = [{ text = \"E\" }], \"*\" = \"Esc\" } }\nc = [{ mode = \"m\" }]\n[modes.m]",
     )
     .unwrap();
     save(&d.join("c.toml"), &raw).unwrap();
+    let text = std::fs::read_to_string(d.join("c.toml")).unwrap();
     let back = &load(&d.join("c.toml")).unwrap()[0].1;
-    assert_eq!(back, &raw, "{}", std::fs::read_to_string(d.join("c.toml")).unwrap());
+    assert_eq!(back, &raw, "{text}");
+    // Step lists are written inline, never as [[array of tables]].
+    assert!(!text.contains("[["), "{text}");
     let c = compile(&[(d.join("c.toml"), back.clone())]).unwrap();
     assert_eq!(c.actions[c.action_id("test").unwrap()].impls[0].when, [0]);
+    let b = c.rules.iter().find(|r| r.keys == seq("b", &[])).unwrap();
+    assert_eq!(c.actions[b.action].impls[0].when, [0], "{text}");
 }
 
 #[test]
