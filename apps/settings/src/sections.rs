@@ -110,6 +110,7 @@ pub fn others() -> impl IntoView {
     view! {
         <section>
             <Show when=move || store.cur.get() == 0 fallback=move || view! {
+                <p>{t!("ui.general.entry_only")}</p>
                 <Show when=move || store.read(|c| c.settings.is_some())>
                     <button class="del" on:click=move |_| store.edit(|c| c.settings = None)>{t!("ui.general.delete_settings")}</button>
                 </Show>

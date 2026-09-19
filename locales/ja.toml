@@ -81,6 +81,7 @@ actions = "変換後に実際に入力される操作を定義し、キーマッ
 others = "その他の動作に関する全体設定です。エントリーファイルのみ設定できます。"
 
 [ui.general]
+entry_only = "エントリーファイルのみ設定できます。"
 include = "include (glob 可)"
 delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"

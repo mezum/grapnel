@@ -83,6 +83,7 @@ actions = "Defines what is actually input after remapping, for the keymap to cal
 others = "Global settings for other behaviour. Only the entry file can set them."
 
 [ui.general]
+entry_only = "Can only be set in the entry file."
 include = "include (glob allowed)"
 delete_settings = "Delete settings from this file"
 passthrough = "passthrough (targets)"
