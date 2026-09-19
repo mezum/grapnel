@@ -72,6 +72,16 @@ targets = "Targets"
 actions = "Actions"
 others = "Other"
 
+[ui.tab_hint]
+imports = "Reads other configuration files. Absolute paths, relative paths and globs with \"*\" are allowed."
+keymap = "The keymap shared by all modes."
+modes = "Keymaps that only work while their mode is active."
+keyswap = "Makes a pressed key count as another key. The keymap sees the swapped key."
+modifiers = "Turns any key into a user-defined modifier for use in the keymap."
+targets = "Defines filters by executable name, window title and so on, to limit where actions apply."
+actions = "Defines what is actually input after remapping, for the keymap to call."
+others = "Global settings for other behaviour. Only the entry file can set them."
+
 [ui.general]
 include = "include (glob allowed)"
 entry_only = "settings can only be written in the entry file."
@@ -106,7 +116,7 @@ tap_none = "Send nothing on tap"
 as = "as (e.g. C, C-S)"
 
 [ui.keymap]
-hint = "Keymap shared by all modes. Keys are chords (e.g. C-x). \"Wait for the next input\" makes a key sequence (e.g. C-x t 0)."
+hint = "Keys are chords (e.g. C-x). \"Wait for the next input\" makes a key sequence (e.g. C-x t 0)."
 extended = "Extended options"
 node = "Wait for the next input"
 press_default = "Default (hold)"
@@ -121,7 +131,7 @@ options = "Node options (inherited by descendants)"
 add_key = "Add key"
 
 [ui.keyswap]
-hint = "Treat a key as another (a layout swap). From: the key pressed (S- for with Shift). To: what it types on the JIS layout (e.g. S-2 → @). The keymap sees the swapped key."
+hint = "From: the key pressed (S- for with Shift). To: what it types on the JIS layout (e.g. S-2 → @)."
 from = "From"
 to = "To"
 add = "Add key"

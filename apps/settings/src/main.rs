@@ -264,13 +264,10 @@ fn App() -> impl IntoView {
         lang.set(l);
     };
     let tabs = || {
-        [t!("ui.tab.imports"), t!("ui.tab.keymap"), t!("ui.tab.modes")].into_iter().chain([
-            t!("ui.tab.keyswap"),
-            t!("ui.tab.modifiers"),
-            t!("ui.tab.targets"),
-            t!("ui.tab.actions"),
-            t!("ui.tab.others"),
-        ])
+        TABS.iter().map(|k| {
+            let key = format!("ui.tab.{k}");
+            t!(&key).into_owned()
+        })
     };
 
     // Everything is rebuilt when the language changes; the state lives in signals above.
@@ -324,6 +321,7 @@ fn App() -> impl IntoView {
         </ul>
         <Show when=move || !store.docs.with(Vec::is_empty)>
             <main>
+                <p class="hint">{move || { let key = format!("ui.tab_hint.{}", TABS[tab.get()]); t!(&key).into_owned() }}</p>
                 {move || match tab.get() {
                     0 => sections::imports().into_any(),
                     1 => sections::keymap().into_any(),
@@ -341,6 +339,9 @@ fn App() -> impl IntoView {
         .into_any()
     }
 }
+
+/// Tab keys in display order (`ui.tab.*`, `ui.tab_hint.*`); the index picks the section below.
+const TABS: [&str; 8] = ["imports", "keymap", "modes", "keyswap", "modifiers", "targets", "actions", "others"];
 
 fn main() {
     console_error_panic_hook_set();
