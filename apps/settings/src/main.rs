@@ -104,6 +104,29 @@ fn set_theme(theme: &str) {
     let _ = js_sys::Reflect::set(&prop(&js_sys::global(), "localStorage"), &THEME_KEY.into(), &theme.into());
 }
 
+/// The theme after `theme`, and its Material Symbols icon path (24x24).
+fn next_theme(theme: &str) -> &'static str {
+    match theme {
+        "auto" => "light",
+        "light" => "dark",
+        _ => "auto",
+    }
+}
+
+fn theme_icon(theme: &str) -> &'static str {
+    match theme {
+        "light" => {
+            "M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"
+        }
+        "dark" => {
+            "M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"
+        }
+        _ => {
+            "M10.85 12.65h2.3L12 9l-1.15 3.65zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM14.3 16l-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9h-1.9z"
+        }
+    }
+}
+
 /// Shared UI state.
 #[derive(Clone, Copy)]
 pub struct Store {
@@ -139,7 +162,8 @@ fn App() -> impl IntoView {
     let status = RwSignal::new(String::new());
     let lang = RwSignal::new(initial_language());
     set_language(&lang.get_untracked());
-    set_theme(&saved_theme());
+    let theme = RwSignal::new(saved_theme());
+    set_theme(&theme.get_untracked());
 
     let load = move || {
         spawn_local(async move {
@@ -151,6 +175,15 @@ fn App() -> impl IntoView {
                     status.set(t!("ui.status.loaded").into());
                 }
                 Err(e) => errors.set(e),
+            }
+        })
+    };
+    let open = move || {
+        spawn_local(async move {
+            let picked = call::<_, Option<String>, ()>("pick_entry", &Entry { entry: entry.get_untracked() }).await;
+            if let Ok(Some(path)) = picked {
+                entry.set(path);
+                load();
             }
         })
     };
@@ -205,8 +238,16 @@ fn App() -> impl IntoView {
         view! {
         <header>
             <span class="brand">"grapnel"</span>
-            <input class="entry" prop:value=move || entry.get() on:change=move |ev| entry.set(event_target_value(&ev)) />
-            <button on:click=move |_| load()>{t!("ui.load")}</button>
+            <button on:click=move |_| open()>{t!("ui.open")}</button>
+            <select class="files" title=t!("ui.file") aria-label=t!("ui.file")
+                prop:value=move || store.cur.get().to_string()
+                on:change=move |ev| store.cur.set(event_target_value(&ev).parse().unwrap_or(0))>
+                <For each=move || indices(store.docs.with(Vec::len)) key=|i| *i let:i>
+                    <option value=i.to_string()>
+                        {move || store.docs.with(|d| d.get(i).map(|f| f.path.clone()).unwrap_or_default())}
+                    </option>
+                </For>
+            </select>
             <button on:click=move |_| save(false) disabled=cannot_save>{t!("ui.save")}</button>
             <button class="primary" on:click=move |_| save(true) disabled=cannot_save>{t!("ui.save_apply")}</button>
             <select class="lang" title="Language" prop:value=move || lang.get() on:change=change_language>
@@ -215,25 +256,27 @@ fn App() -> impl IntoView {
                     view! { <option value=l.into_owned()>{name}</option> }
                 }).collect_view()}
             </select>
-            <select title=t!("ui.theme.label") prop:value=saved_theme() on:change=move |ev| set_theme(&event_target_value(&ev))>
-                <option value="auto">{t!("ui.theme.auto")}</option>
-                <option value="light">{t!("ui.theme.light")}</option>
-                <option value="dark">{t!("ui.theme.dark")}</option>
-            </select>
+            {move || {
+                let name = match theme.get().as_str() {
+                    "light" => t!("ui.theme.light"),
+                    "dark" => t!("ui.theme.dark"),
+                    _ => t!("ui.theme.auto"),
+                };
+                let label = t!("ui.theme.label", name = name).into_owned();
+                view! {
+                    <button class="icon" title=label.clone() aria-label=label
+                        on:click=move |_| theme.update(|t| { *t = next_theme(t).into(); set_theme(t) })>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d=theme_icon(&theme.get()) /></svg>
+                    </button>
+                }
+            }}
         </header>
         <div class="content">
-        <nav class="files">
-            <For each=move || indices(store.docs.with(Vec::len)) key=|i| *i let:i>
-                <button class:active=move || store.cur.get() == i on:click=move |_| store.cur.set(i)>
-                    {move || store.docs.with(|d| d.get(i).map(|f| f.path.clone()).unwrap_or_default())}
-                </button>
-            </For>
-            <span class="status">{move || status.get()}</span>
-        </nav>
         <nav class="tabs">
             {tabs().enumerate().map(|(i, name)| view! {
                 <button class:active=move || tab.get() == i on:click=move |_| tab.set(i)>{name}</button>
             }).collect_view()}
+            <span class="status">{move || status.get()}</span>
         </nav>
         <ul class="errors">
             {move || errors.get().into_iter().map(|e| view! { <li>{e}</li> }).collect_view()}

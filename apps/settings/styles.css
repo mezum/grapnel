@@ -89,15 +89,15 @@ header {
   box-shadow: var(--shadow);
 }
 header .brand { font-weight: 600; }
-header .entry { flex: 1; min-width: 160px; font-family: Consolas, monospace; }
+header .files { flex: 1; min-width: 160px; font-family: Consolas, monospace; }
+button.icon { display: flex; padding: 4px; }
+button.icon svg { width: 20px; height: 20px; fill: currentColor; }
 header .lang { margin-left: 8px; }
 
 .content { padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; }
 
-/* File pills and section tabs */
+/* Section tabs */
 nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-nav.files button { border-radius: 999px; padding: 2px 12px; font-size: 12px; font-family: Consolas, monospace; }
-nav.files button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .status { margin-left: auto; color: var(--accent); font-size: 12px; }
 nav.tabs { gap: 0; border-bottom: 1px solid var(--line); }
 nav.tabs button {

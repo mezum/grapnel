@@ -34,6 +34,17 @@ fn initial_entry() -> String {
     path.display().to_string()
 }
 
+/// Asks for an entry file with the Windows open dialog, starting next to `entry`.
+#[tauri::command]
+async fn pick_entry(window: tauri::Window, entry: String) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let mut dialog = window.dialog().file().set_parent(&window).add_filter("TOML", &["toml"]);
+    if let Some(dir) = std::path::Path::new(&entry).parent().filter(|d| d.is_dir()) {
+        dialog = dialog.set_directory(dir);
+    }
+    Some(dialog.blocking_pick_file()?.into_path().ok()?.display().to_string())
+}
+
 /// Reads the entry file and everything it includes. A missing entry yields one empty file.
 #[tauri::command]
 fn load(entry: String, loaded: tauri::State<Loaded>) -> Result<String, Vec<String>> {
@@ -87,8 +98,9 @@ fn apply() -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Loaded::default())
-        .invoke_handler(tauri::generate_handler![initial_entry, load, validate, save, apply])
+        .invoke_handler(tauri::generate_handler![initial_entry, pick_entry, load, validate, save, apply])
         .run(tauri::generate_context!())
         .expect("error while running grapnel-settings");
 }

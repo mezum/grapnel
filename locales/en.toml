@@ -39,7 +39,8 @@ more = "(%{count} more)"
 
 [ui]
 title = "grapnel settings"
-load = "Load"
+open = "Open…"
+file = "File to edit"
 save = "Save"
 save_apply = "Save and apply"
 add = "Add"
@@ -123,7 +124,7 @@ add_target = "Add target"
 add = "Add action"
 
 [ui.theme]
-label = "Theme"
+label = "Theme: %{name} (click to change)"
 auto = "Auto"
 light = "Light"
 dark = "Dark"
