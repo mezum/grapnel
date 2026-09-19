@@ -173,9 +173,13 @@ section { display: flex; flex-direction: column; gap: 8px; }
 .node { display: flex; flex-direction: column; gap: 6px; }
 .node .node { margin-left: 4px; padding-left: 12px; border-left: 2px solid var(--line); }
 details > summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
-summary input.extended { margin: 0 0 0 8px; vertical-align: middle; }
+summary .summary-row { display: inline-flex; align-items: center; gap: 8px; }
+summary input.extended { margin: 0; }
 details.options fieldset { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-end; border: 0; margin: 0; padding: 0; min-width: 0; }
+details.leaf-options > fieldset { flex-direction: column; align-items: flex-start; }
+fieldset.group { border: 0; margin: 0; padding: 0; min-width: 0; }
 fieldset:disabled { opacity: 0.6; }
+fieldset:disabled fieldset:disabled { opacity: 1; }
 details[open] > summary { margin-bottom: 6px; }
 .hint { color: var(--muted); margin: 0; }
 main > .hint { margin-bottom: 4px; }
