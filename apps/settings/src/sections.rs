@@ -18,6 +18,11 @@ type MapOf<V> = fn(&mut RawConfig) -> &mut BTreeMap<String, V>;
 pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: MapOf<V>) -> impl IntoView {
     let (old, del) = (name.clone(), name.clone());
     let (at, why) = (format!("{section}.{name}"), format!("{section}.{name}"));
+    let label = match section {
+        "modes" => t!("ui.name.mode"),
+        "modifiers" => t!("ui.name.modifier"),
+        _ => t!("ui.name.target"),
+    };
     let rename = move |ev: leptos::ev::Event| {
         let input = event_target::<leptos::web_sys::HtmlInputElement>(&ev);
         let new = input.value();
@@ -37,10 +42,13 @@ pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: Ma
         }
     };
     view! {
-        <div class="name">
-            <input prop:value=name on:change=rename class:invalid=move || store.problem(&at, true).is_some()
-                title=move || store.problem(&why, true) />
-            <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
+        <div class="field">
+            <span>{label.clone()}</span>
+            <div class="name">
+                <input prop:value=name on:change=rename aria-label=label
+                    class:invalid=move || store.problem(&at, true).is_some() title=move || store.problem(&why, true) />
+                <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
+            </div>
         </div>
     }
 }

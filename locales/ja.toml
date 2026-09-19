@@ -73,6 +73,12 @@ delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"
 language = "language (表示言語)"
 
+[ui.name]
+mode = "モード名"
+modifier = "修飾キー名"
+target = "ターゲット名"
+action = "アクション名"
+
 [ui.mode]
 block_unmapped = "定義外のキーを握りつぶす"
 unmapped_to = "unmapped_to (定義外の入力で移るモード)"

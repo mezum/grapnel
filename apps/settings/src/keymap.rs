@@ -142,6 +142,7 @@ pub fn node_editor(p: Place<RawNode>) -> AnyView {
         view! {
             <div class="binding">
                 {name_row(
+                    None,
                     key,
                     move || bad.key_problem(),
                     move |old, new| { let mut ok = false; r.edit(|n| ok = rename_key(&mut n.children, old, new)); ok },

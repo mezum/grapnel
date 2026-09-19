@@ -97,8 +97,9 @@ pub fn rename_key<V>(m: &mut IndexMap<String, V>, old: &str, new: &str) -> bool 
 }
 
 /// A name input that commits on change and restores the old name when `rename` refuses, plus a
-/// delete button. The input is marked while `problem` has a message.
+/// delete button, under `label` if given. The input is marked while `problem` has a message.
 pub fn name_row(
+    label: Option<String>,
     name: String,
     problem: impl Fn() -> Option<String> + Clone + Send + Sync + 'static,
     rename: impl Fn(&str, &str) -> bool + 'static,
@@ -112,11 +113,16 @@ pub fn name_row(
             input.set_value(&old);
         }
     };
-    view! {
+    let row = view! {
         <div class="name">
-            <input prop:value=name on:change=on_change class:invalid=move || bad().is_some() title=problem />
+            <input prop:value=name on:change=on_change aria-label=label.clone()
+                class:invalid=move || bad().is_some() title=problem />
             <button class="del" on:click=move |_| delete() title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
         </div>
+    };
+    match label {
+        Some(l) => view! { <div class="field"><span>{l}</span>{row}</div> }.into_any(),
+        None => row.into_any(),
     }
 }
 

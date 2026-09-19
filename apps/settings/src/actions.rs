@@ -320,6 +320,7 @@ fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
         let (r, d, del, key, bad) = (p.clone(), p.clone(), t.clone(), t.clone(), sp.clone());
         let body = view! {
             {name_row(
+                None,
                 t,
                 move || bad.key_problem(),
                 move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },
@@ -357,6 +358,7 @@ pub fn actions() -> impl IntoView {
         view! {
             <div class="row">
                 {name_row(
+                    Some(t!("ui.name.action").into_owned()),
                     name,
                     move || bad.key_problem(),
                     move |old, new| { let mut ok = false; r.edit(|m| ok = rename_key(m, old, new)); ok },

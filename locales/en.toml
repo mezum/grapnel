@@ -75,6 +75,12 @@ delete_settings = "Delete settings from this file"
 passthrough = "passthrough (targets)"
 language = "language (display language)"
 
+[ui.name]
+mode = "Mode name"
+modifier = "Modifier name"
+target = "Target name"
+action = "Action name"
+
 [ui.mode]
 block_unmapped = "Swallow unmapped keys"
 unmapped_to = "unmapped_to (mode to switch to on unmapped input)"
