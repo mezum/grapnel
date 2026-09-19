@@ -162,12 +162,18 @@ pub fn modifiers() -> impl IntoView {
             let at = format!("modifiers.{a}");
             let p =
                 Place::<RawModifier>::new(store, &at, move |c| c.modifiers.get(&a), move |c| c.modifiers.get_mut(&b));
+            let no_tap = p.clone();
             view! {
-                {keys("key", &p.at(".key"), |m| m.key.clone(), |m, x| m.key = x, false)}
-                {opt_keys(&t!("ui.modifier.tap"), &p.at(".tap"), |m| m.tap.clone(), |m, x| m.tap = x, { let k = p.clone(); move || k.read(|m| m.key.clone()) })}
-                {check(&t!("ui.modifier.tap_none"), &p.at(".tap"), |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
-                {num("tap_timeout_ms", &p.at(".tap_timeout_ms"), |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x, || t!("ui.hint.unlimited").into_owned())}
-                {opt_text(&t!("ui.modifier.as"), &p.at(".as"), |m| m.emulate.clone(), |m, x| m.emulate = x, || t!("ui.hint.none").into_owned())}
+                <div class="stack">
+                    {keys(&t!("ui.modifier.key"), &p.at(".key"), |m| m.key.clone(), |m, x| m.key = x, false)}
+                    {check(&t!("ui.modifier.tap_none"), &p.at(".tap"), |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
+                    // Sending nothing leaves no keys to type.
+                    <fieldset class="group" disabled=move || no_tap.read(|m| m.tap.as_deref() == Some(""))>
+                        {opt_keys(&t!("ui.modifier.tap"), &p.at(".tap"), |m| m.tap.clone(), |m, x| m.tap = x, { let k = p.clone(); move || k.read(|m| m.key.clone()) })}
+                    </fieldset>
+                    {num(&t!("ui.modifier.tap_timeout_ms"), &p.at(".tap_timeout_ms"), |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x, || t!("ui.hint.unlimited").into_owned())}
+                    {opt_text(&t!("ui.modifier.as"), &p.at(".as"), |m| m.emulate.clone(), |m, x| m.emulate = x, || t!("ui.hint.none").into_owned())}
+                </div>
             }
         },
     )

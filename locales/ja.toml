@@ -109,9 +109,11 @@ hold = "hold (モード中に押したままにする修飾キー 例: S)"
 keymap = "このモード専用のキーマップ"
 
 [ui.modifier]
-tap = "tap (空欄 = key と同じ)"
-tap_none = "tap で何も送らない"
-as = "as (例: C, C-S)"
+key = "key (対象キー)"
+tap_none = "単独で押しても何も送らない"
+tap = "tap (単独で押したときに送るキー)"
+tap_timeout_ms = "tap_timeout_ms (単独押しとみなす最長の時間。ミリ秒)"
+as = "as (押したままにする修飾キー (C, M, S, W))"
 
 [ui.keymap]
 extended = "拡張オプション"

@@ -111,9 +111,11 @@ hold = "hold (modifiers held in this mode, e.g. S)"
 keymap = "Keymap for this mode only"
 
 [ui.modifier]
-tap = "tap (empty = same as key)"
-tap_none = "Send nothing on tap"
-as = "as (e.g. C, C-S)"
+key = "key (the key)"
+tap_none = "Send nothing when pressed alone"
+tap = "tap (sent when pressed alone)"
+tap_timeout_ms = "tap_timeout_ms (longest press still counted as alone, in ms)"
+as = "as (modifiers held down (C, M, S, W))"
 
 [ui.keymap]
 extended = "Extended options"
