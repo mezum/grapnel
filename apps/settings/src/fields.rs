@@ -126,7 +126,11 @@ pub fn name_row(
     }
 }
 
+/// Placeholder text: what an empty optional field means.
+type Hint = Arc<dyn Fn() -> String + Send + Sync>;
+
 /// Binds a string-ish input. `to`/`from` convert between the field and the input text.
+#[allow(clippy::too_many_arguments)]
 fn input<V: 'static, T: Default + 'static>(
     label: &str,
     p: &Place<V>,
@@ -135,6 +139,7 @@ fn input<V: 'static, T: Default + 'static>(
     to: fn(T) -> String,
     from: fn(String) -> T,
     check: Option<Check>,
+    hint: Option<Hint>,
 ) -> impl IntoView + use<V, T> {
     let label = label.to_owned();
     let (pg, ps) = (p.clone(), p.clone());
@@ -148,7 +153,7 @@ fn input<V: 'static, T: Default + 'static>(
     view! {
         <label class="field">
             <span>{label}</span>
-            <input prop:value=value class:invalid=move || bad().is_some()
+            <input prop:value=value class:invalid=move || bad().is_some() placeholder=move || hint.as_ref().map(|h| h())
                 on:change=move |ev| ps.edit(|v| set(v, from(event_target_value(&ev)))) />
             <small class="error">{error}</small>
         </label>
@@ -156,17 +161,18 @@ fn input<V: 'static, T: Default + 'static>(
 }
 
 pub fn text<V>(label: &str, p: &Place<V>, get: fn(&V) -> String, set: fn(&mut V, String)) -> impl IntoView + use<V> {
-    input(label, p, get, set, |s| s, |s| s, None)
+    input(label, p, get, set, |s| s, |s| s, None, None)
 }
 
-/// Empty input means "not set".
-pub fn opt_text<V>(
+/// Empty input means "not set", which `hint` explains.
+pub fn opt_text<V, H: Fn() -> String + Send + Sync + 'static>(
     label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<String>,
     set: fn(&mut V, Option<String>),
-) -> impl IntoView + use<V> {
-    input(label, p, get, set, Option::unwrap_or_default, |s| (!s.is_empty()).then_some(s), None)
+    hint: H,
+) -> impl IntoView + use<V, H> {
+    input(label, p, get, set, Option::unwrap_or_default, |s| (!s.is_empty()).then_some(s), None, Some(Arc::new(hint)))
 }
 
 /// One input per item (so items may hold commas), each draggable and deletable, and an add button.
@@ -347,13 +353,15 @@ where
     }
 }
 
-pub fn num<V>(
+pub fn num<V, H: Fn() -> String + Send + Sync + 'static>(
     label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<u32>,
     set: fn(&mut V, Option<u32>),
-) -> impl IntoView + use<V> {
-    input(label, p, get, set, |n| n.map(|n| n.to_string()).unwrap_or_default(), |s| s.trim().parse().ok(), None)
+    hint: H,
+) -> impl IntoView + use<V, H> {
+    let (to, from) = (|n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_default(), |s: String| s.trim().parse().ok());
+    input(label, p, get, set, to, from, None, Some(Arc::new(hint)))
 }
 
 type Check = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
@@ -371,7 +379,7 @@ pub fn keys_or_action<V>(
         (!named && grapnel_keys::parse_seq(s, &[]).is_err())
             .then(|| t!("config.unknown_action_or_key", name = s).into_owned())
     });
-    input(label, p, get, set, |s| s, |s| s, Some(check))
+    input(label, p, get, set, |s| s, |s| s, Some(check), None)
 }
 
 /// Live key-sequence syntax check. `user_mods` allows user modifiers (input keys only).
@@ -390,18 +398,19 @@ pub fn keys<V>(
     set: fn(&mut V, String),
     user_mods: bool,
 ) -> impl IntoView + use<V> {
-    input(label, p, get, set, |s| s, |s| s, key_check(p.store, user_mods))
+    input(label, p, get, set, |s| s, |s| s, key_check(p.store, user_mods), None)
 }
 
 /// Optional key sequence; empty input means "not set".
-pub fn opt_keys<V>(
+pub fn opt_keys<V, H: Fn() -> String + Send + Sync + 'static>(
     label: &str,
     p: &Place<V>,
     get: fn(&V) -> Option<String>,
     set: fn(&mut V, Option<String>),
-) -> impl IntoView + use<V> {
+    hint: H,
+) -> impl IntoView + use<V, H> {
     let from = |s: String| (!s.is_empty()).then_some(s);
-    input(label, p, get, set, Option::unwrap_or_default, from, key_check(p.store, false))
+    input(label, p, get, set, Option::unwrap_or_default, from, key_check(p.store, false), Some(Arc::new(hint)))
 }
 
 pub fn check<V>(label: &str, p: &Place<V>, get: fn(&V) -> bool, set: fn(&mut V, bool)) -> impl IntoView + use<V> {

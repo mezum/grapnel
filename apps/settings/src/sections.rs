@@ -106,10 +106,10 @@ pub fn settings() -> impl IntoView {
                     <button class="del" on:click=move |_| store.edit(|c| c.settings = None)>{t!("ui.general.delete_settings")}</button>
                 </Show>
             }>
-                {opt_text("initial_mode", &s.at(".initial_mode"), |s| s.initial_mode.clone(), |s, x| s.initial_mode = x)}
+                {opt_text("initial_mode", &s.at(".initial_mode"), |s| s.initial_mode.clone(), |s, x| s.initial_mode = x, || "default".into())}
                 {list(&t!("ui.general.passthrough"), s.map(".passthrough", |s| Some(&s.passthrough), |s| Some(&mut s.passthrough)))}
-                {opt_keys("suspend_hotkey", &s.at(".suspend_hotkey"), |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x)}
-                {num("gesture_threshold (px)", &s.at(".gesture_threshold"), |s| s.gesture_threshold, |s, x| s.gesture_threshold = x)}
+                {opt_keys("suspend_hotkey", &s.at(".suspend_hotkey"), |s| s.suspend_hotkey.clone(), |s, x| s.suspend_hotkey = x, || t!("ui.hint.none").into_owned())}
+                {num("gesture_threshold (px)", &s.at(".gesture_threshold"), |s| s.gesture_threshold, |s, x| s.gesture_threshold = x, || "30".into())}
                 {select(&t!("ui.general.language"), &s, language_options(),
                     |s| s.language.clone().unwrap_or_default(),
                     |s, x| s.language = (!x.is_empty()).then_some(x))}
@@ -130,11 +130,11 @@ pub fn modes() -> impl IntoView {
             let p = Place::<RawMode>::new(store, &at, move |c| c.modes.get(&a), move |c| c.modes.get_mut(&b));
             view! {
                 {check(&t!("ui.mode.block_unmapped"), &p.at(".block_unmapped"), |m| m.block_unmapped, |m, x| m.block_unmapped = x)}
-                {opt_text(&t!("ui.mode.unmapped_to"), &p.at(".unmapped_to"), |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x)}
-                {opt_text(&t!("ui.mode.hold"), &p.at(".hold"), |m| m.hold.clone(), |m, x| m.hold = x)}
+                {opt_text(&t!("ui.mode.unmapped_to"), &p.at(".unmapped_to"), |m| m.unmapped_to.clone(), |m, x| m.unmapped_to = x, || t!("ui.hint.none").into_owned())}
+                {opt_text(&t!("ui.mode.hold"), &p.at(".hold"), |m| m.hold.clone(), |m, x| m.hold = x, || t!("ui.hint.none").into_owned())}
                 <details class="mode-keymap">
                     <summary>{t!("ui.mode.keymap")}</summary>
-                    {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)))}
+                    {node_editor(p.map(".keymap", |m| Some(&m.keymap), |m| Some(&mut m.keymap)), true)}
                 </details>
             }
         },
@@ -154,10 +154,10 @@ pub fn modifiers() -> impl IntoView {
                 Place::<RawModifier>::new(store, &at, move |c| c.modifiers.get(&a), move |c| c.modifiers.get_mut(&b));
             view! {
                 {keys("key", &p.at(".key"), |m| m.key.clone(), |m, x| m.key = x, false)}
-                {opt_keys(&t!("ui.modifier.tap"), &p.at(".tap"), |m| m.tap.clone(), |m, x| m.tap = x)}
+                {opt_keys(&t!("ui.modifier.tap"), &p.at(".tap"), |m| m.tap.clone(), |m, x| m.tap = x, { let k = p.clone(); move || k.read(|m| m.key.clone()) })}
                 {check(&t!("ui.modifier.tap_none"), &p.at(".tap"), |m| m.tap.as_deref() == Some(""), |m, x| m.tap = x.then(String::new))}
-                {num("tap_timeout_ms", &p.at(".tap_timeout_ms"), |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x)}
-                {opt_text(&t!("ui.modifier.as"), &p.at(".as"), |m| m.emulate.clone(), |m, x| m.emulate = x)}
+                {num("tap_timeout_ms", &p.at(".tap_timeout_ms"), |m| m.tap_timeout_ms, |m, x| m.tap_timeout_ms = x, || t!("ui.hint.unlimited").into_owned())}
+                {opt_text(&t!("ui.modifier.as"), &p.at(".as"), |m| m.emulate.clone(), |m, x| m.emulate = x, || t!("ui.hint.none").into_owned())}
             }
         },
     )
@@ -174,14 +174,14 @@ pub fn targets() -> impl IntoView {
             let at = format!("targets.{a}");
             let p = Place::<RawTarget>::new(store, &at, move |c| c.targets.get(&a), move |c| c.targets.get_mut(&b));
             view! {
-                {opt_text("app", &p.at(".app"), |t| t.app.clone(), |t, x| t.app = x)}
-                {opt_text("title", &p.at(".title"), |t| t.title.clone(), |t, x| t.title = x)}
-                {opt_text("class", &p.at(".class"), |t| t.class.clone(), |t, x| t.class = x)}
-                {opt_text("control", &p.at(".control"), |t| t.control.clone(), |t, x| t.control = x)}
-                {opt_text("uia_id", &p.at(".uia_id"), |t| t.uia_id.clone(), |t, x| t.uia_id = x)}
-                {opt_text("uia_name", &p.at(".uia_name"), |t| t.uia_name.clone(), |t, x| t.uia_name = x)}
-                {opt_text("uia_type", &p.at(".uia_type"), |t| t.uia_type.clone(), |t, x| t.uia_type = x)}
-                {opt_text("not", &p.at(".not"), |t| t.not.clone(), |t, x| t.not = x)}
+                {opt_text("app", &p.at(".app"), |t| t.app.clone(), |t, x| t.app = x, String::new)}
+                {opt_text("title", &p.at(".title"), |t| t.title.clone(), |t, x| t.title = x, String::new)}
+                {opt_text("class", &p.at(".class"), |t| t.class.clone(), |t, x| t.class = x, String::new)}
+                {opt_text("control", &p.at(".control"), |t| t.control.clone(), |t, x| t.control = x, String::new)}
+                {opt_text("uia_id", &p.at(".uia_id"), |t| t.uia_id.clone(), |t, x| t.uia_id = x, String::new)}
+                {opt_text("uia_name", &p.at(".uia_name"), |t| t.uia_name.clone(), |t, x| t.uia_name = x, String::new)}
+                {opt_text("uia_type", &p.at(".uia_type"), |t| t.uia_type.clone(), |t, x| t.uia_type = x, String::new)}
+                {opt_text("not", &p.at(".not"), |t| t.not.clone(), |t, x| t.not = x, String::new)}
                 {list("any", p.map(".any", |t| Some(&t.any), |t| Some(&mut t.any)))}
                 {list("all", p.map(".all", |t| Some(&t.all), |t| Some(&mut t.all)))}
             }
@@ -195,7 +195,7 @@ pub fn keymap() -> impl IntoView {
     view! {
         <section>
             <p class="hint">{t!("ui.keymap.hint")}</p>
-            {node_editor(p)}
+            {node_editor(p, true)}
         </section>
     }
 }

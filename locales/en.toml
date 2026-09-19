@@ -81,6 +81,14 @@ modifier = "Modifier name"
 target = "Target name"
 action = "Action name"
 
+[ui.hint]
+none = "none"
+unlimited = "0 (no limit)"
+original_input = "the original input"
+inherit = "same as the parent"
+replay = "none (replay the pending input)"
+typed_action = "the action named by the input"
+
 [ui.mode]
 block_unmapped = "Swallow unmapped keys"
 unmapped_to = "unmapped_to (mode to switch to on unmapped input)"
@@ -94,11 +102,12 @@ as = "as (e.g. C, C-S)"
 
 [ui.keymap]
 hint = "Keymap shared by all modes. Keys are chords (e.g. C-x). A child node makes a key sequence (e.g. C-x t 0)."
-leaf = "With options"
+extended = "Extended options"
 node = "Child node (press next)"
 press_default = "Default (hold)"
 inherit = "Same as parent"
-fallback = "fallback (empty = the original input)"
+mismatch_default = "Default (replay)"
+fallback = "fallback (sent when no implementation applies)"
 fallback_none = "Send nothing as fallback"
 keep_mods = "keep_mods (hold output modifiers until the input modifiers are released)"
 targets = "targets (conditions to catch the input)"

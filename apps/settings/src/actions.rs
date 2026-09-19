@@ -126,6 +126,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                 p,
                 |s| if let RawStep::Sleep { sleep } = s { Some(*sleep) } else { None },
                 |s, x| *s = RawStep::Sleep { sleep: x.unwrap_or(0) },
+                String::new,
             )
             .into_any(),
             "run" => view! {
@@ -141,7 +142,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                 {text("call", p, |s| if let RawStep::Call { call, .. } = s { call.clone() } else { String::new() },
                     |s, x| if let RawStep::Call { call, .. } = s { *call = x })}
                 {opt_text("arg", &p.at(".arg"), |s| if let RawStep::Call { arg, .. } = s { arg.clone() } else { None },
-                    |s, x| if let RawStep::Call { arg, .. } = s { *arg = x })}
+                    |s, x| if let RawStep::Call { arg, .. } = s { *arg = x }, || t!("ui.hint.none").into_owned())}
             }
             .into_any(),
             "mode" => text(
@@ -178,7 +179,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                     |s, x| if let RawStep::Input { input, .. } = s { *input = x })}
                 {opt_text(&t!("ui.step.then"), p,
                     |s| if let RawStep::Input { then, .. } = s { then.clone() } else { None },
-                    |s, x| if let RawStep::Input { then, .. } = s { *then = x })}
+                    |s, x| if let RawStep::Input { then, .. } = s { *then = x }, || t!("ui.hint.typed_action").into_owned())}
                 {select("position", p, positions(),
                     |s| match s { RawStep::Input { position: Some(InputPosition::Bottom), .. } => "bottom", _ => "" }.into(),
                     |s, x| if let RawStep::Input { position, .. } = s {
@@ -260,7 +261,7 @@ fn action_kinds() -> Options {
     ]
 }
 
-fn action_kind(a: &RawAction) -> String {
+pub fn action_kind(a: &RawAction) -> String {
     match a {
         RawAction::Short(_) => "short",
         RawAction::Steps(_) => "steps",
@@ -269,7 +270,7 @@ fn action_kind(a: &RawAction) -> String {
     .into()
 }
 
-fn set_action_kind(a: &mut RawAction, k: String) {
+pub fn set_action_kind(a: &mut RawAction, k: String) {
     *a = match (k.as_str(), std::mem::replace(a, RawAction::Short(String::new()))) {
         ("steps", RawAction::Short(s)) => RawAction::Steps(vec![RawStep::Short(s)]),
         ("steps", RawAction::Steps(v)) => RawAction::Steps(v),
@@ -311,7 +312,7 @@ pub fn action_editor(p: Place<RawAction>) -> AnyView {
 }
 
 /// Target name (`*` = always) → keys or steps, evaluated top to bottom.
-fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
+pub fn by_target_editor(p: Place<IndexMap<String, RawSteps>>) -> AnyView {
     let (list, add) = (p.clone(), p.clone());
     let drag = RwSignal::new(None);
     let row = move |t: String| {

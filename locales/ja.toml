@@ -79,6 +79,14 @@ modifier = "修飾キー名"
 target = "ターゲット名"
 action = "アクション名"
 
+[ui.hint]
+none = "なし"
+unlimited = "0 (無制限)"
+original_input = "元の入力"
+inherit = "親と同じ"
+replay = "なし (待っていた入力を送り直す)"
+typed_action = "入力した名前のアクション"
+
 [ui.mode]
 block_unmapped = "定義外のキーを握りつぶす"
 unmapped_to = "unmapped_to (定義外の入力で移るモード)"
@@ -92,11 +100,12 @@ as = "as (例: C, C-S)"
 
 [ui.keymap]
 hint = "全モード共通のキーマップ。キーは chord (例: C-x)。子の節にすると、続けて押すキー列 (C-x t 0 など) になる。"
-leaf = "設定付き"
+extended = "拡張オプション"
 node = "子の節 (続けて押す)"
 press_default = "既定 (hold)"
 inherit = "親と同じ"
-fallback = "fallback (空欄 = 元の入力)"
+mismatch_default = "既定 (replay)"
+fallback = "fallback (使える実装が無いときに送るキー)"
 fallback_none = "fallback で何も送らない"
 keep_mods = "keep_mods (入力の修飾キーを離すまで出力の修飾キーを保持)"
 targets = "targets (入力を捕まえる条件)"
