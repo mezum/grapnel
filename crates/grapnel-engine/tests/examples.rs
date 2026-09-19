@@ -327,3 +327,17 @@ fn vim_visual_command_and_search() {
     t.up("a");
     assert_eq!(mode(&t.down("Enter")), Some("normal"));
 }
+
+#[test]
+fn vim_counts_and_dot() {
+    let mut t = vim();
+    t.tap("Esc");
+    t.tap("3");
+    assert_eq!(t.down("j"), eaten("+Down -Down +Down -Down +Down -Down"));
+    t.up("j");
+    t.tap("2");
+    assert_eq!(t.down("x"), eaten("+Delete -Delete +Delete -Delete"));
+    t.up("x");
+    assert_eq!(t.down("."), eaten("+Delete -Delete +Delete -Delete"));
+    t.up(".");
+}

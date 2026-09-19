@@ -9,6 +9,7 @@ Esc = [{ mode = "normal" }]
 "C-[" = [{ mode = "normal" }]
 
 [modes.normal]
+count = true
 unmapped_to = "input"
 
 [modes.normal.keymap]
@@ -30,15 +31,15 @@ C-f = "scroll_up"
 C-d = "scroll_up"
 C-b = "scroll_down"
 C-u = "scroll_down"
-x = "delete_char"
-S-x = "delete_backward_char"
-S-d = "kill_line"
+x = { do = "delete_char", repeat = true }
+S-x = { do = "delete_backward_char", repeat = true }
+S-d = { do = "kill_line", repeat = true }
 S-c = ["kill_line", { mode = "input" }]
 s = ["select_forward_char", "kill_region", { mode = "input" }]
 S-s = ["beginning_of_line", "select_end_of_line", "kill_region", { mode = "input" }]
 S-y = "copy_whole_line"
-p = "yank"
-S-p = "yank"
+p = { do = "yank", repeat = true }
+S-p = { do = "yank", repeat = true }
 u = "undo"
 C-r = "redo"
 a = ["forward_char", { mode = "input" }]
@@ -53,21 +54,13 @@ S-v = ["beginning_of_line", { mode = "visual" }, "select_next_line"]
 n = "search_next"
 S-n = "search_previous"
 Esc = "Esc"
+"." = [{ control = "repeat" }]
 f = []
 m = []
 q = []
 r = []
 t = []
 z = []
-1 = []
-2 = []
-3 = []
-4 = []
-5 = []
-6 = []
-7 = []
-8 = []
-9 = []
 i = [{ mode = "input" }]
 ":" = [{ mode = "command" }, { input = ":", then = "vim:{arg}", position = "bottom" }]
 
@@ -78,12 +71,12 @@ on_mismatch = "discard"
 g = "beginning_of_buffer"
 
 [modes.normal.keymap.d]
-d = "kill_whole_line"
-w = "kill_word"
-e = "kill_word"
-b = "backward_kill_word"
-0 = ["select_beginning_of_line", "kill_region"]
-S-4 = "kill_line"
+d = { do = "kill_whole_line", repeat = true }
+w = { do = "kill_word", repeat = true }
+e = { do = "kill_word", repeat = true }
+b = { do = "backward_kill_word", repeat = true }
+0 = { do = ["select_beginning_of_line", "kill_region"], repeat = true }
+S-4 = { do = "kill_line", repeat = true }
 
 [modes.normal.keymap.y]
 y = "copy_whole_line"
@@ -107,6 +100,7 @@ Esc = ["Esc", { mode = "normal" }]
 
 [modes.visual]
 block_unmapped = true
+count = true
 unmapped_to = "normal"
 hold = "S"
 

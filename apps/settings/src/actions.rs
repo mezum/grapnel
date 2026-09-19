@@ -30,6 +30,7 @@ fn controls() -> Options {
         ("suspend".into(), t!("ui.step.suspend")),
         ("reload".into(), t!("ui.step.reload")),
         ("exit".into(), t!("ui.step.exit")),
+        ("repeat".into(), t!("ui.step.repeat")),
     ]
 }
 
@@ -160,6 +161,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                     match s {
                         RawStep::Control { control: ControlCmd::Reload } => "reload",
                         RawStep::Control { control: ControlCmd::Exit } => "exit",
+                        RawStep::Control { control: ControlCmd::Repeat } => "repeat",
                         _ => "suspend",
                     }
                     .into()
@@ -168,6 +170,7 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                     let control = match x.as_str() {
                         "reload" => ControlCmd::Reload,
                         "exit" => ControlCmd::Exit,
+                        "repeat" => ControlCmd::Repeat,
                         _ => ControlCmd::Suspend,
                     };
                     *s = RawStep::Control { control }
