@@ -194,7 +194,7 @@ impl Engine {
                     out.push(Command::Run { program: subst(program), args: args.iter().map(|a| subst(a)).collect() })
                 }
                 Step::Call { action, arg: a } => {
-                    let a = a.as_deref().map(subst).unwrap_or_else(|| arg.to_string());
+                    let a = subst(a);
                     self.run_action(*action, &a, win, depth + 1, out);
                 }
                 Step::Mode(m) => {

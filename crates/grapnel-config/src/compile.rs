@@ -366,14 +366,16 @@ fn reaches(ts: &[Target], from: TargetId, goal: TargetId, seen: &mut Vec<bool>) 
 pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, modes: &Names) -> Option<Step> {
     Some(match s {
         // A bare string calls the action of that name if there is one; `{ keys = ... }` is always keys.
-        RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: None },
+        RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: String::new() },
         RawStep::Short(k) | RawStep::Keys { keys: k } => Step::Keys(c.output(at, k)?),
         RawStep::Text { text } => Step::Text(text.clone()),
         RawStep::MouseMove { mouse_move: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: false },
         RawStep::MouseMoveTo { mouse_move_to: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: true },
         RawStep::Sleep { sleep } => Step::Sleep(*sleep),
         RawStep::Run { run, args } => Step::Run { program: run.clone(), args: args.clone() },
-        RawStep::Call { call, arg } => Step::Call { action: c.id(at, Kind::Action, actions, call)?, arg: arg.clone() },
+        RawStep::Call { call, arg } => {
+            Step::Call { action: c.id(at, Kind::Action, actions, call)?, arg: arg.clone().unwrap_or_default() }
+        }
         RawStep::Mode { mode } => Step::Mode(c.id(at, Kind::Mode, modes, mode)?),
         RawStep::Control { control } => Step::Control(*control),
         RawStep::Input { input, then, position } => {
