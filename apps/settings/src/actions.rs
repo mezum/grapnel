@@ -140,13 +140,21 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                 ))}</div>
             }
             .into_any(),
-            "call" => view! {
-                {text("call", p, |s| if let RawStep::Call { call, .. } = s { call.clone() } else { String::new() },
-                    |s, x| if let RawStep::Call { call, .. } = s { *call = x })}
-                {opt_text("arg", &p.at(".arg"), |s| if let RawStep::Call { arg, .. } = s { arg.clone() } else { None },
-                    |s, x| if let RawStep::Call { arg, .. } = s { *arg = x }, || t!("ui.hint.none").into_owned())}
+            "call" => {
+                // Unset passes the current argument on, so an empty `arg` needs its own switch.
+                let has_arg = |s: &RawStep| matches!(s, RawStep::Call { arg: Some(_), .. });
+                let q = p.clone();
+                view! {
+                    {text("call", p, |s| if let RawStep::Call { call, .. } = s { call.clone() } else { String::new() },
+                        |s, x| if let RawStep::Call { call, .. } = s { *call = x })}
+                    {check(&t!("ui.step.set_arg"), p, has_arg,
+                        |s, on| if let RawStep::Call { arg, .. } = s { *arg = on.then(|| arg.take().unwrap_or_default()) })}
+                    {move || q.read(has_arg).then(|| text("arg", &q.at(".arg"),
+                        |s| if let RawStep::Call { arg: Some(a), .. } = s { a.clone() } else { String::new() },
+                        |s, x| if let RawStep::Call { arg, .. } = s { *arg = Some(x) }))}
+                }
+                .into_any()
             }
-            .into_any(),
             "mode" => text(
                 "mode",
                 p,

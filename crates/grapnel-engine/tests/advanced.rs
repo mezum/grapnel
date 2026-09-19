@@ -300,3 +300,11 @@ d = { do = "Home S-Down C-x", repeat = true }
     t.up("d");
     assert_eq!(cut(t.down(".")), 2);
 }
+
+#[test]
+fn empty_call_arg_is_not_the_current_one() {
+    let cfg = "[actions]\nx = [{ call = \"z\", arg = \"\" }, { call = \"z\" }]\nz = [{ text = \"<{arg}>\" }]";
+    let mut t = t(cfg);
+    let x = t.e.invoke_named("x", "a", &t.win.clone());
+    assert_eq!(x, [Command::Text("<>".into()), Command::Text("<a>".into())]);
+}
