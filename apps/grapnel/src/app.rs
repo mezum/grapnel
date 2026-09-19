@@ -224,13 +224,21 @@ impl App {
 
     /// Loads the config on a worker thread (file I/O must not stall the hook thread).
     pub fn reload(&mut self) {
-        let path = self.config_path.clone();
-        std::thread::spawn(move || crate::post(crate::Msg::Reloaded(load(&path))));
+        self.reload_from(self.config_path.clone());
     }
 
-    pub fn apply_reload(&mut self, result: Result<Config, Vec<Problem>>) {
+    /// Reloads from `path`, which becomes the config path if it loads (the settings tool's file).
+    pub fn reload_from(&mut self, path: PathBuf) {
+        std::thread::spawn(move || crate::post(crate::Msg::Reloaded(path.clone(), load(&path))));
+    }
+
+    pub fn apply_reload(&mut self, path: PathBuf, result: Result<Config, Vec<Problem>>) {
         match result {
             Ok(cfg) => {
+                if path != self.config_path {
+                    log::info!("config path is now {}", path.display());
+                    self.config_path = path;
+                }
                 self.exec.cancel();
                 let cmds = self.engine.reset();
                 self.exec.run(cmds);

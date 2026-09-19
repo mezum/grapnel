@@ -53,7 +53,8 @@ pub enum Msg {
     Deferred(Command),
     /// An error, already in the display language.
     Toast(String),
-    Reloaded(Result<Config, Vec<grapnel_config::Problem>>),
+    /// The config file read and what came of it.
+    Reloaded(PathBuf, Result<Config, Vec<grapnel_config::Problem>>),
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
@@ -138,7 +139,10 @@ fn handle(msg: Msg) {
             "reload" => drop(with_app(App::reload)),
             "suspend" => drop(with_app(App::toggle_suspend)),
             "exit" => unsafe { PostQuitMessage(0) },
-            other => log::warn!("unknown pipe command '{other}'"),
+            other => match other.strip_prefix("reload ") {
+                Some(path) => drop(with_app(|a| a.reload_from(path.into()))),
+                None => log::warn!("unknown pipe command '{other}'"),
+            },
         },
         Msg::Pad(ev) => drop(with_app(|a| a.on_pad(ev))),
         // Opening a window can dispatch messages, so do it without holding the app borrow.
@@ -159,9 +163,9 @@ fn handle(msg: Msg) {
         }
         Msg::Deferred(c) => drop(with_app(|a| a.deferred(c))),
         Msg::Toast(text) => show_toast(&text, 5000),
-        Msg::Reloaded(result) => {
+        Msg::Reloaded(path, result) => {
             inputbox::close(); // its action id belongs to the old config
-            with_app(|a| a.apply_reload(result));
+            with_app(|a| a.apply_reload(path, result));
         }
     }
 }
