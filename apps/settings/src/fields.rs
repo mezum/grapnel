@@ -238,7 +238,8 @@ pub fn trash() -> impl IntoView {
 /// Material Icons `drag_indicator` (Apache-2.0, see THIRD_PARTY_NOTICES.md).
 const GRIP: &str = "M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z";
 
-/// A row of a reorderable list: a drag handle, then `body`. Dropping a row of the same list (one
+/// A row of a reorderable list: a drag handle, then `body` (wrapping lines start under its first
+/// line, not under the handle). Dropping a row of the same list (one
 /// `drag` per list) on the upper or lower half of this row moves it before or after this row.
 /// ↑/↓ on the focused handle move it by one. `pos` finds this row's index in the list.
 pub fn sortable<V, P, B>(
@@ -358,7 +359,7 @@ where
                 on:dragstart=start on:dragend=move |_| drag.set(None) on:keydown=key>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d=GRIP /></svg>
             </span>
-            {body}
+            <div class="sortable-body">{body}</div>
         </div>
     }
 }

@@ -164,18 +164,17 @@ section { display: flex; flex-direction: column; gap: 8px; }
 /* Nested editors take a whole line. */
 .steps, .node, .options, details.options, details.mode-keymap, .hint { flex-basis: 100%; }
 .steps { display: flex; flex-direction: column; gap: 6px; }
-.step {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  align-items: flex-start;
-  padding-left: 10px;
-  border-left: 2px solid var(--line);
-}
-/* Step fields have a label line; the handle and delete button line up with the inputs below it. */
+/* Rows that can be dragged: the handle, then the fields, which wrap within their own box. */
+.sortable-body { display: flex; flex-wrap: wrap; gap: 6px 12px; flex: 1; min-width: 0; }
+.item > .sortable-body { gap: 4px; align-items: center; }
+.impl > .sortable-body { align-items: flex-end; }
+.impl > .grip { align-self: flex-start; margin-top: 6px; }
+.step { display: flex; gap: 12px; align-items: flex-start; padding-left: 10px; border-left: 2px solid var(--line); }
+.step > .sortable-body { align-items: flex-start; }
 /* Fields on a step's second line come after its delete button. */
-.step > .later { order: 1; }
-.step > .del { margin-top: calc(1.4em + 4px); }
+.step > .sortable-body > .later { order: 1; }
+/* Step fields have a label line; the handle and delete button line up with the inputs below it. */
+.step > .sortable-body > .del { margin-top: calc(1.4em + 4px); }
 .step > .grip { align-self: flex-start; margin-top: calc(1.4em + 10px); }
 .node { display: flex; flex-direction: column; gap: 6px; }
 .node .node { margin-left: 4px; padding-left: 12px; border-left: 2px solid var(--line); }
