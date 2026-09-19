@@ -63,6 +63,9 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 button.del { background: none; border-color: transparent; color: var(--muted); padding: 4px 8px; }
 button.del:hover:not(:disabled) { color: var(--error); border-color: var(--error); }
+button.del svg { display: block; width: 18px; height: 18px; fill: currentColor; }
+/* Ends a wrapped row: what follows starts on the next line. */
+.break { flex-basis: 100%; height: 0; }
 .grip { display: flex; align-self: center; color: var(--muted); cursor: grab; border-radius: 4px; }
 .grip:hover { color: var(--fg); }
 .grip:focus-visible { outline: 2px solid var(--accent); }

@@ -97,7 +97,7 @@ pub fn rename_key<V>(m: &mut IndexMap<String, V>, old: &str, new: &str) -> bool 
 }
 
 /// A name input that commits on change and restores the old name when `rename` refuses, plus a
-/// delete button, under `label` if given. The input is marked while `problem` has a message.
+/// delete button, under `label` if given, then a line break. The input is marked while `problem` has a message.
 pub fn name_row(
     label: Option<String>,
     name: String,
@@ -117,13 +117,14 @@ pub fn name_row(
         <div class="name">
             <input prop:value=name on:change=on_change aria-label=label.clone()
                 class:invalid=move || bad().is_some() title=problem />
-            <button class="del" on:click=move |_| delete() title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
+            <button class="del" on:click=move |_| delete() title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
         </div>
     };
-    match label {
+    let head = match label {
         Some(l) => view! { <div class="field"><span>{l}</span>{row}</div> }.into_any(),
         None => row.into_any(),
-    }
+    };
+    view! { {head}<div class="break"></div> }
 }
 
 /// Placeholder text: what an empty optional field means.
@@ -214,7 +215,7 @@ pub fn del_button<T: 'static>(p: &Place<Vec<T>>, j: usize) -> impl IntoView + us
     let del = p.clone();
     view! {
         <button class="del" title=t!("ui.delete") aria-label=t!("ui.delete")
-            on:click=move |_| del.edit(|v| if j < v.len() { drop(v.remove(j)) })>"✕"</button>
+            on:click=move |_| del.edit(|v| if j < v.len() { drop(v.remove(j)) })>{trash()}</button>
     }
 }
 
@@ -223,6 +224,15 @@ pub fn del_button<T: 'static>(p: &Place<Vec<T>>, j: usize) -> impl IntoView + us
 pub struct Drag {
     from: usize,
     to: Option<usize>,
+}
+
+/// Material Icons `delete` (Apache-2.0, see THIRD_PARTY_NOTICES.md), for delete buttons.
+pub fn trash() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+        </svg>
+    }
 }
 
 /// Material Icons `drag_indicator` (Apache-2.0, see THIRD_PARTY_NOTICES.md).

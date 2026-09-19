@@ -47,9 +47,10 @@ pub fn name_field<V: 'static>(store: Store, section: &str, name: String, map: Ma
             <div class="name">
                 <input prop:value=name on:change=rename aria-label=label
                     class:invalid=move || store.problem(&at, true).is_some() title=move || store.problem(&why, true) />
-                <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>"✕"</button>
+                <button class="del" on:click=move |_| store.edit(|c| drop(map(c).remove(&del))) title=t!("ui.delete") aria-label=t!("ui.delete")>{trash()}</button>
             </div>
         </div>
+        <div class="break"></div>
     }
 }
 
