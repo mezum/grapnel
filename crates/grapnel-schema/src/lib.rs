@@ -21,6 +21,9 @@ pub struct RawConfig {
     pub modifiers: BTreeMap<String, RawModifier>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub targets: BTreeMap<String, RawTarget>,
+    /// Physical key (alone or with `S-`) → the JIS key chord it types, seen by the keymap too.
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub keyswap: IndexMap<String, String>,
     #[serde(default, skip_serializing_if = "RawNode::is_empty")]
     pub keymap: RawNode,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]

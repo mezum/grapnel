@@ -391,3 +391,21 @@ fn examples_are_in_saved_form() {
         }
     }
 }
+
+#[test]
+fn keyswap_compiles_and_checks_keys() {
+    let c = ok("[keyswap]\n\"S-2\" = \"@\"\n\":\" = \"'\"\n");
+    assert_eq!(c.keyswap[&(Key::Vk(b'2'), true)], seq("@", &[]).0[0]);
+    assert_eq!(c.keyswap[&(Key::Vk(0xBA), false)], seq("S-7", &[]).0[0]);
+    let e = errs(&[
+        (
+            "main.toml",
+            "include = [\"b.toml\"]\n[modifiers.Mu]\nkey = \"Muhenkan\"\n[keyswap]\n\"C-a\" = \"b\"\nMuhenkan = \"b\"\nx = \"a b\"\n\"$\" = \"4\"",
+        ),
+        ("b.toml", "[keyswap]\n\"S-4\" = \"5\""),
+    ]);
+    assert!(e.contains("main.toml: keyswap.\"C-a\""), "{e}");
+    assert!(e.contains("keyswap.\"Muhenkan\""), "{e}");
+    assert!(e.contains("keyswap.\"x\""), "{e}");
+    assert!(e.contains("b.toml: keyswap.\"S-4\""), "{e}");
+}

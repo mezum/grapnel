@@ -122,6 +122,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
     }
     let modifiers = compile_modifiers(&raw_mods, &mut errors);
     let targets = compile_targets(&raw_targets, &target_ix, &mut errors);
+    let keyswap = compile_keyswap(files, &modifiers, &mut errors);
 
     let mut actions: Vec<Action> = raw_actions
         .iter()
@@ -188,7 +189,7 @@ pub fn compile(files: &[(PathBuf, RawConfig)]) -> Result<Config, Vec<Problem>> {
         language: s.language,
     };
     if errors.is_empty() {
-        Ok(Config { settings, modes, modifiers, targets, rules, prefixes, actions })
+        Ok(Config { settings, modes, modifiers, targets, keyswap, rules, prefixes, actions })
     } else {
         Err(errors)
     }
@@ -246,6 +247,46 @@ fn compile_modifiers(raw: &[(&Path, &str, &RawModifier)], errors: &mut Vec<Probl
             tap: tap.unwrap_or_default(),
             tap_timeout_ms: m.tap_timeout_ms.unwrap_or(0),
         });
+    }
+    out
+}
+
+/// `[keyswap]` of every file: a keyboard key alone or with Shift → one keyboard chord.
+fn compile_keyswap(
+    files: &[(PathBuf, RawConfig)],
+    mods: &[Modifier],
+    errors: &mut Vec<Problem>,
+) -> HashMap<(Key, bool), Chord> {
+    let keyboard = |k: &Key| matches!(k, Key::Vk(_) | Key::Sc(_)) && k.real_mod().is_none();
+    let mut out = HashMap::new();
+    let mut seen: HashMap<(Key, bool), (&Path, String)> = HashMap::new();
+    for (path, raw) in files {
+        let mut c = Ctx { errors, file: path };
+        for (from, to) in &raw.keyswap {
+            let at = format!("keyswap.\"{from}\"");
+            let from = parse_chord(from, &[]).ok().filter(|f| {
+                matches!(f.mods, Mods::NONE | Mods::SHIFT) && keyboard(&f.key) && !mods.iter().any(|m| m.key == f.key)
+            });
+            let Some(from) = from else {
+                c.err_key(&at, msg!("config.keyswap_from"));
+                continue;
+            };
+            let to = parse_seq(to, &[]).ok().and_then(|s| match s.0.as_slice() {
+                [t] if keyboard(&t.key) => Some(t.clone()),
+                _ => None,
+            });
+            let Some(to) = to else {
+                c.err(&at, msg!("config.keyswap_to"));
+                continue;
+            };
+            let slot = (from.key, from.mods == Mods::SHIFT);
+            if let Some((file, prev)) = seen.get(&slot) {
+                c.err_key(&at, msg!("config.already_bound", file = file.display(), at = prev));
+                continue;
+            }
+            seen.insert(slot.clone(), (path, at));
+            out.insert(slot, to);
+        }
     }
     out
 }

@@ -13,6 +13,7 @@ pub use matcher::{Field, Matcher, Target, TargetId, WindowInfo, any_matches, tar
 pub use problem::Problem;
 
 use grapnel_keys::{Chord, Key, KeySeq, Mods};
+use std::collections::HashMap;
 
 pub type ActionId = usize;
 pub type ModeId = usize;
@@ -27,6 +28,8 @@ pub struct Config {
     /// Index = user modifier bit (see `Mods::user`).
     pub modifiers: Vec<Modifier>,
     pub targets: Vec<Target>,
+    /// Physical key and whether Shift is held → the chord it stands for, before the keymap.
+    pub keyswap: HashMap<(Key, bool), Chord>,
     /// Keymap leaves flattened to key sequences; mode-specific ones first.
     pub rules: Vec<Rule>,
     /// Keymap nodes that set options, for chord-waiting behaviour.
