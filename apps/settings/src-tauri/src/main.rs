@@ -148,6 +148,15 @@ fn grapnel_running() -> bool {
     pipes.map(|e| e.file_name()).any(|n| n.to_string_lossy().eq_ignore_ascii_case(&name))
 }
 
+/// The `--bg` of `styles.css` for the Windows theme. Windows paints the window layer, not the page,
+/// so it is what shows around the web view and while it is torn down on closing.
+fn background(dark: bool) -> tauri::window::Color {
+    match dark {
+        true => tauri::window::Color(0x17, 0x18, 0x1b, 0xff),
+        false => tauri::window::Color(0xf4, 0xf5, 0xf7, 0xff),
+    }
+}
+
 /// Builds the menu bar in `lang`; the front end calls it again when the language changes. Items
 /// other than Help are handled by the front end, which gets their ids as `menu` events. Shortcuts
 /// are only shown here (after a tab); the page handles the keys, so they work in the web view.
@@ -223,6 +232,24 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Loaded::default())
         .on_menu_event(|app, ev| on_menu(app, ev.id().as_ref()))
+        // The window is built here rather than in `tauri.conf.json` so that its background colour
+        // is right from the first frame: setting it afterwards only lands once the web view
+        // attaches, a few hundred milliseconds of white.
+        .setup(|app| {
+            let window = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+                .title("grapnel")
+                .inner_size(1100.0, 760.0)
+                .disable_drag_drop_handler()
+                .background_color(background(grapnel_win::dark_mode()))
+                .build()?;
+            let themed = window.clone();
+            window.on_window_event(move |ev| {
+                if let tauri::WindowEvent::ThemeChanged(theme) = ev {
+                    let _ = themed.set_background_color(Some(background(*theme == tauri::Theme::Dark)));
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             initial_entry,
             pick_entry,
