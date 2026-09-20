@@ -11,6 +11,16 @@ use grapnel_win::send;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// Starts `program` on its own thread. Every caller runs on the thread that owns the input hooks, and
+/// `CreateProcess` takes long enough to be felt as stuttering input.
+pub fn run(program: std::path::PathBuf, args: Vec<String>) {
+    std::thread::spawn(move || {
+        if let Err(e) = std::process::Command::new(&program).args(&args).spawn() {
+            report!("error.run", program = program.display(), error = e);
+        }
+    });
+}
+
 fn is_input(c: &Command) -> bool {
     matches!(c, Command::Key { .. } | Command::Text(_) | Command::MouseMove { .. })
 }
@@ -32,11 +42,7 @@ fn run_until_sleep(cmds: Vec<Command>, generation: u64) -> Vec<Command> {
             }
             Command::Run { program, args } => {
                 send::send(&std::mem::take(&mut batch));
-                std::thread::spawn(move || {
-                    if let Err(e) = std::process::Command::new(&program).args(&args).spawn() {
-                        report!("error.run", program = program, error = e);
-                    }
-                });
+                run(program.into(), args);
             }
             c => {
                 send::send(&std::mem::take(&mut batch));

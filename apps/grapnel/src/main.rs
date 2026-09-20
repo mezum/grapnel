@@ -107,9 +107,7 @@ fn add_tray(hwnd: HWND) {
 fn open_settings() {
     let Some(path) = with_app(|a| a.config_path.clone()) else { return };
     let exe = std::env::current_exe().unwrap_or_default().with_file_name("grapnel-settings.exe");
-    if let Err(e) = std::process::Command::new(&exe).arg("--config").arg(path).spawn() {
-        report!("error.run", program = exe.display(), error = e);
-    }
+    exec::run(exe, vec!["--config".into(), path.display().to_string()]);
 }
 
 fn tray_menu() {
