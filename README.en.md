@@ -18,19 +18,21 @@ The zip on [Releases](https://github.com/mezum/grapnel/releases) contains `grapn
 
 ## Build
 
-Requirements: Rust stable (pinned by rust-toolchain.toml), the `wasm32-unknown-unknown` target, [trunk](https://trunkrs.dev/), and [tauri-cli](https://tauri.app/) 2.x.
+Requirements: [just](https://github.com/casey/just), Rust stable (pinned by rust-toolchain.toml), the `wasm32-unknown-unknown` target, [trunk](https://trunkrs.dev/), and [tauri-cli](https://tauri.app/) 2.x.
 
 ```sh
-cargo build --release                 # resident app: target/release/grapnel.exe
-cargo test                            # tests for the core crates
-cd apps/settings && cargo tauri build --no-bundle   # settings tool: target/release/grapnel-settings.exe
+just build      # release build of both (target/release/grapnel.exe and grapnel-settings.exe)
+just test       # the tests (run them together: the examples check spans crates)
+just lint       # formatting check and clippy, as CI runs them
+just restart    # stop the running grapnel, build the settings tool, start grapnel
+just --list     # every recipe
 ```
+
+`just restart` also closes an open settings tool, so unsaved edits there are lost.
 
 When developing the settings tool, use `cargo tauri dev` in `apps/settings`.
 
 To release, bump `workspace.package.version` in `Cargo.toml`, then push a tag with a `v` prefix (e.g. `v0.2.0`). GitHub Actions builds it and attaches the zip to a release.
-
-With [just](https://github.com/casey/just), `just restart` stops the running grapnel, builds the settings tool, and starts grapnel in one step (`just --list` shows all recipes). It closes any open settings tool, so unsaved edits are lost.
 
 ## Usage
 
