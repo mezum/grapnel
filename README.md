@@ -18,19 +18,21 @@
 
 ## ビルド
 
-必要なもの: Rust stable (rust-toolchain.toml で固定)、`wasm32-unknown-unknown` ターゲット、[trunk](https://trunkrs.dev/)、[tauri-cli](https://tauri.app/) 2.x。
+必要なもの: [just](https://github.com/casey/just)、Rust stable (rust-toolchain.toml で固定)、`wasm32-unknown-unknown` ターゲット、[trunk](https://trunkrs.dev/)、[tauri-cli](https://tauri.app/) 2.x。
 
 ```sh
-cargo build --release                 # 常駐側 target/release/grapnel.exe
-cargo test                            # コア crate のテスト
-cd apps/settings && cargo tauri build --no-bundle   # 設定ツール target/release/grapnel-settings.exe
+just build      # 両方を release ビルド (target/release の grapnel.exe と grapnel-settings.exe)
+just test       # テスト (examples の検査が crate をまたぐので、まとめて実行する)
+just lint       # 書式の確認と clippy (CI と同じ)
+just restart    # 起動中の grapnel を止める → 設定ツールをビルド → grapnel を起動
+just --list     # レシピの一覧
 ```
+
+`just restart` は開いている設定ツールも閉じるので、未保存の編集は失われます。
 
 設定ツールの開発時は `apps/settings` で `cargo tauri dev` を使います。
 
 リリースは、`Cargo.toml` の `workspace.package.version` を上げてから `v` 付きのタグ (例: `v0.2.0`) を push します。GitHub Actions がビルドして Releases に zip を置きます。
-
-[just](https://github.com/casey/just) があれば、`just restart` で「起動中の grapnel を止める → 設定ツールをビルド → grapnel を起動」をまとめて実行できます (`just --list` で一覧)。開いている設定ツールは閉じるので、未保存の編集は失われます。
 
 ## 使い方
 
