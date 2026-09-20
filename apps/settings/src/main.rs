@@ -214,7 +214,14 @@ fn App() -> impl IntoView {
     let theme = RwSignal::new(saved_theme());
     set_theme(&theme.get_untracked());
 
+    // One load or save at a time. The backend runs them off its main thread, so a second one
+    // started meanwhile could finish first and load the old file or write the older edits.
+    let busy = RwSignal::new(false);
     let load = move || {
+        if busy.get_untracked() {
+            return;
+        }
+        busy.set(true);
         spawn_local(async move {
             match call::<_, String, Vec<Problem>>("load", &Entry::of(entry.get_untracked())).await {
                 Ok(json) => {
@@ -226,6 +233,7 @@ fn App() -> impl IntoView {
                 }
                 Err(e) => errors.set(e),
             }
+            busy.set(false);
         })
     };
     let open = move || {
@@ -241,34 +249,52 @@ fn App() -> impl IntoView {
         entry.set(call::<_, String, String>("initial_entry", &()).await.unwrap_or_default());
         load();
     });
-    // Validate after every edit, and again in a newly chosen language.
+    // Validate after every edit, and again in a newly chosen language. The backend validates off
+    // its main thread, so two answers can overtake each other; only the newest one is shown.
+    let latest = std::rc::Rc::new(std::cell::Cell::new(0u32));
     Effect::new(move |_| {
         lang.track();
         let files = store.docs.get();
         if !files.is_empty() {
             let files = Files::of(&files);
-            spawn_local(async move { errors.set(call::<_, Vec<Problem>, ()>("validate", &files).await.unwrap()) });
+            let (latest, id) = (latest.clone(), latest.get() + 1);
+            latest.set(id);
+            spawn_local(async move {
+                let found = call::<_, Vec<Problem>, ()>("validate", &files).await.unwrap();
+                if latest.get() == id {
+                    errors.set(found);
+                }
+            });
         }
     });
     let save = move |apply: bool| {
+        if busy.get_untracked() {
+            return;
+        }
+        busy.set(true);
         spawn_local(async move {
             let docs = store.docs.get_untracked();
-            if let Err(e) = call::<_, (), SaveError>("save", &Files::of(&docs)).await {
-                errors.set(e.errors);
-                let text = if e.saved { t!("ui.status.saved_with_errors") } else { t!("ui.status.save_failed") };
-                return status.set(text.into());
-            }
-            saved.set(snapshot(&docs));
-            status.set(t!("ui.status.saved").into());
-            if apply {
-                match call::<_, (), String>("apply", &()).await {
-                    Ok(()) => status.set(t!("ui.status.applied").into()),
-                    Err(e) => status.set(t!("ui.status.apply_failed", error = e).into()),
+            match call::<_, (), SaveError>("save", &Files::of(&docs)).await {
+                Err(e) => {
+                    errors.set(e.errors);
+                    let text = if e.saved { t!("ui.status.saved_with_errors") } else { t!("ui.status.save_failed") };
+                    status.set(text.into());
+                }
+                Ok(()) => {
+                    saved.set(snapshot(&docs));
+                    status.set(t!("ui.status.saved").into());
+                    if apply {
+                        match call::<_, (), String>("apply", &()).await {
+                            Ok(()) => status.set(t!("ui.status.applied").into()),
+                            Err(e) => status.set(t!("ui.status.apply_failed", error = e).into()),
+                        }
+                    }
                 }
             }
+            busy.set(false);
         })
     };
-    let cannot_save = move || !errors.with(Vec::is_empty) || store.docs.with(Vec::is_empty);
+    let cannot_save = move || busy.get() || !errors.with(Vec::is_empty) || store.docs.with(Vec::is_empty);
 
     let change_language = move |l: String| {
         set_language(&l);
