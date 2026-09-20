@@ -1,4 +1,6 @@
 //! grapnel-settings: loads, validates and saves grapnel config files; tells grapnel to reload.
+//! Commands that touch the disk or a pipe are `#[tauri::command(async)]`: without it Tauri runs
+//! them on the main thread, where they freeze the window.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use grapnel_config::Problem;
@@ -73,7 +75,7 @@ async fn pick_entry(window: tauri::Window, entry: String) -> Option<String> {
 }
 
 /// Reads the entry file and everything it includes. A missing entry yields one empty file.
-#[tauri::command]
+#[tauri::command(async)]
 fn load(entry: String, lang: String, loaded: tauri::State<Loaded>) -> Result<String, Vec<Shown>> {
     let path = PathBuf::from(&entry);
     let files = match path.exists() {
@@ -86,7 +88,7 @@ fn load(entry: String, lang: String, loaded: tauri::State<Loaded>) -> Result<Str
 }
 
 /// Returns every validation error (empty when valid).
-#[tauri::command]
+#[tauri::command(async)]
 fn validate(files: String, lang: String) -> Vec<Shown> {
     let problems = to_pairs(&files).and_then(|p| grapnel_config::compile(&p).map(drop)).err();
     shown(problems.unwrap_or_default(), &lang)
@@ -96,7 +98,7 @@ fn validate(files: String, lang: String) -> Vec<Shown> {
 /// comments. Nothing is written when invalid.
 /// Afterwards the files are re-read from disk and checked again, which catches `include` edits
 /// that change which files belong to the configuration.
-#[tauri::command]
+#[tauri::command(async)]
 fn save(files: String, lang: String, loaded: tauri::State<Loaded>) -> Result<(), SaveError> {
     let fail = |saved, errors| SaveError { saved, errors: shown(errors, &lang) };
     let pairs = to_pairs(&files).map_err(|e| fail(false, e))?;
@@ -130,7 +132,7 @@ struct SaveError {
 }
 
 /// Asks the running grapnel to reload from the entry file edited here, which it keeps using.
-#[tauri::command]
+#[tauri::command(async)]
 fn apply(loaded: tauri::State<Loaded>) -> Result<(), String> {
     let entry = loaded.0.lock().unwrap().first().map(|(p, _)| p.clone()).ok_or("nothing loaded")?;
     let entry = std::path::absolute(&entry).map_err(|e| e.to_string())?;
@@ -138,7 +140,7 @@ fn apply(loaded: tauri::State<Loaded>) -> Result<(), String> {
 }
 
 /// Whether the running grapnel's control pipe exists (listing pipes does not connect to it).
-#[tauri::command]
+#[tauri::command(async)]
 fn grapnel_running() -> bool {
     let name = grapnel_win::pipe::name();
     let name = name.rsplit('\\').next().unwrap_or_default().to_string();
