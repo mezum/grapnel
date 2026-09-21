@@ -42,6 +42,48 @@ fn visit(path: &Path, out: &mut Vec<(PathBuf, RawConfig)>, errors: &mut Vec<Prob
     }
 }
 
+/// An include pattern written both ways. `rel` is `None` where no relative path reaches it: on
+/// another drive or share, which `..` cannot leave.
+#[derive(Debug, PartialEq, serde::Serialize)]
+pub struct IncludeForms {
+    /// The pattern as given is absolute.
+    pub absolute: bool,
+    pub abs: String,
+    pub rel: Option<String>,
+}
+
+/// How `pattern`, included from `file`, is written absolutely and relatively. It is resolved the
+/// way `load` resolves it, from the folder of `file`, with `.` and `..` taken out.
+pub fn include_forms(file: &Path, pattern: &str) -> IncludeForms {
+    if pattern.is_empty() {
+        return IncludeForms { absolute: false, abs: String::new(), rel: Some(String::new()) };
+    }
+    let absolute = |p: PathBuf| std::path::absolute(&p).unwrap_or(p);
+    let dir = absolute(file.parent().unwrap_or(Path::new(".")).to_path_buf());
+    let target = absolute(dir.join(pattern));
+    IncludeForms {
+        absolute: Path::new(pattern).is_absolute(),
+        abs: target.display().to_string(),
+        rel: relative(&dir, &target).map(|p| p.display().to_string()),
+    }
+}
+
+/// `to` seen from `from`, both absolute and normalized; `None` when their roots differ.
+fn relative(from: &Path, to: &Path) -> Option<PathBuf> {
+    use std::path::Component;
+    let (a, b): (Vec<_>, Vec<_>) = (from.components().collect(), to.components().collect());
+    let same = |x: &Component, y: &Component| x.as_os_str().eq_ignore_ascii_case(y.as_os_str());
+    let common = a.iter().zip(&b).take_while(|(x, y)| same(x, y)).count();
+    // `C:` and `\`, or `\\server\share` and `\`.
+    let root = a.iter().take_while(|c| !matches!(c, Component::Normal(_))).count();
+    if common < root {
+        return None;
+    }
+    let mut out: PathBuf = a[common..].iter().map(|_| "..").collect();
+    out.extend(&b[common..]);
+    Some(if out.as_os_str().is_empty() { PathBuf::from(".") } else { out })
+}
+
 /// Expands `*`/`?` in the last path component only.
 // ponytail: wildcards only in the file name; add a glob crate if directory wildcards are needed.
 fn expand(pattern: &Path) -> Result<Vec<PathBuf>, Msg> {

@@ -83,7 +83,12 @@ others = "その他の動作に関する全体設定です。エントリーフ�
 
 [ui.general]
 entry_only = "エントリーファイルのみ設定できます。"
-include = "include (glob 可)"
+path = "ファイルパス"
+browse = "参照..."
+path_kind = "パス指定方法"
+absolute = "絶対パス"
+relative = "相対パス"
+no_relative = "編集中のファイルとドライブ (または共有) が違うので、相対パスにはできません"
 delete_settings = "このファイルの settings を削除"
 passthrough = "passthrough (ターゲット)"
 language = "language (表示言語)"

@@ -5,6 +5,7 @@ use crate::fields::*;
 use crate::keymap::node_editor;
 use grapnel_schema::*;
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use rust_i18n::t;
 
 fn store() -> Store {
@@ -90,11 +91,96 @@ fn layout_options() -> Options {
     grapnel_keys::Layout::ALL.iter().map(|l| (l.name().into(), t!(format!("ui.layout.{}", l.name())))).collect()
 }
 
+/// The file being edited, whose folder its includes are read from.
+fn cur_path(store: Store) -> String {
+    store.docs.with(|d| d.get(store.cur.get()).map(|f| f.path.clone()).unwrap_or_default())
+}
+
 pub fn imports() -> impl IntoView {
-    let top = Place::<RawConfig>::new(store(), "", |c| Some(c), |c| Some(c));
+    let store = store();
+    let p = Place::<Vec<String>>::new(store, "include", |c| Some(&c.include), |c| Some(&mut c.include));
+    let (items, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
+    let row = move |j: usize| {
+        let (bad, why) = (p.at(&format!("[{j}]")), p.at(&format!("[{j}]")));
+        let text = {
+            let get = p.clone();
+            move || get.read(|v| v.get(j).cloned().unwrap_or_default())
+        };
+        let put = {
+            let set = p.clone();
+            move |s: String| {
+                set.edit(|v| {
+                    if let Some(x) = v.get_mut(j) {
+                        *x = s
+                    }
+                })
+            }
+        };
+        // The path written both ways, which the form choice shows and switches between.
+        let forms = LocalResource::new({
+            let text = text.clone();
+            move || crate::include_forms(cur_path(store), text())
+        });
+        let now = move || forms.get().flatten();
+        // The dialog starts next to the path being replaced, or next to the file being edited; the
+        // chosen file is written in the row's current form. Both come from the text as it is now,
+        // which `forms` may not have caught up with.
+        let pick = {
+            let (text, put) = (text.clone(), put.clone());
+            move |_| {
+                let (file, cur, put) = (cur_path(store), text(), put.clone());
+                spawn_local(async move {
+                    let f = crate::include_forms(file.clone(), cur).await;
+                    let rel = f.as_ref().is_none_or(|f| !f.absolute);
+                    let start = f.map(|f| f.abs).filter(|a| !a.is_empty()).unwrap_or_else(|| file.clone());
+                    let Some(path) = crate::pick_file(start).await else { return };
+                    let f = if rel { crate::include_forms(file, path.clone()).await } else { None };
+                    put(f.and_then(|f| f.rel).unwrap_or(path));
+                })
+            }
+        };
+        // Choosing a form converts the path there and then.
+        let kind = {
+            let (text, put) = (text.clone(), put.clone());
+            move |ev: leptos::ev::Event| {
+                let (abs, file, cur, put) = (event_target_value(&ev) == "abs", cur_path(store), text(), put.clone());
+                spawn_local(async move {
+                    if let Some(f) = crate::include_forms(file, cur).await {
+                        put(if abs { f.abs } else { f.rel.unwrap_or(f.abs) });
+                    }
+                })
+            }
+        };
+        let typed = {
+            let put = put.clone();
+            move |ev| put(event_target_value(&ev))
+        };
+        // A path on another drive or share has no relative form, so that choice is closed off.
+        let no_rel = move || now().is_some_and(|f| f.rel.is_none());
+        let body = view! {
+            <label class="field path">
+                <span>{t!("ui.general.path")}</span>
+                <input prop:value=text on:change=typed
+                    class:invalid=move || bad.problem().is_some() title=move || why.problem() />
+            </label>
+            <button on:click=pick>{t!("ui.general.browse")}</button>
+            <label class="field">
+                <span>{t!("ui.general.path_kind")}</span>
+                <select on:change=kind title=move || no_rel().then(|| t!("ui.general.no_relative").into_owned())
+                    prop:value=move || if now().is_some_and(|f| f.absolute) { "abs" } else { "rel" }.to_string()>
+                    <option value="abs">{t!("ui.general.absolute")}</option>
+                    <option value="rel" disabled=no_rel>{t!("ui.general.relative")}</option>
+                </select>
+            </label>
+            {del_button(&p, j)}
+        };
+        sortable(&p, drag, move |_| Some(j), Vec::len, vec_move, "row include", body)
+    };
     view! {
         <section>
-            {list(&t!("ui.general.include"), top.map(".include", |c| Some(&c.include), |c| Some(&mut c.include)))}
+            <For each=move || indices(items.read(|v| v.len())) key=|j| *j let:j>{row(j)}</For>
+            <button class="add" on:click=move |_| add.edit(|v| v.push(String::new()))>{t!("ui.add")}</button>
         </section>
     }
 }

@@ -8,7 +8,7 @@ mod problem;
 
 pub use compile::compile;
 pub use grapnel_schema::{ControlCmd, InputPosition, Mismatch, Press, RawConfig};
-pub use load::{default_entry, load, save};
+pub use load::{IncludeForms, default_entry, include_forms, load, save};
 pub use matcher::{Field, Matcher, Target, TargetId, WindowInfo, any_matches, target_matches};
 pub use problem::Problem;
 

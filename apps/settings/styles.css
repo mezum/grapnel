@@ -214,6 +214,10 @@ details[open] > summary { margin-bottom: 6px; }
 .hint { color: var(--muted); margin: 0; }
 main > .hint { margin-bottom: 4px; }
 .swap input { font-family: Consolas, monospace; }
+/* Include rows: the path takes the rest of the line, and the form is as wide as its field, so
+   choosing another one does not move anything. */
+.include > .sortable-body > .path { flex: 1; min-width: 240px; }
+.include select { width: 100%; }
 
 /* Keymap rows: the kind and value explain themselves, so their labels are for screen readers only. */
 .binding > .sortable-body > .field > span {
