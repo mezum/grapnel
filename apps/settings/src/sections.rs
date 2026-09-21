@@ -271,6 +271,114 @@ pub fn modifiers() -> impl IntoView {
     )
 }
 
+/// Target conditions, in the order they are shown.
+const TARGET_FIELDS: [&str; 10] =
+    ["app", "title", "class", "control", "uia_id", "uia_name", "uia_type", "not", "any", "all"];
+
+fn target_field_set(t: &RawTarget, f: &str) -> bool {
+    match f {
+        "app" => t.app.is_some(),
+        "title" => t.title.is_some(),
+        "class" => t.class.is_some(),
+        "control" => t.control.is_some(),
+        "uia_id" => t.uia_id.is_some(),
+        "uia_name" => t.uia_name.is_some(),
+        "uia_type" => t.uia_type.is_some(),
+        "not" => t.not.is_some(),
+        "any" => !t.any.is_empty(),
+        _ => !t.all.is_empty(),
+    }
+}
+
+fn target_field(p: &Place<RawTarget>, f: &str) -> AnyView {
+    let at = p.at(&format!(".{f}"));
+    match f {
+        "app" => pattern(f, &at, |t| t.app.clone(), |t, x| t.app = x).into_any(),
+        "title" => pattern(f, &at, |t| t.title.clone(), |t, x| t.title = x).into_any(),
+        "class" => pattern(f, &at, |t| t.class.clone(), |t, x| t.class = x).into_any(),
+        "control" => pattern(f, &at, |t| t.control.clone(), |t, x| t.control = x).into_any(),
+        "uia_id" => pattern(f, &at, |t| t.uia_id.clone(), |t, x| t.uia_id = x).into_any(),
+        "uia_name" => pattern(f, &at, |t| t.uia_name.clone(), |t, x| t.uia_name = x).into_any(),
+        "uia_type" => pattern(f, &at, |t| t.uia_type.clone(), |t, x| t.uia_type = x).into_any(),
+        "not" => opt_text(f, &at, |t| t.not.clone(), |t, x| t.not = x, String::new).into_any(),
+        "any" => list(f, p.map(".any", |t| Some(&t.any), |t| Some(&mut t.any))).into_any(),
+        _ => list(f, p.map(".all", |t| Some(&t.all), |t| Some(&mut t.all))).into_any(),
+    }
+}
+
+/// How a target string is matched: as written, as a glob or as a regular expression.
+const MATCH_KINDS: [(&str, &str); 3] = [("", "raw"), ("glob:", "glob"), ("re:", "re")];
+
+/// The match prefix of `s` and the rest.
+fn split_kind(s: &str) -> (&'static str, &str) {
+    MATCH_KINDS[1..].iter().find_map(|(k, _)| s.strip_prefix(k).map(|r| (*k, r))).unwrap_or(("", s))
+}
+
+/// A target string: how it is matched (its prefix) in a drop-down, then the text after it.
+fn pattern(
+    label: &str,
+    p: &Place<RawTarget>,
+    get: fn(&RawTarget) -> Option<String>,
+    set: fn(&mut RawTarget, Option<String>),
+) -> impl IntoView + use<> {
+    let label = label.to_owned();
+    // The kind last chosen. Raw shows the whole value, prefix and all, so it sticks even when the
+    // value has a prefix; otherwise the value's prefix decides, and this only while there is none.
+    let picked = RwSignal::new(untrack(|| p.read(get).map_or("", |s| split_kind(&s).0)));
+    let kind = {
+        let p = p.clone();
+        move || match (picked.get(), p.read(get)) {
+            ("", _) | (_, None) => picked.get(),
+            (_, Some(s)) => split_kind(&s).0,
+        }
+    };
+    let text = {
+        let (p, kind) = (p.clone(), kind.clone());
+        move || {
+            let s = p.read(get).unwrap_or_default();
+            if kind().is_empty() { s } else { split_kind(&s).1.to_owned() }
+        }
+    };
+    let put = |k: &str, r: &str| (!r.is_empty()).then(|| format!("{k}{r}"));
+    let on_kind = {
+        let p = p.clone();
+        move |ev| {
+            let v = event_target_value(&ev);
+            let k = MATCH_KINDS.iter().map(|(k, _)| *k).find(|k| *k == v).unwrap_or("");
+            picked.set(k);
+            if k.is_empty() {
+                return; // the value stays as it is, now shown whole
+            }
+            p.edit(|t| {
+                if let Some(s) = get(t) {
+                    set(t, put(k, split_kind(&s).1))
+                }
+            });
+        }
+    };
+    let on_text = {
+        let (p, kind) = (p.clone(), kind.clone());
+        move |ev| {
+            let k = kind();
+            p.edit(|t| set(t, put(k, &event_target_value(&ev))))
+        }
+    };
+    let (bad, why) = (p.clone(), p.clone());
+    view! {
+        <label class="field">
+            <span>{label.clone()}</span>
+            <div class="pattern">
+                <select prop:value=move || kind().to_string() on:change=on_kind aria-label=t!("ui.kind")>
+                    {MATCH_KINDS.map(|(k, n)| view! { <option value=k>{t!(format!("ui.target.kind_{n}"))}</option> })}
+                </select>
+                <input prop:value=text on:change=on_text aria-label=label class:invalid=move || bad.problem().is_some() />
+            </div>
+            <small class="error">{move || why.problem()}</small>
+        </label>
+    }
+}
+
+/// Shows the conditions that are set; the others wait in a drop-down until added.
 pub fn targets() -> impl IntoView {
     map_section(
         "targets",
@@ -281,17 +389,43 @@ pub fn targets() -> impl IntoView {
             let (a, b) = (name.clone(), name);
             let at = format!("targets.{a}");
             let p = Place::<RawTarget>::new(store, &at, move |c| c.targets.get(&a), move |c| c.targets.get_mut(&b));
+            // Added but still empty; forgotten when the row is redrawn.
+            let added = RwSignal::new(Vec::<&'static str>::new());
+            let shown = {
+                let p = p.clone();
+                move |f: &str| added.with(|v| v.contains(&f)) || p.read(|t| target_field_set(t, f))
+            };
+            let fields = TARGET_FIELDS.map(|f| {
+                let (shown, p) = (shown.clone(), p.clone());
+                view! { <Show when=move || shown(f)>{target_field(&p, f)}</Show> }
+            });
+            let options = {
+                let shown = shown.clone();
+                move || {
+                    TARGET_FIELDS
+                        .iter()
+                        .filter(|f| !shown(f))
+                        .map(|f| view! { <option value=*f>{t!(format!("ui.target.{f}"))}</option> })
+                        .collect_view()
+                }
+            };
+            let add = move |ev: leptos::ev::Event| {
+                let select = event_target::<leptos::web_sys::HtmlSelectElement>(&ev);
+                if let Some(f) = TARGET_FIELDS.iter().find(|f| **f == select.value()) {
+                    added.update(|v| v.push(f));
+                }
+                select.set_value("");
+            };
             view! {
-                {opt_text("app", &p.at(".app"), |t| t.app.clone(), |t, x| t.app = x, String::new)}
-                {opt_text("title", &p.at(".title"), |t| t.title.clone(), |t, x| t.title = x, String::new)}
-                {opt_text("class", &p.at(".class"), |t| t.class.clone(), |t, x| t.class = x, String::new)}
-                {opt_text("control", &p.at(".control"), |t| t.control.clone(), |t, x| t.control = x, String::new)}
-                {opt_text("uia_id", &p.at(".uia_id"), |t| t.uia_id.clone(), |t, x| t.uia_id = x, String::new)}
-                {opt_text("uia_name", &p.at(".uia_name"), |t| t.uia_name.clone(), |t, x| t.uia_name = x, String::new)}
-                {opt_text("uia_type", &p.at(".uia_type"), |t| t.uia_type.clone(), |t, x| t.uia_type = x, String::new)}
-                {opt_text("not", &p.at(".not"), |t| t.not.clone(), |t, x| t.not = x, String::new)}
-                {list("any", p.map(".any", |t| Some(&t.any), |t| Some(&mut t.any)))}
-                {list("all", p.map(".all", |t| Some(&t.all), |t| Some(&mut t.all)))}
+                <div class="stack target">
+                    {fields}
+                    <Show when=move || TARGET_FIELDS.iter().any(|f| !shown(f))>
+                        <select on:change=add aria-label=t!("ui.target.add")>
+                            <option value="" selected>{t!("ui.target.add")}</option>
+                            {options.clone()}
+                        </select>
+                    </Show>
+                </div>
             }
         },
     )

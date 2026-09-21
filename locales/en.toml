@@ -109,6 +109,22 @@ modifier = "Modifier name"
 target = "Target name"
 action = "Action name"
 
+[ui.target]
+add = "Add a condition…"
+kind_raw = "Raw"
+kind_glob = "glob (* and ? allowed)"
+kind_re = "re (regular expression)"
+app = "app (exe name or full path of the foreground app)"
+title = "title (title of the foreground window)"
+class = "class (class name of the foreground window)"
+control = "control (class name of the focused control)"
+uia_id = "uia_id (AutomationId of the focused UI Automation element)"
+uia_name = "uia_name (Name of the focused UI Automation element)"
+uia_type = "uia_type (ControlType of the focused UI Automation element)"
+not = "not (matches when this target does not)"
+any = "any (matches when any of these targets does)"
+all = "all (matches when all of these targets do)"
+
 [ui.hint]
 none = "none"
 unlimited = "0 (no limit)"
