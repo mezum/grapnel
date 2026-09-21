@@ -107,6 +107,22 @@ modifier = "修飾キー名"
 target = "ターゲット名"
 action = "アクション名"
 
+[ui.target]
+add = "条件を追加…"
+kind_raw = "直接指定 (Raw)"
+kind_glob = "glob (* と ? が使える)"
+kind_re = "re (正規表現)"
+app = "app (前面のアプリの exe 名かフルパス)"
+title = "title (前面のウインドウのタイトル)"
+class = "class (前面のウインドウのクラス名)"
+control = "control (フォーカスのあるコントロールのクラス名)"
+uia_id = "uia_id (フォーカスのある UI Automation 要素の AutomationId)"
+uia_name = "uia_name (フォーカスのある UI Automation 要素の Name)"
+uia_type = "uia_type (フォーカスのある UI Automation 要素の ControlType)"
+not = "not (このターゲットに合わなければ合う)"
+any = "any (どれかのターゲットに合えば合う)"
+all = "all (すべてのターゲットに合えば合う)"
+
 [ui.hint]
 none = "なし"
 unlimited = "0 (無制限)"
