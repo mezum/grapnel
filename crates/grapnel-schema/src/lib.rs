@@ -80,29 +80,56 @@ pub struct RawModifier {
     pub emulate: Option<String>,
 }
 
+/// Each condition is a string or an array of them; an array holds when any of its items does
+/// (`not` when none of them does).
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RawTarget {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub class: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub uia_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub uia_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub uia_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub not: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub app: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub title: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub class: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub control: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub uia_id: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub uia_name: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub uia_type: Vec<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    pub not: Vec<String>,
+    #[serde(default, deserialize_with = "one_or_many::deserialize", skip_serializing_if = "Vec::is_empty")]
     pub any: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, deserialize_with = "one_or_many::deserialize", skip_serializing_if = "Vec::is_empty")]
     pub all: Vec<String>,
+}
+
+/// A string or an array of strings, written back as a string when there is one.
+mod one_or_many {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &Vec<String>, s: S) -> Result<S::Ok, S::Error> {
+        match v.as_slice() {
+            [one] => one.serialize(s),
+            _ => v.serialize(s),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum OneOrMany {
+            One(String),
+            Many(Vec<String>),
+        }
+        Ok(match OneOrMany::deserialize(d)? {
+            OneOrMany::One(s) => vec![s],
+            OneOrMany::Many(v) => v,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]

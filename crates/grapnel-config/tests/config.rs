@@ -53,7 +53,7 @@ fn compiles_base() {
     assert_eq!(c.settings.language.as_deref(), Some("ja"));
     assert_eq!(c.settings.suspend_hotkey.as_ref().unwrap().mods, Mods::CTRL | Mods::ALT);
     assert_eq!(c.modifiers[0].tap, seq("Muhenkan", &[]));
-    assert_eq!(c.targets[1].fields[0].0, Field::ExePath);
+    assert_eq!(c.targets[1].fields[0][0].0, Field::ExePath);
     // The mode keymap comes first.
     assert_eq!(c.rules[0].modes, [1]);
     let r = &c.rules[1];
@@ -236,8 +236,8 @@ app = 're:^emacs\.exe$'
 [targets.path]
 app = 're:\\Emacs\\bin\\'
 "#);
-    assert_eq!(c.targets[0].fields[0].0, Field::ExeName);
-    assert_eq!(c.targets[1].fields[0].0, Field::ExePath);
+    assert_eq!(c.targets[0].fields[0][0].0, Field::ExeName);
+    assert_eq!(c.targets[1].fields[0][0].0, Field::ExePath);
 }
 
 #[test]
@@ -459,4 +459,19 @@ fn include_forms_have_no_relative_form_across_roots() {
     ] {
         assert_eq!(forms(file, pattern).2, None, "{pattern}");
     }
+}
+
+#[test]
+fn target_conditions_take_lists() {
+    let text = "[targets.a]\napp = [\"a.exe\", 'glob:b*.exe']\n[targets.b]\nnot = [\"a\", \"c\"]\n[targets.c]\ntitle = \"x\"\n";
+    let c = ok(text);
+    let w = |exe: &str| WindowInfo { exe_name: exe.into(), ..Default::default() };
+    assert!(target_matches(&c.targets, 0, &w("A.exe")) && target_matches(&c.targets, 0, &w("bee.exe")));
+    assert!(!target_matches(&c.targets, 0, &w("c.exe")));
+    assert!(!target_matches(&c.targets, 1, &w("a.exe")) && target_matches(&c.targets, 1, &w("c.exe")));
+    // One item is written back as a plain string.
+    let saved = toml::to_string(&toml::from_str::<RawConfig>(text).unwrap()).unwrap();
+    assert!(saved.contains("title = \"x\"") && saved.contains("not = [\"a\", \"c\"]"), "{saved}");
+    let e = errs(&[("m.toml", "[targets.a]\napp = [\"a\", \"re:(\"]")]);
+    assert!(e.contains("targets.a.app[1]"), "{e}");
 }

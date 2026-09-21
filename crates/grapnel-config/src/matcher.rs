@@ -79,12 +79,14 @@ impl Field {
 
 pub type TargetId = usize;
 
-/// All present parts must hold.
+/// All present parts must hold; within one, any of its items.
 #[derive(Clone, Debug, Default)]
 pub struct Target {
     pub name: String,
-    pub fields: Vec<(Field, Matcher)>,
-    pub not: Option<TargetId>,
+    /// One entry per key, holding its items.
+    pub fields: Vec<Vec<(Field, Matcher)>>,
+    /// Holds when none of these match.
+    pub not: Vec<TargetId>,
     pub any: Vec<TargetId>,
     pub all: Vec<TargetId>,
 }
@@ -92,8 +94,8 @@ pub struct Target {
 /// Evaluates target `id`. The target graph must be acyclic (checked at compile time).
 pub fn target_matches(targets: &[Target], id: TargetId, w: &WindowInfo) -> bool {
     let t = &targets[id];
-    t.fields.iter().all(|(f, m)| m.is_match(f.get(w)))
-        && t.not.is_none_or(|n| !target_matches(targets, n, w))
+    t.fields.iter().all(|items| items.iter().any(|(f, m)| m.is_match(f.get(w))))
+        && !t.not.iter().any(|&n| target_matches(targets, n, w))
         && (t.any.is_empty() || t.any.iter().any(|&i| target_matches(targets, i, w)))
         && t.all.iter().all(|&i| target_matches(targets, i, w))
 }
@@ -134,8 +136,8 @@ mod tests {
     fn target_logic() {
         let exact = |s: &str| Matcher::parse(s).unwrap();
         let targets = vec![
-            Target { fields: vec![(Field::ExeName, exact("a.exe"))], ..Default::default() },
-            Target { not: Some(0), ..Default::default() },
+            Target { fields: vec![vec![(Field::ExeName, exact("a.exe"))]], ..Default::default() },
+            Target { not: vec![0], ..Default::default() },
             Target { any: vec![0, 1], ..Default::default() },
             Target { all: vec![0, 1], ..Default::default() },
         ];
