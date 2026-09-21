@@ -52,7 +52,8 @@ fn to_pairs(files: &str) -> Result<Vec<(PathBuf, RawConfig)>, Vec<Problem>> {
     Ok(files.into_iter().map(|f| (PathBuf::from(f.path), f.raw)).collect())
 }
 
-/// Entry file from `--config`, else the default location.
+/// Entry file from `--config`, else the default location. Made absolute, so the front end can
+/// convert include paths against the folders of the files.
 #[tauri::command]
 fn initial_entry() -> String {
     let args: Vec<String> = std::env::args().collect();
@@ -60,7 +61,7 @@ fn initial_entry() -> String {
         Some(i) if i + 1 < args.len() => PathBuf::from(&args[i + 1]),
         _ => grapnel_config::default_entry(),
     };
-    path.display().to_string()
+    std::path::absolute(&path).unwrap_or(path).display().to_string()
 }
 
 /// Asks for an entry file with the Windows open dialog, starting next to `entry`.

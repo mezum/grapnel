@@ -77,6 +77,11 @@ impl Entry {
     }
 }
 
+/// Asks for a config file with the Windows open dialog, starting next to `near`.
+async fn pick_file(near: String) -> Option<String> {
+    call::<_, Option<String>, ()>("pick_entry", &Entry::of(near)).await.ok().flatten()
+}
+
 /// A problem found by the backend, already in the UI language.
 #[derive(Deserialize, Clone, PartialEq)]
 pub struct Problem {
@@ -238,8 +243,7 @@ fn App() -> impl IntoView {
     };
     let open = move || {
         spawn_local(async move {
-            let picked = call::<_, Option<String>, ()>("pick_entry", &Entry::of(entry.get_untracked())).await;
-            if let Ok(Some(path)) = picked {
+            if let Some(path) = pick_file(entry.get_untracked()).await {
                 entry.set(path);
                 load();
             }

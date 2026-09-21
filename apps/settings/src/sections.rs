@@ -5,6 +5,7 @@ use crate::fields::*;
 use crate::keymap::node_editor;
 use grapnel_schema::*;
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use rust_i18n::t;
 
 fn store() -> Store {
@@ -90,11 +91,155 @@ fn layout_options() -> Options {
     grapnel_keys::Layout::ALL.iter().map(|l| (l.name().into(), t!(format!("ui.layout.{}", l.name())))).collect()
 }
 
+/// Whether `p` is a Windows absolute path (`C:\...` or `\\server\share\...`).
+fn is_abs(p: &str) -> bool {
+    let b = p.as_bytes();
+    matches!(b, [b'\\' | b'/', b'\\' | b'/', ..]) || matches!(b, [c, b':', b'\\' | b'/', ..] if c.is_ascii_alphabetic())
+}
+
+/// The parts of a path, without the separators and `.`; `\\server\share` starts with `server`.
+fn parts(p: &str) -> Vec<&str> {
+    p.split(['\\', '/']).filter(|s| !s.is_empty() && *s != ".").collect()
+}
+
+/// How many leading parts name a path's root, which `..` cannot leave: `C:`, or `server` and
+/// `share` of a UNC path.
+fn root_len(p: &str) -> usize {
+    if matches!(p.as_bytes(), [b'\\' | b'/', b'\\' | b'/', ..]) { 2 } else { 1 }
+}
+
+/// `path` made absolute, reading a relative one from `dir` as `include` does.
+fn to_abs(dir: &str, path: &str) -> String {
+    if is_abs(path) || dir.is_empty() { path.to_string() } else { resolve(dir, path) }
+}
+
+/// Absolute `dir` joined with relative `path`, `.` and `..` resolved.
+fn resolve(dir: &str, path: &str) -> String {
+    let root = root_len(dir);
+    let unc = root == 2;
+    let mut out = Vec::new();
+    for s in parts(dir).into_iter().chain(parts(path)) {
+        match s == ".." {
+            true if out.len() > root => drop(out.pop()),
+            true => {}
+            false => out.push(s),
+        }
+    }
+    let joined = out.join("\\");
+    if unc { format!("\\\\{joined}") } else { joined }
+}
+
+/// `path` written relative to `dir`; left as it is when it is on another drive or share.
+fn to_rel(dir: &str, path: &str) -> String {
+    if !is_abs(path) || !can_rel(dir, path) {
+        return path.to_string();
+    }
+    let (d, p) = (parts(dir), parts(path));
+    let common = d.iter().zip(&p).take_while(|(a, b)| a.eq_ignore_ascii_case(b)).count();
+    let mut out = vec![".."; d.len() - common];
+    out.extend_from_slice(&p[common..]);
+    if out.is_empty() { ".".to_string() } else { out.join("\\") }
+}
+
+/// Whether a relative form of `path` can reach it from `dir`, which needs the same root.
+fn can_rel(dir: &str, path: &str) -> bool {
+    if !is_abs(path) {
+        return true;
+    }
+    let (n, (d, p)) = (root_len(path), (parts(dir), parts(path)));
+    root_len(dir) == n
+        && d.len() >= n
+        && p.len() >= n
+        && d[..n].iter().zip(&p[..n]).all(|(a, b)| a.eq_ignore_ascii_case(b))
+}
+
+/// The file being edited and the folder it is in.
+fn cur_file(store: Store) -> (String, String) {
+    let path = store.docs.with(|d| d.get(store.cur.get()).map(|f| f.path.clone()).unwrap_or_default());
+    let dir = path.rfind(['\\', '/']).map_or(String::new(), |i| path[..i].to_string());
+    // An included file keeps the `..` it was reached through, which `to_rel` must not count.
+    let dir = if is_abs(&path) { resolve(&dir, "") } else { dir };
+    (path, dir)
+}
+
 pub fn imports() -> impl IntoView {
-    let top = Place::<RawConfig>::new(store(), "", |c| Some(c), |c| Some(c));
+    let store = store();
+    let p = Place::<Vec<String>>::new(store, "include", |c| Some(&c.include), |c| Some(&mut c.include));
+    let (items, add) = (p.clone(), p.clone());
+    let drag = RwSignal::new(None);
+    let row = move |j: usize| {
+        let (bad, why) = (p.at(&format!("[{j}]")), p.at(&format!("[{j}]")));
+        let text = {
+            let get = p.clone();
+            move || get.read(|v| v.get(j).cloned().unwrap_or_default())
+        };
+        let put = {
+            let set = p.clone();
+            move |s: String| {
+                set.edit(|v| {
+                    if let Some(x) = v.get_mut(j) {
+                        *x = s
+                    }
+                })
+            }
+        };
+        // The dialog starts next to the path being replaced, or next to the file being edited.
+        let pick = {
+            let (text, put) = (text.clone(), put.clone());
+            move |_| {
+                let (file, dir) = cur_file(store);
+                let (cur, put) = (text(), put.clone());
+                let start = if cur.is_empty() { file } else { to_abs(&dir, &cur) };
+                let rel = !is_abs(&cur);
+                spawn_local(async move {
+                    if let Some(path) = crate::pick_file(start).await {
+                        put(if rel { to_rel(&dir, &path) } else { path });
+                    }
+                })
+            }
+        };
+        // Choosing a form converts the path there and then.
+        let kind = {
+            let (text, put) = (text.clone(), put.clone());
+            move |ev: leptos::ev::Event| {
+                let (_, dir) = cur_file(store);
+                let cur = text();
+                put(if event_target_value(&ev) == "abs" { to_abs(&dir, &cur) } else { to_rel(&dir, &cur) })
+            }
+        };
+        let typed = {
+            let put = put.clone();
+            move |ev| put(event_target_value(&ev))
+        };
+        // A path on another drive has no relative form, so that choice is closed off.
+        let rel_ok = {
+            let text = text.clone();
+            move || can_rel(&cur_file(store).1, &text())
+        };
+        let (shown, why_abs) = (text.clone(), rel_ok.clone());
+        let body = view! {
+            <label class="field path">
+                <span>{t!("ui.general.path")}</span>
+                <input prop:value=text on:change=typed
+                    class:invalid=move || bad.problem().is_some() title=move || why.problem() />
+            </label>
+            <button on:click=pick>{t!("ui.general.browse")}</button>
+            <label class="field">
+                <span>{t!("ui.general.path_kind")}</span>
+                <select on:change=kind title=move || (!why_abs()).then(|| t!("ui.general.no_relative").into_owned())
+                    prop:value=move || if is_abs(&shown()) { "abs".to_string() } else { "rel".to_string() }>
+                    <option value="abs">{t!("ui.general.absolute")}</option>
+                    <option value="rel" disabled=move || !rel_ok()>{t!("ui.general.relative")}</option>
+                </select>
+            </label>
+            {del_button(&p, j)}
+        };
+        sortable(&p, drag, move |_| Some(j), Vec::len, vec_move, "row include", body)
+    };
     view! {
         <section>
-            {list(&t!("ui.general.include"), top.map(".include", |c| Some(&c.include), |c| Some(&mut c.include)))}
+            <For each=move || indices(items.read(|v| v.len())) key=|j| *j let:j>{row(j)}</For>
+            <button class="add" on:click=move |_| add.edit(|v| v.push(String::new()))>{t!("ui.add")}</button>
         </section>
     }
 }

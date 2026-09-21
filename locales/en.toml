@@ -85,7 +85,12 @@ others = "Global settings for other behaviour. Only the entry file can set them.
 
 [ui.general]
 entry_only = "Can only be set in the entry file."
-include = "include (glob allowed)"
+path = "File path"
+browse = "Browse..."
+path_kind = "Path form"
+absolute = "Absolute path"
+relative = "Relative path"
+no_relative = "Cannot be relative: another drive (or share) than the file being edited"
 delete_settings = "Delete settings from this file"
 passthrough = "passthrough (targets)"
 language = "language (display language)"
