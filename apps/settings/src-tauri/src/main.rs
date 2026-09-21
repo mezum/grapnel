@@ -75,6 +75,12 @@ async fn pick_entry(window: tauri::Window, entry: String) -> Option<String> {
     Some(dialog.blocking_pick_file()?.into_path().ok()?.display().to_string())
 }
 
+/// `path`, included from `file`, written absolutely and relatively.
+#[tauri::command]
+fn include_forms(file: String, path: String) -> grapnel_config::IncludeForms {
+    grapnel_config::include_forms(std::path::Path::new(&file), &path)
+}
+
 /// Reads the entry file and everything it includes. A missing entry yields one empty file.
 #[tauri::command(async)]
 fn load(entry: String, lang: String, loaded: tauri::State<Loaded>) -> Result<String, Vec<Shown>> {
@@ -254,6 +260,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initial_entry,
             pick_entry,
+            include_forms,
             load,
             validate,
             save,

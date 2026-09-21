@@ -426,3 +426,37 @@ fn layout_resolves_symbol_names() {
     let e = errs(&[("main.toml", "[settings]\nlayout = \"dvorak\"")]);
     assert!(e.contains("settings.layout") && e.contains("dvorak"), "{e}");
 }
+
+/// (absolute as given, absolute form, relative form) of `pattern` included from `file`.
+fn forms(file: &str, pattern: &str) -> (bool, String, Option<String>) {
+    let f = include_forms(Path::new(file), pattern);
+    (f.absolute, f.abs, f.rel)
+}
+
+#[test]
+fn include_forms_convert_both_ways() {
+    let main = r"C:\cfg\main.toml";
+    let both = |abs: &str, rel: &str| (abs.to_string(), Some(rel.to_string()));
+    let rest = |f: (bool, String, Option<String>)| (f.1, f.2);
+    assert_eq!(rest(forms(main, r"sub\a.toml")), both(r"C:\cfg\sub\a.toml", r"sub\a.toml"));
+    assert_eq!(rest(forms(main, r"..\x\*.toml")), both(r"C:\x\*.toml", r"..\x\*.toml"));
+    assert_eq!(rest(forms(main, r"c:\CFG\a.toml")), both(r"c:\CFG\a.toml", "a.toml"));
+    assert!(!forms(main, r"sub\a.toml").0 && forms(main, r"C:\x.toml").0);
+    // Starting at the drive root, as `Path::join` reads it.
+    assert_eq!(rest(forms(main, r"\x.toml")), both(r"C:\x.toml", r"..\x.toml"));
+    // A file reached through `..` counts from where it really is.
+    assert_eq!(rest(forms(r"C:\cfg\sub\..\main.toml", r"C:\cfg\a.toml")), both(r"C:\cfg\a.toml", "a.toml"));
+    assert_eq!(rest(forms(r"\\srv\share\cfg\m.toml", r"..\a.toml")), both(r"\\srv\share\a.toml", r"..\a.toml"));
+    assert_eq!(forms(main, ""), (false, String::new(), Some(String::new())));
+}
+
+#[test]
+fn include_forms_have_no_relative_form_across_roots() {
+    for (file, pattern) in [
+        (r"C:\cfg\main.toml", r"D:\a.toml"),
+        (r"C:\cfg\main.toml", r"\\srv\share\a.toml"),
+        (r"\\srv\share\cfg\main.toml", r"\\srv\other\a.toml"),
+    ] {
+        assert_eq!(forms(file, pattern).2, None, "{pattern}");
+    }
+}

@@ -1616,6 +1616,7 @@ dependencies = [
  "grapnel-keys",
  "grapnel-schema",
  "regex",
+ "serde",
  "toml 1.1.6+spec-1.1.0",
  "toml_edit 0.25.15+spec-1.1.0",
 ]

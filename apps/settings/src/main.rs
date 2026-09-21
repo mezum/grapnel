@@ -82,6 +82,27 @@ async fn pick_file(near: String) -> Option<String> {
     call::<_, Option<String>, ()>("pick_entry", &Entry::of(near)).await.ok().flatten()
 }
 
+/// An include path written both ways, as `grapnel_config::include_forms` gives it.
+#[derive(Deserialize, Clone, PartialEq)]
+pub struct IncludeForms {
+    /// The path as given is absolute.
+    pub absolute: bool,
+    pub abs: String,
+    /// `None` on another drive or share, which a relative path cannot reach.
+    pub rel: Option<String>,
+}
+
+#[derive(Serialize)]
+struct IncludeOf {
+    file: String,
+    path: String,
+}
+
+/// `path`, included from `file`, written both ways; `None` if the backend could not be asked.
+async fn include_forms(file: String, path: String) -> Option<IncludeForms> {
+    call::<_, IncludeForms, ()>("include_forms", &IncludeOf { file, path }).await.ok()
+}
+
 /// A problem found by the backend, already in the UI language.
 #[derive(Deserialize, Clone, PartialEq)]
 pub struct Problem {
