@@ -89,7 +89,7 @@ open_search = "W-s"
 toggle_fullscreen = "F11"
 lock_screen = [{ run = "rundll32.exe", args = ["user32.dll,LockWorkStation"] }]
 screenshot_full = "W-PrintScreen"
-vscode_command = ["C-S-p", { sleep = 50 }, { text = "{arg}" }, { sleep = 8 }, "Enter"]
+vscode_command = ["C-S-p", { sleep = 24 }, { text = "{arg}" }, { sleep = 8 }, "Enter"]
 split_window_right = { vscode = "C-vk:0xDC", "*" = "snap_left" }
 split_window_below = { vscode = "C-k C-vk:0xDC", "*" = "W-z" }
 delete_other_windows = { vscode = [{ call = "vscode_command", arg = "View: Join All Editor Groups" }], "*" = "maximize_window" }
