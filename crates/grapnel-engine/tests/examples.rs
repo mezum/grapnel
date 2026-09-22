@@ -419,6 +419,14 @@ fn emacs_split_uses_the_app_or_the_os() {
     t.up("x");
     t.up("LCtrl");
     assert_eq!(t.down("3"), eaten("+LWin +Left -Left +vk:0xE8 -vk:0xE8 -LWin"));
+    t.up("3");
+    // Chrome opens its own split view.
+    t.app("chrome.exe");
+    t.down("LCtrl");
+    t.down("x");
+    t.up("x");
+    t.up("LCtrl");
+    assert_eq!(t.down("3"), eaten("+LAlt +LShift +n"));
 }
 
 #[test]
@@ -430,4 +438,11 @@ fn mac_cmd_up_depends_on_the_app() {
     t.up("Up");
     t.app("notepad.exe");
     assert_eq!(t.down("Up"), eaten("+Home"));
+    t.up("Up");
+    // Cmd-[ goes back in Edge, and is left alone where going back means nothing.
+    t.app("msedge.exe");
+    assert_eq!(t.down("["), eaten("-LCtrl +LAlt +Left"));
+    t.up("[");
+    t.app("notepad.exe");
+    assert_eq!(t.down("["), pass());
 }
