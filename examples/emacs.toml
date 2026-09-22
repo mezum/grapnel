@@ -79,6 +79,7 @@ C-w = { do = "save_as", targets = ["non_emacs_app"] }
 k = { do = "close_document", targets = ["non_emacs_app"] }
 u = { do = "undo", targets = ["non_emacs_app"] }
 C-f = { do = "open_file", targets = ["non_emacs_app"] }
+C-r = { do = "recent_files", targets = ["non_emacs_app"] }
 C-c = { do = "quit_app", targets = ["non_emacs_app"] }
 s = { do = "save_all", targets = ["non_emacs_app"] }
 b = { do = "next_tab", targets = ["non_emacs_app"] }
