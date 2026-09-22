@@ -381,6 +381,12 @@ pub(crate) fn compile_step(c: &mut Ctx, at: &str, s: &RawStep, actions: &Names, 
         RawStep::Short(k) if actions.contains_key(k) => Step::Call { action: actions[k], arg: String::new() },
         RawStep::Short(k) | RawStep::Keys { keys: k } => Step::Keys(c.output(at, k)?),
         RawStep::Text { text } => Step::Text(text.clone()),
+        RawStep::SetText { set_text, into } => {
+            if let Some(m) = into {
+                c.ok(&format!("{at}.into"), Matcher::parse(m).map_err(|e| msg!("config.bad_pattern", error = e)))?;
+            }
+            Step::SetText { text: set_text.clone(), into: into.clone() }
+        }
         RawStep::MouseMove { mouse_move: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: false },
         RawStep::MouseMoveTo { mouse_move_to: [x, y] } => Step::MouseMove { x: *x, y: *y, absolute: true },
         RawStep::Sleep { sleep } => Step::Sleep(*sleep),

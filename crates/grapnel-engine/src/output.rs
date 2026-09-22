@@ -190,6 +190,10 @@ impl Engine {
                     out.push(Command::Sleep(*ms));
                     self.later = Some(Later { frames: Vec::new(), win: win.clone() });
                 }
+                Step::SetText { text, into } => {
+                    out.push(Command::SetText { text: subst(text), into: into.clone() });
+                    self.later = Some(Later { frames: Vec::new(), win: win.clone() });
+                }
                 Step::Run { program, args } => {
                     out.push(Command::Run { program: subst(program), args: args.iter().map(|a| subst(a)).collect() })
                 }

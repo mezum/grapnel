@@ -10,6 +10,7 @@ fn kinds() -> Options {
     vec![
         ("keys".into(), t!("ui.keys_or_action")),
         ("text".into(), t!("ui.step.text")),
+        ("set_text".into(), t!("ui.step.set_text")),
         ("mouse_move".into(), t!("ui.step.mouse_move")),
         ("mouse_move_to".into(), t!("ui.step.mouse_move_to")),
         ("sleep".into(), t!("ui.step.sleep")),
@@ -38,6 +39,7 @@ fn kind(s: &RawStep) -> String {
     match s {
         RawStep::Short(_) | RawStep::Keys { .. } => "keys",
         RawStep::Text { .. } => "text",
+        RawStep::SetText { .. } => "set_text",
         RawStep::MouseMove { .. } => "mouse_move",
         RawStep::MouseMoveTo { .. } => "mouse_move_to",
         RawStep::Sleep { .. } => "sleep",
@@ -53,6 +55,7 @@ fn kind(s: &RawStep) -> String {
 fn set_kind(s: &mut RawStep, k: String) {
     *s = match k.as_str() {
         "text" => RawStep::Text { text: String::new() },
+        "set_text" => RawStep::SetText { set_text: String::new(), into: None },
         "mouse_move" => RawStep::MouseMove { mouse_move: [0, 0] },
         "mouse_move_to" => RawStep::MouseMoveTo { mouse_move_to: [0, 0] },
         "sleep" => RawStep::Sleep { sleep: 100 },
@@ -99,6 +102,16 @@ fn step_fields(p: Place<RawStep>) -> impl IntoView {
                 |s| if let RawStep::Text { text } = s { text.clone() } else { String::new() },
                 |s, x| *s = RawStep::Text { text: x },
             )
+            .into_any(),
+            "set_text" => view! {
+                {text(&t!("ui.step.text_label"), p,
+                    |s| if let RawStep::SetText { set_text, .. } = s { set_text.clone() } else { String::new() },
+                    |s, x| if let RawStep::SetText { set_text, .. } = s { *set_text = x })}
+                {opt_text(&t!("ui.step.into"), &p.at(".into"),
+                    |s| if let RawStep::SetText { into, .. } = s { into.clone() } else { None },
+                    |s, x| if let RawStep::SetText { into, .. } = s { *into = x },
+                    || t!("ui.step.into_any").into_owned())}
+            }
             .into_any(),
             "mouse_move" => text(
                 "dx, dy",

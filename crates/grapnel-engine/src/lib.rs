@@ -39,7 +39,13 @@ pub enum Command {
         absolute: bool,
     },
     Sleep(u32),
-    /// Steps after a `Sleep`: hand them back to [`Engine::resume`] once it is over, so they are
+    /// Replaces the focused input's text, or waits for an input named like `into` (a pattern).
+    /// Like `Sleep`, it ends the batch: what follows waits for it.
+    SetText {
+        text: String,
+        into: Option<String>,
+    },
+    /// Steps after a `Sleep` or `SetText`: hand them back to [`Engine::resume`] once it is over, so they are
     /// planned against the modifier state of that time.
     Resume(Later),
     Run {
@@ -59,7 +65,7 @@ pub enum Command {
     Notice(Notice),
 }
 
-/// Steps left to run after a `Sleep`, innermost call first, and the window they were started for.
+/// Steps left to run after a `Sleep` or `SetText`, innermost call first, and the window they were started for.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Later {
     frames: Vec<Frame>,
