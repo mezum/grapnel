@@ -475,3 +475,10 @@ fn target_conditions_take_lists() {
     let e = errs(&[("m.toml", "[targets.a]\napp = [\"a\", \"re:(\"]")]);
     assert!(e.contains("targets.a.app[1]"), "{e}");
 }
+
+#[test]
+fn set_text_checks_its_input_pattern() {
+    ok("[actions]\na = [{ set_text = \">x\", into = 'glob:Type*' }]");
+    let e = errs(&[("m.toml", "[actions]\na = [{ set_text = \"x\", into = \"re:(\" }]")]);
+    assert!(e.contains("actions.a[0].into"), "{e}");
+}

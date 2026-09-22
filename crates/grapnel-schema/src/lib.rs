@@ -246,6 +246,13 @@ pub enum RawStep {
     Text {
         text: String,
     },
+    /// Replaces the text of the focused input through UI Automation.
+    SetText {
+        set_text: String,
+        /// Only an input with a UI Automation name that matches this, waited for.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        into: Option<String>,
+    },
     MouseMove {
         mouse_move: [i32; 2],
     },

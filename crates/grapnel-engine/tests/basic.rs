@@ -168,6 +168,17 @@ fn steps_after_sleep_see_modifiers_changed_meanwhile() {
 }
 
 #[test]
+fn set_text_waits_like_sleep() {
+    let mut t = t(&rule("a", r#"{ set_text = ">{arg}x" }, "b""#, "", ""));
+    let r = t.down("a");
+    let [Command::SetText { text, into: None }, Command::Resume(later)] = &r.commands[..] else {
+        panic!("{:?}", r.commands)
+    };
+    assert_eq!(text, ">x");
+    assert_eq!(t.e.resume(later.clone()), keys("+b -b"));
+}
+
+#[test]
 fn steps_after_sleep_keep_the_window_they_started_for() {
     let extra = "[targets.code]\napp = \"code.exe\"\n[actions]\nd = { code = \"x\", \"*\" = \"y\" }";
     let mut t = t(&rule("a", r#"{ sleep = 5 }, { call = "d" }"#, "", extra));

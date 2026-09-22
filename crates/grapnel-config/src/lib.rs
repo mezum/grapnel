@@ -129,6 +129,11 @@ pub struct ActionImpl {
 pub enum Step {
     Keys(KeySeq),
     Text(String),
+    /// `into` names the input to wait for (a pattern, checked at compile time).
+    SetText {
+        text: String,
+        into: Option<String>,
+    },
     MouseMove {
         x: i32,
         y: i32,

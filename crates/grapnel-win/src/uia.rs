@@ -1,12 +1,22 @@
 //! UI Automation lookups of the focused element on a worker thread (they can take tens of ms).
 
+use grapnel_config::Matcher;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx};
-use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation};
+use windows::Win32::System::Com::{
+    CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize,
+};
+use windows::Win32::System::Variant::VARIANT;
+use windows::Win32::UI::Accessibility::{
+    CUIAutomation, IUIAutomation, IUIAutomationCondition, IUIAutomationElement, IUIAutomationValuePattern,
+    TreeScope_Subtree, UIA_ControlTypePropertyId, UIA_EditControlTypeId, UIA_IsValuePatternAvailablePropertyId,
+    UIA_ValueIsReadOnlyPropertyId, UIA_ValuePatternId,
+};
 use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
+use windows::core::BSTR;
 
 /// AutomationId, Name and ControlType name of the focused element.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -79,6 +89,83 @@ fn query(uia: &IUIAutomation) -> windows::core::Result<Focused> {
             name: el.CurrentName()?.to_string(),
             control_type: control_type_name(el.CurrentControlType()?.0),
         })
+    }
+}
+
+/// The focused input, or the nearest one around the focused element: Chromium reports a list's
+/// active row as focused rather than the input that owns the list (VS Code's command palette). With
+/// `into`, only an input whose name matches. The search stays inside the focused top-level window.
+fn find_input(
+    uia: &IUIAutomation,
+    editable: &IUIAutomationCondition,
+    into: Option<&Matcher>,
+) -> windows::core::Result<Option<IUIAutomationElement>> {
+    unsafe {
+        let (walker, desktop) = (uia.ControlViewWalker()?, uia.GetRootElement()?);
+        let mut at = uia.GetFocusedElement()?;
+        // ponytail: looks a few levels up only; a deeper owner would need a smarter search.
+        for _ in 0..8 {
+            if let Ok(all) = at.FindAll(TreeScope_Subtree, editable) {
+                for i in 0..all.Length()? {
+                    let e = all.GetElement(i)?;
+                    if into.is_none_or(|m| e.CurrentName().is_ok_and(|n| m.is_match(&n.to_string()))) {
+                        return Ok(Some(e));
+                    }
+                }
+            }
+            let Ok(parent) = walker.GetParentElement(&at) else { break };
+            if uia.CompareElements(&parent, &desktop)?.as_bool() {
+                break;
+            }
+            at = parent;
+        }
+        Ok(None)
+    }
+}
+
+/// Replaces the text of the input `find_input` finds. With `into`, waits up to a second for that
+/// input to appear. `Ok(false)` when there is none, or once `live` says the write is no longer
+/// wanted (checked before each search and before writing). It blocks for as long as UI Automation
+/// takes, so call it off the hook thread.
+pub fn set_text(text: &str, into: Option<&Matcher>, live: impl Fn() -> bool) -> windows::core::Result<bool> {
+    // Each call runs on a thread of its own, so COM is set up and torn down around it.
+    let com = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+    let done = write_input(text, into, live);
+    if com.is_ok() {
+        unsafe { CoUninitialize() }; // after every UI Automation object above is dropped
+    }
+    done
+}
+
+fn write_input(text: &str, into: Option<&Matcher>, live: impl Fn() -> bool) -> windows::core::Result<bool> {
+    // ponytail: fixed wait, make it a step option if some input takes longer to appear.
+    let deadline = Instant::now() + Duration::from_secs(1);
+    unsafe {
+        let uia: IUIAutomation = CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)?;
+        // Only edits: Chromium gives VS Code's palette list the input's name and a ValuePattern that
+        // accepts a value without taking it.
+        let editable = uia.CreateAndCondition(
+            &uia.CreatePropertyCondition(UIA_ControlTypePropertyId, &VARIANT::from(UIA_EditControlTypeId.0))?,
+            &uia.CreateAndCondition(
+                &uia.CreatePropertyCondition(UIA_IsValuePatternAvailablePropertyId, &VARIANT::from(true))?,
+                &uia.CreatePropertyCondition(UIA_ValueIsReadOnlyPropertyId, &VARIANT::from(false))?,
+            )?,
+        )?;
+        while live() {
+            if let Some(input) = find_input(&uia, &editable, into)? {
+                let value: IUIAutomationValuePattern = input.GetCurrentPatternAs(UIA_ValuePatternId)?;
+                if !live() {
+                    break;
+                }
+                value.SetValue(&BSTR::from(text))?;
+                return Ok(true);
+            }
+            if into.is_none() || Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        Ok(false)
     }
 }
 
