@@ -17,3 +17,31 @@ M-S-Tab = { do = "previous_tab", keep_mods = true }
 C-Up = { do = "task_view", press = "tap" }
 C-Down = { do = "show_desktop", press = "tap" }
 Cmd-S-5 = { do = "screenshot", press = "tap" }
+Cmd-S-4 = { do = "screenshot", press = "tap" }
+Cmd-S-3 = { do = "screenshot_full", press = "tap" }
+Cmd-Left = "beginning_of_line"
+Cmd-Right = "end_of_line"
+Cmd-S-Left = "select_beginning_of_line"
+Cmd-S-Right = "select_end_of_line"
+Cmd-Up = { do = { explorer = "M-Up", "*" = "C-Home" } }
+Cmd-Down = { do = { explorer = "Enter", "*" = "C-End" } }
+Cmd-S-Up = "select_beginning_of_buffer"
+Cmd-S-Down = "select_end_of_buffer"
+M-Left = "backward_word"
+M-Right = "forward_word"
+M-S-Left = "select_backward_word"
+M-S-Right = "select_forward_word"
+Cmd-Backspace = { do = { explorer = "Delete", "*" = "S-Home Backspace" } }
+Cmd-S-z = "redo"
+Cmd-g = "search_next"
+Cmd-S-g = "search_previous"
+Cmd-M-f = "replace"
+Cmd-q = "quit_app"
+Cmd-h = { do = "minimize_window", press = "tap" }
+Cmd-m = { do = "minimize_window", press = "tap" }
+Cmd-Space = { do = "open_search", press = "tap" }
+Cmd-C-f = "toggle_fullscreen"
+Cmd-C-q = "lock_screen"
+Cmd-C-Left = { do = "snap_left", press = "tap" }
+Cmd-C-Right = { do = "snap_right", press = "tap" }
+Cmd-C-Up = { do = "maximize_window", press = "tap" }

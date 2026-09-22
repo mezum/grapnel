@@ -224,9 +224,10 @@ fn mac_virtual_desktops() {
     assert_eq!(t.down("Down"), eaten("-LCtrl +LWin +d -d +vk:0xE8 -vk:0xE8 -LWin +LCtrl"));
     t.up("Down");
     t.up("LCtrl");
-    // Cmd (F19) + arrows still reach apps as Ctrl + arrows (word movement).
+    // Cmd (F19) + arrows go to the line end, as on macOS.
+    t.app("notepad.exe");
     t.down("F19");
-    assert_eq!(t.down("Right"), pass());
+    assert_eq!(t.down("Right"), eaten("-LCtrl +End"));
 }
 
 #[test]
@@ -393,4 +394,40 @@ fn ax_with_vim_binds_by_symbol() {
     assert_eq!(t.e.mode_name(), "input");
     t.down("LCtrl");
     assert_eq!(mode(&t.down("@")), Some("normal"));
+}
+
+#[test]
+fn emacs_isearch_repeats_and_ends() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    let mode = |m: &str| vec![Command::ModeChanged(m.into())];
+    t.down("LCtrl");
+    assert_eq!(t.down("s").commands, [keys("+f -f"), mode("isearch")].concat());
+    t.up("s");
+    assert_eq!(t.down("s"), eaten("-LCtrl +F3"));
+    t.up("s");
+    t.up("LCtrl");
+    assert_eq!(t.down("Enter").commands, [keys("+Esc -Esc"), mode("default")].concat());
+}
+
+#[test]
+fn emacs_split_uses_the_app_or_the_os() {
+    let mut t = example("emacs.toml");
+    t.app("notepad.exe");
+    t.down("LCtrl");
+    t.down("x");
+    t.up("x");
+    t.up("LCtrl");
+    assert_eq!(t.down("3"), eaten("+LWin +Left -Left +vk:0xE8 -vk:0xE8 -LWin"));
+}
+
+#[test]
+fn mac_cmd_up_depends_on_the_app() {
+    let mut t = example("mac-cmd.toml");
+    t.app("explorer.exe");
+    t.down("F19");
+    assert_eq!(t.down("Up"), eaten("-LCtrl +LAlt +Up"));
+    t.up("Up");
+    t.app("notepad.exe");
+    assert_eq!(t.down("Up"), eaten("+Home"));
 }

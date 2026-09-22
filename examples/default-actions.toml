@@ -7,6 +7,18 @@ not = "emacs_like_app"
 [targets.redo_with_ctrl_shift_z]
 app = 're:(?i)^(Photoshop|Illustrator|AfterFX|blender|gimp-[\d.]+|inkscape|Figma|idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)\.exe$'
 
+[targets.explorer]
+app = "explorer.exe"
+
+[targets.notepad]
+app = "notepad.exe"
+
+[targets.vscode]
+app = "Code.exe"
+
+[targets.jetbrains]
+app = 're:(?i)^(idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)\.exe$'
+
 [actions]
 forward_char = { non_emacs_app = "Right" }
 backward_char = { non_emacs_app = "Left" }
@@ -63,3 +75,22 @@ next_desktop = "W-C-Right"
 task_view = "W-Tab"
 show_desktop = "W-d"
 screenshot = "W-S-s"
+keyboard_quit = { non_emacs_app = "Esc" }
+open_line = { non_emacs_app = "Enter Left" }
+save_all = { notepad = "C-M-s" }
+replace = { notepad = "C-h" }
+recent_files = { vscode = "C-r", jetbrains = "C-e" }
+new_window = "C-n"
+minimize_window = "W-Down"
+snap_left = "W-Left"
+snap_right = "W-Right"
+maximize_window = "W-Up"
+open_search = "W-s"
+toggle_fullscreen = "F11"
+lock_screen = [{ run = "rundll32.exe", args = ["user32.dll,LockWorkStation"] }]
+screenshot_full = "W-PrintScreen"
+vscode_command = ["C-S-p", { sleep = 24 }, { text = "{arg}" }, { sleep = 8 }, "Enter"]
+split_window_right = { vscode = "C-vk:0xDC", "*" = "snap_left" }
+split_window_below = { vscode = "C-k C-vk:0xDC", "*" = "W-z" }
+delete_other_windows = { vscode = [{ call = "vscode_command", arg = "View: Join All Editor Groups" }], "*" = "maximize_window" }
+other_window = { vscode = [{ call = "vscode_command", arg = "View: Focus Next Editor Group" }], "*" = "switch_app" }

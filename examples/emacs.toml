@@ -27,6 +27,17 @@ C-h = ["deactivate_mark", "delete_backward_char"]
 C-d = ["deactivate_mark", "delete_char"]
 "C-/" = ["deactivate_mark", "undo"]
 "C-?" = ["deactivate_mark", "redo"]
+M-f = "select_forward_word"
+M-b = "select_backward_word"
+"M-<" = "select_beginning_of_buffer"
+"M->" = "select_end_of_buffer"
+
+[modes.isearch.keymap]
+C-s = "search_next"
+C-r = "search_previous"
+Enter = ["Esc", { mode = "default" }]
+C-g = ["Esc", { mode = "default" }]
+Esc = ["Esc", { mode = "default" }]
 
 [keymap]
 C-f = "forward_char"
@@ -44,6 +55,21 @@ C-y = "yank"
 "C-/" = "undo"
 "C-?" = "redo"
 C-Space = "set_mark"
+M-f = "forward_word"
+M-b = "backward_word"
+C-v = "scroll_up"
+M-v = "scroll_down"
+"M-<" = "beginning_of_buffer"
+"M->" = "end_of_buffer"
+M-d = "kill_word"
+M-Backspace = "backward_kill_word"
+C-o = "open_line"
+C-m = "newline"
+C-j = "newline"
+C-g = "keyboard_quit"
+C-s = "isearch"
+C-r = "isearch"
+"M-%" = "replace"
 M-x = { do = "execute_extended_command", targets = ["non_emacs_app"] }
 
 [keymap.C-x]
@@ -53,7 +79,16 @@ C-w = { do = "save_as", targets = ["non_emacs_app"] }
 k = { do = "close_document", targets = ["non_emacs_app"] }
 u = { do = "undo", targets = ["non_emacs_app"] }
 C-f = { do = "open_file", targets = ["non_emacs_app"] }
+C-r = { do = "recent_files", targets = ["non_emacs_app"] }
 C-c = { do = "quit_app", targets = ["non_emacs_app"] }
+s = { do = "save_all", targets = ["non_emacs_app"] }
+b = { do = "next_tab", targets = ["non_emacs_app"] }
+1 = { do = "delete_other_windows", targets = ["non_emacs_app"] }
+2 = { do = "split_window_below", targets = ["non_emacs_app"] }
+3 = { do = "split_window_right", targets = ["non_emacs_app"] }
+0 = { do = "minimize_window", targets = ["non_emacs_app"] }
+o = { do = "other_window", targets = ["non_emacs_app"] }
+"5 2" = { do = "new_window", targets = ["non_emacs_app"] }
 
 [keymap.C-x.options]
 on_mismatch = "discard"
@@ -61,3 +96,4 @@ on_mismatch = "discard"
 [actions]
 set_mark = { non_emacs_app = [{ mode = "mark" }] }
 deactivate_mark = [{ mode = "default" }]
+isearch = { non_emacs_app = ["search_forward", { mode = "isearch" }] }
