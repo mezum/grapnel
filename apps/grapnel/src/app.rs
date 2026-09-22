@@ -92,7 +92,7 @@ impl App {
             .cfg
             .targets
             .iter()
-            .flat_map(|t| &t.fields)
+            .flat_map(|t| t.fields.iter().flatten())
             .any(|(f, _)| matches!(f, Field::UiaId | Field::UiaName | Field::UiaType));
         if uses_uia && self.uia.is_none() {
             self.uia = Some(Uia::spawn(self.hwnd, crate::WM_UIA));

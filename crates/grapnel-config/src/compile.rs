@@ -323,24 +323,36 @@ fn compile_targets(
             if path { Field::ExePath } else { Field::ExeName }
         };
         let fields = [
-            (t.app.as_ref().map(|s| app_field(s)), &t.app, "app"),
-            (Some(Field::Title), &t.title, "title"),
-            (Some(Field::Class), &t.class, "class"),
-            (Some(Field::Control), &t.control, "control"),
-            (Some(Field::UiaId), &t.uia_id, "uia_id"),
-            (Some(Field::UiaName), &t.uia_name, "uia_name"),
-            (Some(Field::UiaType), &t.uia_type, "uia_type"),
+            (&t.app, "app"),
+            (&t.title, "title"),
+            (&t.class, "class"),
+            (&t.control, "control"),
+            (&t.uia_id, "uia_id"),
+            (&t.uia_name, "uia_name"),
+            (&t.uia_type, "uia_type"),
         ];
-        let fields = fields.into_iter().filter_map(|(f, v, key)| {
-            let m = Matcher::parse(v.as_ref()?).map_err(|e| msg!("config.bad_pattern", error = e));
-            let m = c.ok(&format!("{at}.{key}"), m)?;
-            Some((f?, m))
+        let fields = fields.into_iter().filter(|(v, _)| !v.is_empty()).map(|(v, key)| {
+            let field = |s: &str| match key {
+                "app" => app_field(s),
+                "title" => Field::Title,
+                "class" => Field::Class,
+                "control" => Field::Control,
+                "uia_id" => Field::UiaId,
+                "uia_name" => Field::UiaName,
+                _ => Field::UiaType,
+            };
+            // Each item is reported at `key[i]`, like other lists.
+            let items = v.iter().enumerate().filter_map(|(i, s)| {
+                let m = Matcher::parse(s).map_err(|e| msg!("config.bad_pattern", error = e));
+                Some((field(s), c.ok(&format!("{at}.{key}[{i}]"), m)?))
+            });
+            items.collect()
         });
         let fields = fields.collect();
         out.push(Target {
             name: name.to_string(),
             fields,
-            not: t.not.as_ref().and_then(|n| c.id(&format!("{at}.not"), Kind::Target, ix, n)),
+            not: c.ids(&format!("{at}.not"), Kind::Target, ix, &t.not),
             any: c.ids(&format!("{at}.any"), Kind::Target, ix, &t.any),
             all: c.ids(&format!("{at}.all"), Kind::Target, ix, &t.all),
         });

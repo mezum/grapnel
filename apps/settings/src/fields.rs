@@ -213,20 +213,33 @@ pub fn opt_text<V, H: Fn() -> String + Send + Sync + 'static>(
 
 /// One input per item (so items may hold commas), each draggable and deletable, and an add button.
 pub fn list(label: &str, p: Place<Vec<String>>) -> impl IntoView + use<> {
+    list_of(label, p, plain_item)
+}
+
+/// The input for item `j` of a `list`.
+pub fn plain_item(label: &str, p: &Place<Vec<String>>, j: usize) -> AnyView {
+    let (get, set) = (p.clone(), p.clone());
+    let (bad, why) = (p.at(&format!("[{j}]")), p.at(&format!("[{j}]")));
+    view! {
+        <input aria-label=label.to_owned() class:invalid=move || bad.problem().is_some() title=move || why.problem()
+            prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
+            on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
+    }
+    .into_any()
+}
+
+/// A drawer of item `j`'s input in a list, given the list's label.
+pub type ItemView = fn(&str, &Place<Vec<String>>, usize) -> AnyView;
+
+/// `list` with each item's input drawn by `item`.
+pub fn list_of(label: &str, p: Place<Vec<String>>, item: ItemView) -> impl IntoView + use<> {
     let label = label.to_owned();
     let (items, add) = (p.clone(), p.clone());
     let drag = RwSignal::new(None);
     let row = {
         let label = label.clone();
         move |j: usize| {
-            let (get, set) = (p.clone(), p.clone());
-            let (bad, why) = (p.at(&format!("[{j}]")), p.at(&format!("[{j}]")));
-            let body = view! {
-                <input aria-label=label.clone() class:invalid=move || bad.problem().is_some() title=move || why.problem()
-                    prop:value=move || get.read(|v| v.get(j).cloned().unwrap_or_default())
-                    on:change=move |ev| set.edit(|v| if let Some(x) = v.get_mut(j) { *x = event_target_value(&ev) }) />
-                {del_button(&p, j)}
-            };
+            let body = view! { {item(&label, &p, j)}{del_button(&p, j)} };
             sortable(&p, drag, move |_| Some(j), Vec::len, vec_move, "item", body)
         }
     };
