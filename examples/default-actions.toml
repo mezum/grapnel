@@ -16,6 +16,12 @@ app = "notepad.exe"
 [targets.vscode]
 app = "Code.exe"
 
+[targets.chrome]
+app = "chrome.exe"
+
+[targets.chromium]
+app = ["chrome.exe", "msedge.exe"]
+
 [targets.jetbrains]
 app = 're:(?i)^(idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)\.exe$'
 
@@ -79,7 +85,11 @@ keyboard_quit = { non_emacs_app = "Esc" }
 open_line = { non_emacs_app = "Enter Left" }
 save_all = { notepad = "C-M-s" }
 replace = { notepad = "C-h" }
-recent_files = { vscode = "C-r", jetbrains = "C-e" }
+recent_files = { vscode = "C-r", jetbrains = "C-e", chromium = "C-h" }
+go_back = { chromium = "M-Left", explorer = "M-Left" }
+go_forward = { chromium = "M-Right", explorer = "M-Right" }
+show_history = { chromium = "C-h" }
+developer_tools = { chromium = "C-S-i" }
 new_window = "C-n"
 minimize_window = "W-Down"
 snap_left = "W-Left"
@@ -90,7 +100,7 @@ toggle_fullscreen = "F11"
 lock_screen = [{ run = "rundll32.exe", args = ["user32.dll,LockWorkStation"] }]
 screenshot_full = "W-PrintScreen"
 vscode_command = ["C-S-p", { set_text = ">{arg}", into = "Type the name of a command to run." }, "Enter"]
-split_window_right = { vscode = "C-vk:0xDC", "*" = "snap_left" }
+split_window_right = { vscode = "C-vk:0xDC", chrome = "M-S-n", "*" = "snap_left" }
 split_window_below = { vscode = [{ call = "vscode_command", arg = "View: Split Editor Down" }], "*" = "W-z" }
 delete_other_windows = { vscode = [{ call = "vscode_command", arg = "View: Join All Editor Groups" }], "*" = "maximize_window" }
 other_window = { vscode = [{ call = "vscode_command", arg = "View: Focus Next Editor Group" }], "*" = "switch_app" }
