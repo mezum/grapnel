@@ -4,6 +4,9 @@ app = 're:(?i)^(emacs|runemacs|WindowsTerminal|wezterm-gui|alacritty|mintty)\.ex
 [targets.non_emacs_app]
 not = "emacs_like_app"
 
+[targets.windows_terminal]
+app = "WindowsTerminal.exe"
+
 [targets.redo_with_ctrl_shift_z]
 app = 're:(?i)^(Photoshop|Illustrator|AfterFX|blender|gimp-[\d.]+|inkscape|Figma|idea64|pycharm64|webstorm64|rider64|clion64|goland64|rustrover64|phpstorm64|datagrip64)\.exe$'
 
@@ -32,7 +35,7 @@ next_line = { non_emacs_app = "Down" }
 previous_line = { non_emacs_app = "Up" }
 beginning_of_line = { non_emacs_app = "Home" }
 end_of_line = { non_emacs_app = "End" }
-delete_backward_char = { non_emacs_app = "Backspace" }
+delete_backward_char = { non_emacs_app = "Backspace", windows_terminal = "Backspace" }
 delete_char = { non_emacs_app = "Delete" }
 forward_word = { non_emacs_app = "C-Right" }
 backward_word = { non_emacs_app = "C-Left" }
